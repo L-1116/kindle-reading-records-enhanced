@@ -1,5 +1,54 @@
-Kindle 原生阅读时长“阅读记录”v9.6.3 书名修正版
-===============================================
+Kindle 原生阅读时长“阅读记录”v9.6.3-optimized 稳妥提速版
+========================================================
+
+本优化版基于 v9.6.3，只调整 Dashboard 显示层和覆盖升级安全性。
+native-reading-time-daemon.sh、计时规则和 reading-time.tsv 数据格式均未改变。
+
+优化版重点
+----------
+- 外层包名为 kindle-native-reading-records-v9.6.3-optimized，但复制到 Kindle
+  根目录后的结构仍是 RUNME.sh + native-reading-time-package/。
+- 已安装原始 v9.6.3 时可直接覆盖后执行 ;log runme，无需卸载。
+- 安装器在完整暂存和校验后才停服务，并以临时文件和原子重命名切换程序。
+- 首次升级会在不存在时创建 reading-time.tsv.bak；已有备份永不覆盖。
+- 成功安装后 /mnt/us/reading-time/VERSION 内容为 9.6.3-optimized。
+- Dashboard 使用一次会话专属的 /tmp 缓存，退出后删除，不增加后台任务。
+- cc.db 只在首次打开“阅读书籍”Tab 时读取；仅看累计/每日时不会访问。
+- Lua 将日历、柱状图和进度图形合成为 PGM 区域，显著减少 FBInk 启动。
+- 日期选择只更新月历和详情区域；重复 Tab 和边界翻页不会重绘。
+- 新渲染器失败时自动切换到随包保留的原始 v9.6.3 Dashboard。
+- 首次进入保留 GC16，普通操作优先局部 GC16_FAST，每 6 次有效绘制清残影。
+
+后台不变保证
+------------
+- 原始与优化包中的 native-reading-time-daemon.sh SHA256 均为：
+  53C2B0472B758E0C1620835E6F8F2D26BA11D04122D982795309FEBCFE81D0EC
+  （该值由电脑端离线测试计算，Kindle 安装器不会调用 sha256sum。）
+- Kindle 安装器使用 cmp 做三次逐字节比较：载荷对当前已安装 daemon、
+  暂存 daemon 对已验证载荷、最终安装 daemon 对已验证载荷。
+- 未新增 daemon、定时任务、后台轮询或常驻缓存刷新进程。
+- Dashboard 未打开时，后台进程、轮询频率和功耗行为与 v9.6.3 完全相同。
+
+安装 / 覆盖升级
+---------------
+本优化包仅支持从已正常安装的原始 9.6.3 原地升级；如果找不到当前 daemon，
+安装器会在创建暂存目录、停止服务和替换文件之前安全退出。
+
+1. 将 RUNME.sh 和 native-reading-time-package 文件夹复制到 Kindle 根目录并覆盖。
+2. 安全弹出并断开 USB。
+3. 在 Kindle 首页搜索栏输入：;log runme
+4. 安装器成功后会恢复 native-reading-time 服务并写入 VERSION。
+
+测试日志
+--------
+- Dashboard 的 dashboard-launch.log 会记录每次有效操作的耗时、FBInk 调用数、
+  渲染器路径及是否回退，格式以 METRIC 开头。
+- 真机对比表和离线验证结果见 OPTIMIZATION-TEST-REPORT.md。
+- 仅供回退测试：从终端以前台环境变量 DASHBOARD_RENDERER_FORCE_FAIL=1
+  启动阅读记录，优化器会失败一次并切换到原始 v9.6.3 界面。
+
+以下保留原 v9.6.3 版本说明。
+-----------------------------
 
 v9.6.3 书名归一化
 ----------------

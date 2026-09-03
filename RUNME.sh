@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Executed as root by typing ;log runme in the Kindle search bar.
-INSTALLER="/mnt/us/native-reading-time-package/Install-Native-Reading-Time.sh"
+INSTALLER="/mnt/us/native-reading-time-package/Install-Native-Reading-Time-Optimized.sh"
 LOG="/mnt/us/reading-time/install.log"
 
 mkdir -p /mnt/us/reading-time
