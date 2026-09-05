@@ -8,8 +8,8 @@ JOB="native-reading-time"
 CONF="/etc/upstart/${JOB}.conf"
 DAEMON="$BASE/bin/native-reading-time-daemon.sh"
 VIEWER="/mnt/us/documents/阅读记录.sh"
-RELEASE="$BASE/releases/9.6.3-optimized"
-STAGE="$BASE/.install-9.6.3-optimized.$$"
+RELEASE="$BASE/releases/9.6.4-ui-calendar"
+STAGE="$BASE/.install-9.6.4-ui-calendar.$$"
 ROOT_RW=0; ACTIVATED=0; SERVICE_WAS_RUNNING=0; ROLLBACK_DONE=0
 
 mkdir -p "$BASE" || exit 1
@@ -22,7 +22,7 @@ root_rw() {
     if mntroot rw >/dev/null 2>&1 || /usr/sbin/mntroot rw >/dev/null 2>&1 || /sbin/mntroot rw >/dev/null 2>&1; then ROOT_RW=1; return 0; fi
     return 1
 }
-cleanup_stage() { case "$STAGE" in /mnt/us/reading-time/.install-9.6.3-optimized.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
+cleanup_stage() { case "$STAGE" in /mnt/us/reading-time/.install-9.6.4-ui-calendar.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
 
 rollback() {
     [ "$ROLLBACK_DONE" -eq 0 ] || return; ROLLBACK_DONE=1
@@ -46,19 +46,22 @@ atomic_file() { src="$1"; dst="$2"; mode="$3"; tmp="${dst}.new.$$"; cp "$src" "$
 [ "$(id -u)" -eq 0 ] || fail "not running as root; use ;log runme"
 [ -x /sbin/initctl ] || fail "Upstart not found"; [ -f /lib/ld-linux-armhf.so.3 ] || fail "not a kindlehf device"
 command -v cmp >/dev/null 2>&1 || fail "cmp unavailable"
-for f in native-reading-time-daemon.sh native-reading-time.conf 阅读记录.sh 阅读记录-optimized.sh reading-insights-touch.lua reading-insights-render.lua reading-insights-cache.awk NotoSansCJKsc-Regular.otf FONT-LICENSE.txt; do [ -f "$PKG/$f" ] || fail "missing payload: $f"; done
+for f in native-reading-time-daemon.sh native-reading-time.conf 阅读记录.sh 阅读记录-optimized.sh reading-insights-touch.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt; do [ -f "$PKG/$f" ] || fail "missing payload: $f"; done
 for f in total.png daily.png books.png day-1.png day-31.png; do [ -f "$PKG/ui/$f" ] || fail "missing UI asset: $f"; done
+for f in total.png daily.png books.png; do [ -f "$PKG/ui-calendar/$f" ] || fail "missing calendar UI: $f"; done
 [ -f "$PKG/render-assets/dynamic-glyphs.pgm" ] && [ -f "$PKG/render-assets/dynamic-glyphs.tsv" ] || fail "missing optimized render assets"
 [ -f "$DAEMON" ] || fail "original 9.6.3 daemon not found; optimized package supports in-place upgrade only"
 cmp -s "$PKG/native-reading-time-daemon.sh" "$DAEMON" || fail "payload daemon differs from installed 9.6.3"
 echo "$(date): payload daemon matches installed 9.6.3 byte-for-byte"
 
-rm -rf "$STAGE"; mkdir -p "$STAGE/release/bin" "$STAGE/release/ui" "$STAGE/release/render-assets" "$STAGE/rollback" || fail "cannot create staging directory"
+rm -rf "$STAGE"; mkdir -p "$STAGE/release/bin" "$STAGE/release/ui" "$STAGE/release/ui-calendar" "$STAGE/release/render-assets" "$STAGE/rollback" || fail "cannot create staging directory"
 cp "$PKG/阅读记录-optimized.sh" "$STAGE/viewer" && cp "$PKG/native-reading-time-daemon.sh" "$STAGE/daemon" && cp "$PKG/native-reading-time.conf" "$STAGE/conf" || fail "cannot stage programs"
 cp "$PKG/阅读记录.sh" "$STAGE/release/bin/reading-records-v9.6.3.sh" && cp "$PKG/reading-insights-touch.lua" "$STAGE/release/bin/" && cp "$PKG/reading-insights-render.lua" "$STAGE/release/bin/" && cp "$PKG/reading-insights-cache.awk" "$STAGE/release/bin/" || fail "cannot stage dashboard helpers"
+cp "$PKG"/ui-calendar/*.png "$STAGE/release/ui-calendar/" || fail "cannot stage calendar UI"
+for f in reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do cp "$PKG/$f" "$STAGE/release/bin/$f" || fail "cannot stage calendar helper"; done
 cp "$PKG"/ui/*.png "$STAGE/release/ui/" && cp "$PKG"/render-assets/* "$STAGE/release/render-assets/" || fail "cannot stage render assets"
 cp "$PKG/NotoSansCJKsc-Regular.otf" "$STAGE/font" && cp "$PKG/FONT-LICENSE.txt" "$STAGE/font-license" || fail "cannot stage font"
-chmod 755 "$STAGE/viewer" "$STAGE/daemon" "$STAGE/release/bin/reading-records-v9.6.3.sh"; chmod 644 "$STAGE/conf" "$STAGE/release/bin/"*.lua "$STAGE/release/bin/"*.awk "$STAGE/release/ui/"*.png "$STAGE/release/render-assets/"* "$STAGE/font" "$STAGE/font-license" || fail "cannot set staged permissions"
+chmod 755 "$STAGE/viewer" "$STAGE/daemon" "$STAGE/release/bin/reading-records-v9.6.3.sh"; chmod 644 "$STAGE/conf" "$STAGE/release/bin/"*.lua "$STAGE/release/bin/"*.awk "$STAGE/release/ui/"*.png "$STAGE/release/ui-calendar/"*.png "$STAGE/release/render-assets/"* "$STAGE/font" "$STAGE/font-license" || fail "cannot set staged permissions"
 cmp -s "$STAGE/daemon" "$PKG/native-reading-time-daemon.sh" || fail "staged daemon differs from validated payload"
 echo "$(date): staged daemon matches validated payload byte-for-byte"
 
@@ -72,7 +75,9 @@ if [ -f "$DATA" ]; then
     if [ ! -e "$DATA.bak" ]; then cp "$DATA" "$DATA.bak.new.$$" || fail "cannot create reading history backup"; mv "$DATA.bak.new.$$" "$DATA.bak" || fail "cannot publish reading history backup"; echo "$(date): created reading-time.tsv.bak"
     else echo "$(date): preserved existing reading-time.tsv.bak"; fi
 fi
-mkdir -p "$BASE/bin" "$BASE/ui" "$BASE/fonts" "$RELEASE/bin" "$RELEASE/ui" "$RELEASE/render-assets" || fail "cannot create installation directories"
+mkdir -p "$BASE/bin" "$BASE/ui" "$BASE/fonts" "$RELEASE/bin" "$RELEASE/ui" "$RELEASE/ui-calendar" "$RELEASE/render-assets" || fail "cannot create installation directories"
+for f in "$STAGE/release/ui-calendar/"*.png; do atomic_file "$f" "$RELEASE/ui-calendar/${f##*/}" 644 || fail "cannot install calendar UI"; done
+for f in reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do atomic_file "$STAGE/release/bin/$f" "$RELEASE/bin/$f" 644 || fail "cannot install calendar helper"; done
 for f in "$STAGE/release/ui/"*.png; do atomic_file "$f" "$RELEASE/ui/${f##*/}" 644 || fail "cannot install optimized UI"; done
 for f in "$STAGE/release/render-assets/"*; do atomic_file "$f" "$RELEASE/render-assets/${f##*/}" 644 || fail "cannot install render assets"; done
 atomic_file "$STAGE/release/bin/reading-records-v9.6.3.sh" "$RELEASE/bin/reading-records-v9.6.3.sh" 755 || fail "cannot install legacy fallback"
@@ -93,8 +98,8 @@ lipc-set-prop com.lab126.scanner doFullScan 1 >/dev/null 2>&1 || lipc-set-prop c
 /sbin/initctl start "$JOB" >/dev/null 2>&1 || true; sleep 2
 /sbin/initctl status "$JOB" 2>/dev/null | grep -q 'start/running' || fail "tracker service did not start"
 cmp -s "$DAEMON" "$PKG/native-reading-time-daemon.sh" || fail "installed daemon differs from validated payload"
-printf '9.6.3-optimized\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
+printf '9.6.4-ui-calendar\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
 
 ACTIVATED=0; cleanup_stage; trap - INT TERM HUP; root_ro; sync
-echo "$(date): 9.6.3-optimized installed and running, daemon_cmp=identical"
-toast "Reading records 9.6.3-optimized installed"; exit 0
+echo "$(date): 9.6.4-ui-calendar installed and running, daemon_cmp=identical"
+toast "Reading records 9.6.4-ui-calendar installed"; exit 0
