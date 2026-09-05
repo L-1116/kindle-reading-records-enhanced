@@ -10,6 +10,9 @@ local origin_x = tonumber(arg[6] or "0") or 0
 local origin_y = tonumber(arg[7] or "0") or 0
 local view_w = tonumber(arg[8] or "1272") or 1272
 local view_h = tonumber(arg[9] or "1696") or 1696
+local detail_pages = tonumber(arg[10] or "1") or 1
+local detail_page = tonumber(arg[11] or "1") or 1
+local pager_y = tonumber(arg[12] or "1576") or 1576
 local logical_w, logical_h = 1272, 1696
 
 local f = assert(io.open(device, "rb"))
@@ -49,9 +52,13 @@ local function action_for_logical(px, py)
     elseif mode == "daily" then
         if inside(px, py, 220, 300, 450, 430) then return "month_prev" end
         if inside(px, py, 840, 300, 1070, 430) then return "month_next" end
-        -- Same 1120 x 576 grid as render_daily; Monday=0, four to six rows.
+        if detail_pages > 1 then
+            if detail_page > 1 and inside(px, py, 390, pager_y, 529, pager_y+47) then return "detail_prev" end
+            if detail_page < detail_pages and inside(px, py, 742, pager_y, 881, pager_y+47) then return "detail_next" end
+        end
+        -- Same 1120 x 648 grid as render_daily; Monday=0, four to six rows.
         local rows = math.floor((calendar_offset + calendar_days + 6) / 7)
-        local cell_h = math.floor(576 / rows)
+        local cell_h = math.floor(648 / rows)
         if px >= 75 and px < 1195 and py >= 460 and py < 460 + rows*cell_h then
             local col = math.floor((px - 75) / 160)
             local row = math.floor((py - 460) / cell_h)
@@ -60,6 +67,9 @@ local function action_for_logical(px, py)
                 local day = row * 7 + col - calendar_offset + 1
                 if day >= 1 and day <= calendar_days then return "day_" .. day end
             end
+            -- Consume visible blank cells/gutters at the UI hit-test layer:
+            -- they must not fall through to the swapped-axis compatibility retry.
+            return "ignore"
         end
     elseif mode == "books" then
         if inside(px, py, 55, 1465, 385, 1595) then return "page_prev" end
@@ -100,7 +110,7 @@ while true do
         -- Some Kindle touch drivers report portrait coordinates directly,
         -- while others expose the axes swapped. Try both non-destructively.
         local action = action_for_physical(x, y) or action_for_physical(y, x)
-        if action then finish(action) end
+        if action and action ~= "ignore" then finish(action) end
         -- Clear coordinates so repeated SYN_REPORT events cannot reuse a tap.
         x, y = nil, nil
     end

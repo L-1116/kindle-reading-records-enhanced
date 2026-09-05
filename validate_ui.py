@@ -9,7 +9,7 @@ from lupa.lua51 import LuaRuntime
 
 ROOT=Path(__file__).resolve().parent
 PKG=ROOT/'native-reading-time-package'
-BASE=ROOT.parent/'v9.6.3-optimized-pw6-5.19.6-cmp-fix'
+BASE=ROOT.parent/'v9.6.4-ui-calendar'
 OUT=ROOT/'validation'
 OUT.mkdir(exist_ok=True)
 os.chdir(ROOT)
@@ -33,13 +33,13 @@ for file in PKG.glob('*.lua'):
     lua.execute('assert(loadstring(...))',file.read_text(encoding='utf-8'))
 record('syntax','All shipped .sh files: sh -n and dash -n; Lua files: Lua 5.1 loadstring; UTF-8 without BOM, LF.')
 
-unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-cache.awk','reading-insights-render.lua','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
+unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-cache.awk','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:
     assert (PKG/rel).read_bytes()==(BASE/'native-reading-time-package'/rel).read_bytes(),rel
-for folder in ('ui','render-assets'):
+for folder in ('ui',):
     for file in (PKG/folder).iterdir():
         assert file.read_bytes()==(BASE/'native-reading-time-package'/folder/file.name).read_bytes()
-record('preserved core','Daemon, Upstart, cache, progress query, Lua renderer, legacy viewer/touch, original UI/font/atlas byte-identical.')
+record('preserved core','Daemon, Upstart, cache, progress query, legacy viewer/touch, original UI/font byte-identical.')
 
 viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
 old=(BASE/'native-reading-time-package/阅读记录-optimized.sh').read_text(encoding='utf-8')
@@ -55,8 +55,13 @@ defs=viewer[:viewer.index('\ndetect_screen; find_touch_device')]
 defs=defs.replace('exec >> "$LOG" 2>&1','').replace('\ntrap cleanup EXIT INT TERM HUP\n','\n')
 defs=defs.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"','')
 (OUT/'functions.sh').write_text(defs,encoding='utf-8',newline='\n')
-calendar_key=hashlib.sha256(viewer[viewer.index('days_in_month()'):viewer.index('uptime_ms()')].encode()).hexdigest()
+calendar_key=hashlib.sha256(viewer[viewer.index('days_in_month()'):viewer.index('shift_month()')].encode()).hexdigest()
 cached=OUT/'calendar-arithmetic.tsv'
+if not cached.exists():
+    import shutil
+    assert viewer[viewer.index('days_in_month()'):viewer.index('shift_month()')]==old[old.index('days_in_month()'):old.index('shift_month()')]
+    shutil.copy2(BASE/'validation/calendar-arithmetic.tsv',cached)
+    (OUT/'calendar-arithmetic.sha256').write_text(calendar_key)
 cache_key=OUT/'calendar-arithmetic.sha256'
 if cached.exists() and cache_key.exists() and cache_key.read_text()==calendar_key:
     rows=cached.read_text()
@@ -93,15 +98,15 @@ tap_count=0
 for y,m,dim,off in months:
     lua=LuaRuntime(); lua.globals().arg=lua.table_from({3:'daily',4:off,5:dim})
     logical,physical=lua.execute(touch)
-    nr=(off+dim+6)//7; ch=576//nr
+    nr=(off+dim+6)//7; ch=648//nr
     for idx in range(nr*7):
         col,row=idx%7,idx//7; day=idx-off+1
-        expected=f'day_{day}' if 1<=day<=dim else None
+        expected=f'day_{day}' if 1<=day<=dim else 'ignore'
         for dx,dy in ((0,0),(153,ch-7),(77,ch//2)):
             assert logical(75+160*col+dx,460+ch*row+dy)==expected,(y,m,idx,dx,dy)
             tap_count+=1
-        assert logical(75+160*col+154,460+ch*row+5) is None
-        assert logical(75+160*col+5,460+ch*row+ch-6) is None
+        assert logical(75+160*col+154,460+ch*row+5) == 'ignore'
+        assert logical(75+160*col+5,460+ch*row+ch-6) == 'ignore'
     for point,action in [((200,210),'tab_daily'),((600,210),'tab_books'),((1050,210),'tab_total'),((330,360),'month_prev'),((950,360),'month_next')]:
         assert logical(*point)==action
 record('touch map',f'{tap_count} real Lua hit checks across every month; cell corners/interiors, gutters, empty slots, tab and month buttons verified.')
@@ -145,8 +150,8 @@ def render(name,mode,code):
     # Assert every composed primitive and actual atlas glyph stays on its canvas.
     atlas={}
     for row in (PKG/'render-assets/dynamic-glyphs.tsv').read_text().splitlines()[1:]:
-        st,sz,ch,x,y,w,h,adv=row.split('\t')
-        atlas[(st,sz,chr(int(ch,16)))]=(int(w),int(h),int(adv))
+        st,sz,ch,x,y,w,h,adv,bx,by,bl,ink,asc,desc=row.split('\t')
+        atlas[(st,sz,chr(int(ch,16)))]=(int(w),int(h),int(adv),int(bx),int(by),int(bl),int(ink))
     canvases={}
     for row in spec.splitlines():
         p=row.split('\t')
@@ -155,13 +160,18 @@ def render(name,mode,code):
             _,cid,x,y,w,h,c=p; x,y,w,h=map(int,(x,y,w,h)); cw,ch=canvases[cid]
             assert 0<=x and 0<=y and x+w<=cw and y+h<=ch,(name,row)
         elif p[0]=='text':
-            _,cid,st,sz,x,y,align,color,msg=p
+            _,cid,st,sz,x,y,align,color,msg=p[:9]
             glyph=[atlas[(st,sz,char)] for char in msg]
             advance=sum(g[2] for g in glyph); x=int(x); y=int(y); cw,ch=canvases[cid]
-            if align=='center': x=(x-advance/2)//1
-            elif align=='right': x-=advance
-            for gw,gh,ga in glyph:
-                assert x>=0 and y>=0 and x+gw<=cw and y+gh<=ch,(name,row,x,y,gw,gh)
+            lefts=[];rights=[];cursor=0
+            for gw,gh,ga,bx,by,bl,ink in glyph:
+                if ink: lefts.append(cursor+bx);rights.append(cursor+bx+gw)
+                cursor+=ga
+            left=min(lefts,default=0);right=max(rights,default=advance)
+            if align=='center': x=(x-(left+right)/2)//1
+            elif align=='right': x-=right
+            for gw,gh,ga,bx,by,bl,ink in glyph:
+                assert not ink or (x+bx>=0 and y+bl+by>=0 and x+bx+gw<=cw and y+bl+by+gh<=ch),(name,row,x,y,gw,gh,bx,by,bl)
                 x+=ga
     (OUT/(name+'.spec.tsv')).write_text(spec,encoding='utf-8')
     # Composite exact Lua PGM output plus approximate FBInk title rasterization.
@@ -227,6 +237,8 @@ for mode in ('books',):
     assert a.crop((0,1460,1272,1696)).tobytes()==b.crop((0,1460,1272,1696)).tobytes()
 record('book footer unchanged','Pagination footer and buttons byte-identical pixels; existing no-op behavior retained.')
 
+exec((ROOT/'checks_polish.py').read_text(encoding='utf-8'))
+
 manifest={}
 for file in sorted(BASE.rglob('*')):
     if file.is_file():manifest[file.relative_to(BASE).as_posix()]=hashlib.sha256(file.read_bytes()).hexdigest()
@@ -236,6 +248,6 @@ for file in sorted(PKG.rglob('*')):
     if file.is_file():
         rel=file.relative_to(ROOT); source=BASE/rel
         if not source.exists() or file.read_bytes()!=source.read_bytes():changes.append(str(rel))
-result={'checks':checks,'modified_or_added_payload':changes,'limits':['No physical Kindle/FBInk runtime test performed. PNG previews approximate native FBInk text only.','Daily details retain baseline maximum of three books sorted by reading duration.','Books retain baseline sorting by cumulative seconds and five books per page.']}
+result={'checks':checks,'modified_or_added_payload':changes,'limits':['No physical Kindle/FBInk runtime test performed. PNG previews approximate native FBInk text only.','Daily details paginate all books; capacity is derived from available height.','Books retain baseline sorting by cumulative seconds and five books per page.']}
 (OUT/'results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(result,ensure_ascii=True,indent=2))

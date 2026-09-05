@@ -1,12 +1,12 @@
 #!/bin/sh
 
-# Kindle 原生阅读记录 9.6.4-ui-calendar.  This process exists only while the
+# Kindle 原生阅读记录 9.6.5-ui-polish.  This process exists only while the
 # dashboard is open.  The tracker daemon and reading-time.tsv are untouched.
 BASE="/mnt/us/reading-time"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="/var/local/kmc/bin/fbink"
-RELEASE="$BASE/releases/9.6.4-ui-calendar"
+RELEASE="$BASE/releases/9.6.5-ui-polish"
 UI_DIR="$RELEASE/ui-calendar"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch-ui.lua"
 RENDERER="$RELEASE/bin/reading-insights-render.lua"
@@ -21,6 +21,8 @@ DAYS="$SESSION_DIR/days.tsv"; DAY_BOOKS="$SESSION_DIR/day-books.tsv"
 BOOKS="$SESSION_DIR/books.tsv"; PROGRESS_DB="$SESSION_DIR/cc-progress-viewer.db"
 PROGRESS="$SESSION_DIR/book-progress.tsv"; SPEC="$SESSION_DIR/render-spec.tsv"
 LOGICAL_W=1272; LOGICAL_H=1696; CLEAN_REFRESH_INTERVAL=6
+CALENDAR_GRID_H=648; DETAIL_TOP=1222; DETAIL_H=406
+DETAIL_ROWS_Y=65; DETAIL_ROW_H=96; DETAIL_PAGER_H=52
 
 exec >> "$LOG" 2>&1
 echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"
@@ -76,7 +78,7 @@ minute_text() { mt_m=$(($1/60)); if [ "$mt_m" -ge 60 ]; then printf '%s小时%s�
 calendar_time() { ct_s="$1"; ct_m=$((ct_s/60)); if [ "$ct_s" -le 0 ]; then return; elif [ "$ct_m" -eq 0 ]; then printf '%s秒' "$ct_s"; elif [ "$ct_m" -lt 60 ]; then printf '%s分' "$ct_m"; else printf '%s时%s分' "$((ct_m/60))" "$((ct_m%60))"; fi; }
 days_in_month() { case "$2" in 1|3|5|7|8|10|12) echo 31;;4|6|9|11) echo 30;;2) if { [ $(($1%400)) -eq 0 ] || { [ $(($1%4)) -eq 0 ] && [ $(($1%100)) -ne 0 ]; }; }; then echo 29; else echo 28; fi;;esac; }
 weekday_offset() { awk -v y="$1" -v m="$2" 'BEGIN{if(m<3){m+=12;y--}k=y%100;j=int(y/100);h=(1+int(13*(m+1)/5)+k+int(k/4)+int(j/4)+5*j)%7;print(h+5)%7}'; }
-shift_month() { daily_m=$((daily_m+$1)); while [ "$daily_m" -lt 1 ]; do daily_m=$((daily_m+12)); daily_y=$((daily_y-1)); done; while [ "$daily_m" -gt 12 ]; do daily_m=$((daily_m-12)); daily_y=$((daily_y+1)); done; selected_day=1; }
+shift_month() { daily_m=$((daily_m+$1)); while [ "$daily_m" -lt 1 ]; do daily_m=$((daily_m+12)); daily_y=$((daily_y-1)); done; while [ "$daily_m" -gt 12 ]; do daily_m=$((daily_m-12)); daily_y=$((daily_y+1)); done; selected_day=1; detail_page=1; }
 
 uptime_ms() { awk '{printf "%d\n",$1*1000}' /proc/uptime 2>/dev/null; }
 metric_begin() { metric_name="$1"; metric_start="$(uptime_ms)"; case "$metric_start" in ''|*[!0-9]*) metric_start=0;;esac; metric_fb_start="$fbink_calls"; }
@@ -114,70 +116,126 @@ canvas() { printf 'canvas\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$SPEC"; }
 srect() { printf 'rect\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" >> "$SPEC"; }
 sround() { printf 'round\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" >> "$SPEC"; }
 stext() { printf 'text\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" >> "$SPEC"; }
+slabel() { printf 'text\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t255\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" >> "$SPEC"; }
 swrite() { printf 'write\t%s\n' "$1" >> "$SPEC"; }
 
 render_total() {
     set -- $(cat "$SUMMARY"); total="${1:-0}"; read_days="${2:-0}"; [ "$read_days" -gt 0 ] && average=$(((total+read_days*30)/(read_days*60)*60)) || average=0
     set -- $(awk -F '\t' -v y="$view_year" 'BEGIN{for(i=1;i<=12;i++)v[i]=0}$1~("^"y"-"){m=substr($1,6,2)+0;v[m]+=$2}END{for(i=1;i<=12;i++)printf "%d%s",int(v[i]/60),(i<12?" ":"\n")}' "$MONTHS")
     max=0; for mins in "$@"; do [ "$mins" -gt "$max" ] && max="$mins"; done
-    if [ "$max" -le 60 ]; then scale=60; elif [ "$max" -le 120 ]; then scale=120; else scale=$((((max+59)/60)*60)); fi
+    # Plot ceiling and readable tick spacing are independent: e.g. 294 -> 330,
+    # with 100/200/300 ticks rather than a forced 400-minute ceiling.
+    scale=$(((max*112+99)/100)); [ "$scale" -ge 60 ] || scale=60
+    tick_step="$(awk -v upper="$scale" 'BEGIN{v=upper/3;p=1;while(v>=10){v/=10;p*=10}if(v<1.5)n=1;else if(v<3.5)n=2;else if(v<7.5)n=5;else n=10;print n*p}')"
     a="$SESSION_DIR/total-summary.pgm.new"; b="$SESSION_DIR/total-year.pgm.new"; c="$SESSION_DIR/total-chart.pgm.new"; : > "$SPEC"
     canvas summary 1102 180 "$a"; srect summary 0 110 1102 2 190
     stext summary B 70 10 5 left 0 "$(time_text "$total")"; stext summary B 32 40 137 left 0 "阅读天数  ${read_days}天"; stext summary B 32 645 137 left 0 "日均  $(minute_text "$average")"; swrite summary
     canvas year 272 70 "$b"; stext year B 39 136 10 center 0 "${view_year}年"; swrite year
-    canvas chart 1122 690 "$c"; srect chart 0 40 1122 2 190; srect chart 0 237 1122 2 190; srect chart 0 434 1122 2 190; srect chart 0 630 1122 3 20
-    grid=1; while [ "$grid" -le 3 ]; do gy=$((630-590*grid/3)); gl=$((scale*grid/3)); stext chart R 20 7 $((gy-26)) left 0 "${gl}分"; grid=$((grid+1)); done
+    canvas chart 1122 690 "$c"; srect chart 0 630 1122 3 20
+    gl="$tick_step"; while [ "$gl" -lt "$scale" ]; do gy=$((630-590*gl/scale)); srect chart 0 "$gy" 1122 2 190; stext chart R 20 7 $((gy-26)) left 0 "${gl}分"; gl=$((gl+tick_step)); done
     mon=1; cy="$(date +%Y)"; cm="$(date +%m | sed 's/^0//')"
-    for mins in "$@"; do x=$((7+(mon-1)*94)); bh=$((mins*590/scale)); [ "$mins" -gt 0 ] && [ "$bh" -lt 8 ] && bh=8; color=125; [ "$view_year" = "$cy" ] && [ "$mon" -eq "$cm" ] && color=0; [ "$bh" -gt 0 ] && srect chart "$x" $((630-bh)) 48 "$bh" "$color"; stext chart B 24 $((x+24)) 650 center 0 "${mon}月"; [ "$mins" -gt 0 ] && stext chart B 22 $((x+24)) $((630-bh-34)) center 0 "$mins"; mon=$((mon+1)); done
+    for mins in "$@"; do x=$((7+(mon-1)*94)); bh=$((mins*590/scale)); [ "$mins" -gt 0 ] && [ "$bh" -lt 8 ] && bh=8; color=125; [ "$view_year" = "$cy" ] && [ "$mon" -eq "$cm" ] && color=0; [ "$bh" -gt 0 ] && srect chart "$x" $((630-bh)) 48 "$bh" "$color"; stext chart B 24 $((x+24)) 650 center 0 "${mon}月"; [ "$mins" -gt 0 ] && slabel chart B 22 $((x+24)) $((630-bh-34)) center 0 "$mins"; mon=$((mon+1)); done
     swrite chart; run_renderer || return 1
     pgm_valid "$a" 1102 180 && pgm_valid "$b" 272 70 && pgm_valid "$c" 1122 690 || return 1
     mv "$a" "$SESSION_DIR/total-summary.pgm" && mv "$b" "$SESSION_DIR/total-year.pgm" && mv "$c" "$SESSION_DIR/total-chart.pgm" || return 1
     image "$SESSION_DIR/total-summary.pgm" 85 380 1102 180 && image "$SESSION_DIR/total-year.pgm" 500 650 272 70 && image "$SESSION_DIR/total-chart.pgm" 75 760 1122 690
 }
 
-prepare_daily_view() { selected_date="$(printf '%04d-%02d-%02d' "$daily_y" "$daily_m" "$selected_day")"; awk -F '\t' -v d="$selected_date" '$1==d{print $2 "\t" $3}' "$DAY_BOOKS" | sort -nr | head -3 > "$SESSION_DIR/daily-view.tsv"; }
+prepare_daily_view() {
+    selected_date="$(printf '%04d-%02d-%02d' "$daily_y" "$daily_m" "$selected_day")"
+    # Keep EVERY book in the selected day. Pagination is a view of this list.
+    awk -F '\t' -v d="$selected_date" '$1==d{print $2 "\t" $3}' "$DAY_BOOKS" | sort -nr > "$SESSION_DIR/daily-all.tsv"
+    detail_count="$(awk 'NF{n++}END{print n+0}' "$SESSION_DIR/daily-all.tsv")"
+    detail_capacity=$(((DETAIL_H-DETAIL_ROWS_Y)/DETAIL_ROW_H))
+    [ "$detail_capacity" -ge 1 ] || detail_capacity=1
+    if [ "$detail_count" -gt "$detail_capacity" ]; then detail_capacity=$(((DETAIL_H-DETAIL_ROWS_Y-DETAIL_PAGER_H)/DETAIL_ROW_H)); fi
+    [ "$detail_capacity" -ge 1 ] || detail_capacity=1
+    detail_pages=$(((detail_count+detail_capacity-1)/detail_capacity)); [ "$detail_pages" -ge 1 ] || detail_pages=1
+    detail_page="${detail_page:-1}"; [ "$detail_page" -ge 1 ] || detail_page=1
+    [ "$detail_page" -le "$detail_pages" ] || detail_page="$detail_pages"
+    detail_start=$(((detail_page-1)*detail_capacity+1))
+    awk -v a="$detail_start" -v b="$((detail_start+detail_capacity-1))" 'NR>=a&&NR<=b' "$SESSION_DIR/daily-all.tsv" > "$SESSION_DIR/daily-view.tsv"
+    day_total="$(awk -F '\t' -v d="$selected_date" '$1==d{s+=$2}END{print s+0}' "$DAYS")"
+}
+
+spec_daily_detail() {
+    prepare_daily_view
+    b="$SESSION_DIR/daily-detail.pgm.new"; canvas detail 1132 "$DETAIL_H" "$b"
+    stext detail B 34 20 5 left 0 "${daily_m}月${selected_day}日 阅读详情"
+    if [ "$day_total" -gt 0 ]; then
+        stext detail B 32 1100 5 right 0 "共 $(time_text "$day_total")"; line=0
+        while IFS="$(printf '\t')" read -r book_sec book_title; do
+            [ -n "$book_title" ] || continue
+            stext detail R 24 1100 $((DETAIL_ROWS_Y+5+line*DETAIL_ROW_H)) right 0 "$(time_text "$book_sec")"; line=$((line+1))
+        done < "$SESSION_DIR/daily-view.tsv"
+    else stext detail R 34 20 "$DETAIL_ROWS_Y" left 0 "当日无阅读记录"; fi
+    if [ "$detail_pages" -gt 1 ]; then
+        pager_y=$((DETAIL_H-DETAIL_PAGER_H))
+        srect detail 320 "$pager_y" 140 48 20; srect detail 322 $((pager_y+2)) 136 44 255
+        srect detail 672 "$pager_y" 140 48 20; srect detail 674 $((pager_y+2)) 136 44 255
+        stext detail B 31 390 $((pager_y+7)) center 0 "<"
+        stext detail R 27 566 $((pager_y+9)) center 0 "${detail_page} / ${detail_pages}"
+        stext detail B 31 742 $((pager_y+7)) center 0 ">"
+    fi
+    swrite detail
+}
+
+publish_daily_detail() {
+    pgm_valid "$SESSION_DIR/daily-detail.pgm.new" 1132 "$DETAIL_H" || return 1
+    mv "$SESSION_DIR/daily-detail.pgm.new" "$SESSION_DIR/daily-detail.pgm" || return 1
+    image "$SESSION_DIR/daily-detail.pgm" 70 "$DETAIL_TOP" 1132 "$DETAIL_H" || return 1
+    lua "$TITLE_LAYOUT" "$SESSION_DIR/daily-view.tsv" 800 40 0 "$DETAIL_ROW_H" > "$SESSION_DIR/daily-titles.tsv" || return 1
+    while IFS="$(printf '\t')" read -r title_y title_line; do
+        [ -n "$title_line" ] || continue
+        ot 40 "$((DETAIL_TOP+DETAIL_ROWS_Y+title_y))" 90 360 REGULAR "$title_line" || return 1
+    done < "$SESSION_DIR/daily-titles.tsv"
+}
+
+render_detail_page() {
+    : > "$SPEC"; spec_daily_detail; run_renderer || return 1
+    publish_daily_detail
+}
 
 render_daily() {
     with_labels="$1"; dim="$(days_in_month "$daily_y" "$daily_m")"; offset="$(weekday_offset "$daily_y" "$daily_m")"
-    rows=$(((offset+dim+6)/7)); cell_h=$((576/rows))
+    rows=$(((offset+dim+6)/7)); cell_h=$((CALENDAR_GRID_H/rows))
     set -- $(awk -F '\t' -v y="$daily_y" -v m="$daily_m" -v n="$dim" 'BEGIN{for(i=1;i<=n;i++)v[i]=0}$1~sprintf("^%04d-%02d-",y,m){d=substr($1,9,2)+0;v[d]+=$2}END{for(i=1;i<=n;i++)printf "%d%s",v[i]+0,(i<n?" ":"\n")}' "$DAYS")
-    a="$SESSION_DIR/daily-calendar.pgm.new"; b="$SESSION_DIR/daily-detail.pgm.new"; : > "$SPEC"; canvas calendar 1122 650 "$a"
-    day=1; month_read_days=0; month_total=0; day_total=0
+    a="$SESSION_DIR/daily-calendar.pgm.new"; : > "$SPEC"; canvas calendar 1122 722 "$a"
+    # Render the complete rectangle, including all leading/trailing empty slots.
+    idx=0; while [ "$idx" -lt $((rows*7)) ]; do
+        x=$((idx%7*160)); y=$((idx/7*cell_h))
+        srect calendar "$x" "$y" 154 $((cell_h-6)) 20
+        srect calendar $((x+2)) $((y+2)) 150 $((cell_h-10)) 255
+        idx=$((idx+1))
+    done
+    day=1; month_read_days=0; month_total=0
     for sec in "$@"; do
         idx=$((offset+day-1)); row=$((idx/7)); col=$((idx%7)); x=$((col*160)); y=$((row*cell_h))
         [ "$sec" -gt 0 ] && month_read_days=$((month_read_days+1)); month_total=$((month_total+sec))
-        # Whole rectangular cell is interactive; blank leading/trailing slots are not.
-        srect calendar "$x" "$y" 154 $((cell_h-6)) 20
         ink=0
-        if [ "$day" -eq "$selected_day" ]; then day_total="$sec"; ink=255
-        else srect calendar $((x+2)) $((y+2)) 150 $((cell_h-10)) 255; fi
+        if [ "$day" -eq "$selected_day" ]; then srect calendar "$x" "$y" 154 $((cell_h-6)) 20; ink=255; fi
         stext calendar B 36 $((x+77)) $((y+10)) center "$ink" "$day"
-        [ "$sec" -gt 0 ] && stext calendar R 24 $((x+77)) $((y+cell_h-39)) center "$ink" "$(calendar_time "$sec")"
+        [ "$sec" -gt 0 ] && stext calendar R 27 $((x+77)) $((y+cell_h-43)) center "$ink" "$(calendar_time "$sec")"
         day=$((day+1))
     done
-    srect calendar 0 590 1122 2 190
-    stext calendar R 27 20 612 left 0 "本月阅读 ${month_read_days} 天  共 $(minute_text "$month_total")"
-    swrite calendar; prepare_daily_view
-    canvas detail 1132 420 "$b"; stext detail B 34 20 5 left 0 "${daily_m}月${selected_day}日 阅读详情"
-    if [ "$day_total" -gt 0 ]; then
-        stext detail B 36 20 60 left 0 "共 $(time_text "$day_total")"; line=0
-        while IFS="$(printf '\t')" read -r book_sec book_title; do
-            [ -n "$book_title" ] || continue
-            stext detail R 24 1100 $((135+line*96)) right 0 "$(time_text "$book_sec")"; line=$((line+1))
-        done < "$SESSION_DIR/daily-view.tsv"
-    else stext detail R 34 20 100 left 0 "当日无阅读记录"; fi
-    swrite detail; run_renderer || return 1
-    pgm_valid "$a" 1122 650 && pgm_valid "$b" 1132 420 || return 1
-    mv "$a" "$SESSION_DIR/daily-calendar.pgm" && mv "$b" "$SESSION_DIR/daily-detail.pgm" || return 1
-    image "$SESSION_DIR/daily-calendar.pgm" 75 460 1122 650 && image "$SESSION_DIR/daily-detail.pgm" 70 1150 1132 420 || return 1
+    srect calendar 0 662 1122 2 190
+    stext calendar R 27 20 684 left 0 "本月阅读 ${month_read_days} 天  共 $(minute_text "$month_total")"
+    swrite calendar
     if [ "$with_labels" = 1 ]; then
-        rect 320 450 372 80 WHITE && ot 44 342 480 460 BOLD "${daily_y}年${daily_m}月" || return 1
+        canvas month 372 80 "$SESSION_DIR/daily-month.pgm.new"
+        # 450 + 186 = 636: the calendar's center, independent of either arrow.
+        stext month B 44 186 17 center 0 "${daily_y}年${daily_m}月"; swrite month
     fi
-    lua "$TITLE_LAYOUT" "$SESSION_DIR/daily-view.tsv" 800 40 0 96 > "$SESSION_DIR/daily-titles.tsv" || return 1
-    while IFS="$(printf '\t')" read -r title_y title_line; do
-        [ -n "$title_line" ] || continue
-        ot 40 "$((1280+title_y))" 90 360 REGULAR "$title_line" || return 1
-    done < "$SESSION_DIR/daily-titles.tsv"
+    spec_daily_detail; run_renderer || return 1
+    pgm_valid "$a" 1122 722 || return 1
+    mv "$a" "$SESSION_DIR/daily-calendar.pgm" || return 1
+    image "$SESSION_DIR/daily-calendar.pgm" 75 460 1122 722 || return 1
+    if [ "$with_labels" = 1 ]; then
+        pgm_valid "$SESSION_DIR/daily-month.pgm.new" 372 80 || return 1
+        mv "$SESSION_DIR/daily-month.pgm.new" "$SESSION_DIR/daily-month.pgm" || return 1
+        image "$SESSION_DIR/daily-month.pgm" 450 320 372 80 || return 1
+    fi
+    publish_daily_detail
 }
 
 book_pages() { count="$(awk 'NF{n++}END{print n+0}' "$BOOKS")"; pages=$(((count+4)/5)); [ "$pages" -gt 0 ] || pages=1; echo "$pages"; }
@@ -189,7 +247,7 @@ render_books() {
     srect books 25 217 1082 2 190; srect books 25 434 1082 2 190; srect books 25 651 1082 2 190; srect books 25 868 1082 2 190
     row=0; while IFS="$(printf '\t')" read -r sec title id index; do
         [ -n "$title" ] || continue; y=$((15+row*217)); stext books R 27 35 $((y+126)) left 0 "阅读 $(time_text "$sec")"; progress=""; [ -f "$PROGRESS" ] && progress="$(awk -F '\t' -v t="$title" '$2==t{print $1;exit}' "$PROGRESS")"; case "$progress" in ''|*[!0-9]*) progress="";;esac
-        if [ -n "$progress" ]; then [ "$progress" -gt 100 ] && progress=100; stext books R 24 1090 $((y+126)) right 0 "${progress}%"; srect books 35 $((y+164)) 1030 20 185; [ "$progress" -gt 0 ] && srect books 35 $((y+164)) $((1030*progress/100)) 20 0; else stext books R 24 815 $((y+126)) left 0 "暂无进度"; fi; row=$((row+1))
+        if [ -n "$progress" ]; then [ "$progress" -gt 100 ] && progress=100; stext books R 24 1090 $((y+126)) right 0 "${progress}%"; srect books 35 $((y+164)) 1030 20 185; [ "$progress" -gt 0 ] && srect books 35 $((y+164)) $((1030*progress/100)) 20 0; else stext books R 24 1090 $((y+126)) right 0 "暂无进度"; fi; row=$((row+1))
     done < "$SESSION_DIR/book-view.tsv"
     swrite books; canvas page 452 60 "$b"; stext page B 30 226 10 center 0 "第 ${book_page} 页，共 ${pages} 页"; swrite page; run_renderer || return 1
     pgm_valid "$a" 1132 1080 && pgm_valid "$b" 452 60 || return 1; mv "$a" "$SESSION_DIR/books-content.pgm" && mv "$b" "$SESSION_DIR/books-page.pgm" || return 1
@@ -203,7 +261,7 @@ render_books() {
 }
 
 draw_background() { image "$UI_DIR/${mode}.png" 0 0 1272 1696; }
-draw_dynamic() { case "$mode" in total) render_total;; daily) render_daily "$1";; books) render_books;; esac; }
+draw_dynamic() { case "$mode" in total) render_total;; daily) if [ "$1" = 2 ]; then render_detail_page; else render_daily "$1"; fi;; books) render_books;; esac; }
 
 draw_count=0; refresh_kind=none
 refresh_region() {
@@ -239,16 +297,16 @@ detect_screen; find_touch_device
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
 [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
-printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.6.4-ui-calendar\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
+printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.6.5-ui-polish\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
 lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true; dashboard_active=1
 
-mode=daily; view_year="$(date +%Y)"; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; selected_day="$(date +%d | sed 's/^0//')"; book_page=1
+mode=daily; view_year="$(date +%Y)"; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; selected_day="$(date +%d | sed 's/^0//')"; book_page=1; detail_page=1; detail_pages=1
 metric_begin first_open; build_cache || fallback_to_legacy; draw_background || fallback_to_legacy; draw_dynamic 1 || fallback_to_legacy; refresh_region 0 0 1272 1696; metric_end optimized 0 1
 
 while :; do
     offset="$(weekday_offset "$daily_y" "$daily_m")"; dim="$(days_in_month "$daily_y" "$daily_m")"
-    action="$(lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H")" || action=exit
+    action="$(lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$detail_pages" "$detail_page" "$((DETAIL_TOP+DETAIL_H-DETAIL_PAGER_H))")" || action=exit
     echo "$(date): dashboard action=$action mode=$mode"
     case "$action" in
       exit) break;;
@@ -257,9 +315,11 @@ while :; do
       tab_books) if [ "$mode" = books ]; then metric_begin tab_books_noop; metric_end none 0 0; else mode=books; perform_draw tab_to_books 1 1 0 0 1272 1696; fi;;
       year_prev) view_year=$((view_year-1)); perform_draw year_previous 0 0 55 380 1162 1070;;
       year_next) view_year=$((view_year+1)); perform_draw year_next 0 0 55 380 1162 1070;;
-      month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 1250;;
-      month_next) shift_month 1; perform_draw month_next 0 1 55 320 1162 1250;;
-      day_*) new_day="${action#day_}"; if [ "$new_day" = "$selected_day" ]; then metric_begin date_noop; metric_end none 0 0; else selected_day="$new_day"; perform_draw date_select 0 0 55 460 1162 1110; fi;;
+      month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 1308;;
+      month_next) shift_month 1; perform_draw month_next 0 1 55 320 1162 1308;;
+      day_*) new_day="${action#day_}"; if [ "$new_day" = "$selected_day" ]; then metric_begin date_noop; metric_end none 0 0; else selected_day="$new_day"; detail_page=1; perform_draw date_select 0 0 55 460 1162 1168; fi;;
+      detail_prev) if [ "$detail_page" -gt 1 ]; then detail_page=$((detail_page-1)); perform_draw detail_previous 0 2 70 "$DETAIL_TOP" 1132 "$DETAIL_H"; else metric_begin detail_previous_noop; metric_end none 0 0; fi;;
+      detail_next) if [ "$detail_page" -lt "$detail_pages" ]; then detail_page=$((detail_page+1)); perform_draw detail_next 0 2 70 "$DETAIL_TOP" 1132 "$DETAIL_H"; else metric_begin detail_next_noop; metric_end none 0 0; fi;;
       page_prev) if [ "$book_page" -gt 1 ]; then book_page=$((book_page-1)); perform_draw book_page_previous 0 0 70 345 1132 1215; else metric_begin page_previous_noop; metric_end none 0 0; fi;;
       page_next) pages="$(book_pages)"; if [ "$book_page" -lt "$pages" ]; then book_page=$((book_page+1)); perform_draw book_page_next 0 0 70 345 1132 1215; else metric_begin page_next_noop; metric_end none 0 0; fi;;
       *) metric_begin unknown_action; metric_end none 0 0;;

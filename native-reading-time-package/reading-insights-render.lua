@@ -108,7 +108,10 @@ for line in io.lines(asset_dir .. "/dynamic-glyphs.tsv") do
         glyphs[key] = {
             x = assert(tonumber(f[4])), y = assert(tonumber(f[5])),
             w = assert(tonumber(f[6])), h = assert(tonumber(f[7])),
-            advance = assert(tonumber(f[8]))
+            advance = assert(tonumber(f[8])),
+            bearing_x = assert(tonumber(f[9]), "missing baseline metrics"),
+            bearing_y = assert(tonumber(f[10])), baseline = assert(tonumber(f[11])),
+            ink = tonumber(f[12]) == 1
         }
     end
 end
@@ -159,12 +162,16 @@ local function glyph_for(style, size, char)
 end
 
 local function measure(style, size, text)
-    local width = 0
+    local width, left, right = 0, nil, nil
     for char in utf8_chars(text) do
         local glyph = assert(glyph_for(style, size, char), "missing glyph: " .. char)
+        if glyph.ink then
+            left = math.min(left or math.huge, width + glyph.bearing_x)
+            right = math.max(right or -math.huge, width + glyph.bearing_x + glyph.w)
+        end
         width = width + glyph.advance
     end
-    return width
+    return width, left or 0, right or width
 end
 
 local function draw_glyph(canvas, glyph, x, y, color)
@@ -197,13 +204,27 @@ local function draw_glyph(canvas, glyph, x, y, color)
     end
 end
 
-local function text(canvas, style, size, x, y, align, color, message)
-    local width = measure(style, size, message)
-    if align == "center" then x = math.floor(x - width / 2)
-    elseif align == "right" then x = x - width end
+local function text(canvas, style, size, x, y, align, color, message, background)
+    local width, left, right = measure(style, size, message)
+    if align == "center" then x = math.floor(x - (left + right) / 2)
+    elseif align == "right" then x = x - right end
+    if background then
+        local bottom = 0
+        for char in utf8_chars(message) do
+            local glyph = assert(glyph_for(style, size, char))
+            bottom = math.max(bottom, glyph.baseline + glyph.bearing_y + glyph.h)
+        end
+        -- A plain white margin keeps chart grid lines out of value labels.
+        rect(canvas, x + left - 4, y - 3, right - left + 8, bottom + 6, background)
+    end
+    -- Each whole string has one font size and baseline. Cropped glyph masks
+    -- retain their font bearings; digits/CJK are never independently top-aligned.
+    local baseline = nil
     for char in utf8_chars(message) do
         local glyph = assert(glyph_for(style, size, char), "missing glyph: " .. char)
-        draw_glyph(canvas, glyph, x, y, color)
+        baseline = baseline or (y + glyph.baseline)
+        assert(baseline == y + glyph.baseline, "inconsistent font baseline")
+        draw_glyph(canvas, glyph, x + glyph.bearing_x, baseline + glyph.bearing_y, color)
         x = x + glyph.advance
     end
 end
@@ -226,7 +247,7 @@ for line in io.lines(spec_path) do
         elseif op == "round" then
             rounded_rect(assert(canvases[f[2]]), tonumber(f[3]), tonumber(f[4]), tonumber(f[5]), tonumber(f[6]), tonumber(f[7]), tonumber(f[8]))
         elseif op == "text" then
-            text(assert(canvases[f[2]]), f[3], tonumber(f[4]), tonumber(f[5]), tonumber(f[6]), f[7], tonumber(f[8]), f[9] or "")
+            text(assert(canvases[f[2]]), f[3], tonumber(f[4]), tonumber(f[5]), tonumber(f[6]), f[7], tonumber(f[8]), f[9] or "", tonumber(f[10]))
         elseif op == "write" then
             write_canvas(assert(canvases[f[2]]))
         else
