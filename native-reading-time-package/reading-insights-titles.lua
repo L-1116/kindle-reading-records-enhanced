@@ -16,6 +16,9 @@ local function word_char(ch)
     return ch:match("^[%w_']$") or (cp>=0xC0 and cp<=0x24F)
         or (cp>=0x300 and cp<=0x36F) or (cp>=0x1E00 and cp<=0x1EFF)
 end
+local function opening_char(ch)
+    return ch=="(" or ch=="[" or ch=="{" or ch=="《"
+end
 local row = 0
 for line in io.lines(input) do
     local title = line:match("^[^\t]*\t([^\t]*)")
@@ -26,7 +29,7 @@ for line in io.lines(input) do
             local b = ch:byte()
             -- Non-ASCII gets a full em; reserve 8% for native rasterizer differences.
             local w = ((b>=32 and b<=126) and advances[b-31] or 1) * size * 1.08
-            local kind=word_char(ch) and "word" or (ch==" " and "space" or "other")
+            local kind=word_char(ch) and "word" or (ch==" " and "space" or (opening_char(ch) and "open" or "other"))
             local prev=tokens[#tokens]
             if prev and kind=="word" and prev.kind=="word" then
                 prev.text=prev.text..ch; prev.width=prev.width+w
@@ -34,6 +37,22 @@ for line in io.lines(input) do
                 prev.text=prev.text..ch; prev.width=prev.width+w; prev.kind="other"
             else tokens[#tokens+1]={text=ch,width=w,kind=kind} end
         end
+        -- Treat an opening symbol plus the following token as one wrapping
+        -- unit.  This is deliberately small in scope: normal word/CJK layout
+        -- stays unchanged, while "(" / "[" / "{" / "《" cannot be stranded.
+        local joined, i = {}, 1
+        while i <= #tokens do
+            local token = tokens[i]
+            if token.kind == "open" then
+                local text, token_width, j = token.text, token.width, i + 1
+                while tokens[j] and (tokens[j].kind == "space" or tokens[j].kind == "open") do
+                    text=text..tokens[j].text; token_width=token_width+tokens[j].width; j=j+1
+                end
+                if tokens[j] then text=text..tokens[j].text; token_width=token_width+tokens[j].width; j=j+1 end
+                joined[#joined+1]={text=text,width=token_width,kind="other"}; i=j
+            else joined[#joined+1]=token; i=i+1 end
+        end
+        tokens=joined
         local pos = 1
         for n = 1, 2 do
             while tokens[pos] and tokens[pos].kind=="space" do pos=pos+1 end

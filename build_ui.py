@@ -5,27 +5,24 @@ import json, hashlib
 
 ROOT=Path(__file__).resolve().parent
 PKG=ROOT/'native-reading-time-package'
-BASE=ROOT.parent/'v9.6.4-ui-calendar'
+BASE=ROOT.parent/'v9.6.5-ui-polish'
 FONT=PKG/'NotoSansCJKsc-Regular.otf'
 
 def build():
-    # Only the two daily card boundaries move; tabs, buttons and headers stay exact.
-    im=Image.open(BASE/'native-reading-time-package/ui-calendar/daily.png').convert('L')
-    d=ImageDraw.Draw(im)
-    d.rectangle((50,1098,1222,1644),fill=255)
-    # Repaint the lower portion of the existing calendar, retaining its upper part.
-    d.line((54,1098,54,1167),fill=20,width=3)
-    d.line((1217,1098,1217,1167),fill=20,width=3)
-    lower=Image.new('L',(1164,894),255)
-    ImageDraw.Draw(lower).rounded_rectangle((0,0,1163,892),radius=25,outline=20,width=3)
-    im.paste(lower.crop((0,798,1164,894)),(54,1098))
-    d.rounded_rectangle((54,1212,1217,1640),radius=25,outline=20,width=3)
-    im.save(PKG/'ui-calendar/daily.png')
+    # Preserve the stable cards and navigation.  Only clear the two old static
+    # section labels so the new dynamic secondary filters can occupy that space.
+    total=Image.open(BASE/'native-reading-time-package/ui-calendar/total.png').convert('L')
+    ImageDraw.Draw(total).rectangle((70,630,292,724),fill=255)
+    total.save(PKG/'ui-calendar/total.png')
+    books=Image.open(BASE/'native-reading-time-package/ui-calendar/books.png').convert('L')
+    ImageDraw.Draw(books).rectangle((60,285,1210,342),fill=255)
+    books.save(PKG/'ui-calendar/books.png')
 
     old=(BASE/'native-reading-time-package/render-assets/dynamic-glyphs.tsv').read_text().splitlines()[1:]
     chars={chr(int(row.split('\t')[2],16)) for row in old}
     chars.update(chr(i) for i in range(32,127))
-    sizes=sorted({int(row.split('\t')[1]) for row in old}|{44})
+    chars.update('按周月近本今年当前范围暂无满的书籍阅读日均')
+    sizes=sorted({int(row.split('\t')[1]) for row in old}|{28,44})
     records=[]
     for size in sizes:
         font=ImageFont.truetype(str(FONT),size)

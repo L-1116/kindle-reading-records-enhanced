@@ -4,7 +4,7 @@ import hashlib, json, shutil, subprocess
 
 ROOT=Path(__file__).resolve().parent
 PKG=ROOT/'native-reading-time-package'
-BASELINE=ROOT.parent/'v9.6.4-ui-calendar/native-reading-time-package'
+BASELINE=ROOT.parent/'v9.6.5-ui-polish/native-reading-time-package'
 SANDBOX=ROOT/'validation/install-sandbox'
 assert SANDBOX.resolve().is_relative_to((ROOT/'validation').resolve())
 # No recursive removal: tests can be rerun in a fresh numbered sandbox.
@@ -57,13 +57,13 @@ assert not (SANDBOX/'service-calls.log').exists()
 shutil.copy2(PKG/'native-reading-time-daemon.sh',daemon)
 p=subprocess.run([sh,script.as_posix()],capture_output=True)
 assert p.returncode==0,(p.stdout,p.stderr,(state/'install.log').read_text(encoding='utf-8'))
-release=state/'releases/9.6.5-ui-polish'
+release=state/'releases/9.6.6-stats-filters'
 assert digest(viewer)==digest(PKG/'阅读记录-optimized.sh')
 assert digest(daemon)==digest(PKG/'native-reading-time-daemon.sh')
 assert digest(conf)==digest(PKG/'native-reading-time.conf')
 assert digest(data)==before[str(data)]
 assert digest(state/'reading-time.tsv.bak')==before[str(data)]
-assert (state/'VERSION').read_text().strip()=='9.6.5-ui-polish'
+assert (state/'VERSION').read_text().strip()=='9.6.6-stats-filters'
 assert digest(old_release/'preserved-marker')==before[str(old_release/'preserved-marker')]
 for f in ['reading-insights-touch-ui.lua','reading-insights-titles.lua','reading-insights-title-widths.lua','reading-insights-cache.awk','reading-insights-render.lua']:
     assert digest(release/'bin'/f)==digest(PKG/f),f

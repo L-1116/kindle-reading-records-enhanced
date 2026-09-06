@@ -1,69 +1,72 @@
-# 阅读记录 v9.6.5-ui-polish
+# Kindle 阅读记录 v9.6.6-stats-filters
 
-唯一输入基线：已通过 PW6 / 5.19.6 实机测试的 `v9.6.4-ui-calendar`。该目录保持不动。本版没有改变页面架构、Tab 顺序、默认页、统计口径、日均四舍五入或后台计时逻辑。
+本版唯一稳定基线是 `v9.6.5-ui-polish`，基线目录未修改。开发、验证和打包均在新目录 `v9.6.6-stats-filters` 中完成。
 
-## 九项实机 UI 收尾
+## 功能变更
 
-1. 月历每行始终绘制七个边框，月初/月末空位无文字、不可点击。空位和格间隙的触摸会在 UI 命中层消费，防止交换坐标的兼容兜底误选另一日期；设备读取和物理坐标变换仍是原实现。
-2. 月历区域从 576 增至 648 个逻辑像素，增加 12.5%。按四/五/六行计算，单格内部边框高度从 138/109/90 增至 156/123/102，增幅约 13%。保留七列、导航、月历、下方详情的布局结构。
-3. 月历时长字号从 24 增至 27，日期仍为 36。格中继续只显示日期与当天总时长。
-4. 中英文混排书名按英文单词、空格、标点和连字符边界换行；中文可按字换行。保持最多两行。单个英文词超出整行宽度时，以省略号截断，绝不将同一个词拆成上下两行。
-5. 「暂无进度」和百分比都使用同一字号、同一右边界，按实际文字像素宽度右对齐。
-6. 年度图的上限为最大柱值的约 112%，最小仍保留 60 分钟范围，避免几分钟也撑满绘图区。刻度间距独立采用易读的 1/2/5 系列：294 分钟的上限为 330，刻度为 100、200、300。数据标签留有普通白底边距，避免网格线穿过文字；无阴影和装饰。
-7. 修复公共文本基线：旧字形缓存裁切后丢失字体 bearing，合成器逐字顶部对齐。新缓存保存每个字形相对基线的位置，以及同一字号共享的 baseline/ascent/descent；合成器按共同基线绘制整段文字。全部缓存字形取自原 `NotoSansCJKsc-Regular.otf`，字体文件未变，没有引入第二字体 fallback，也没有对每条业务字符串手工调 y。常规/加粗共享该字号基线；加粗由同一字体轮廓生成。
-8. 月份和年份标题均按实际字形像素边界宽度计算位置，中心为整个内容区域的 x=636，不依赖箭头位置。9月、10月等宽度变化保持居中。
-9. 移除每日详情的 `head -3` 截断。保留完整当日列表，按详情可用高度、行距、分页区高度计算容量；当前版每页三本。超过一页才显示 `‹ 页码/总页数 ›` 控件。日期/月切换从第一页开始，翻页只重绘详情区，标题中的总时长始终为当天全部书籍总和。
+### 累计时长
 
-详情标题与当天总时长排在同一行，减少标题区占用。书名字号仍为 40、书籍页书名字号仍为 44；没有靠缩小书名塞下更多记录。书籍页每页五本、上一页/下一页行为与样式全部保持原样。
+- 新增「按周 / 按月」，默认按月。
+- 按月保留原 1–12 月、年份标题与前后年切换，不改统计口径。
+- 按周以周一 00:00 至周日 23:59:59 为自然周，每屏 8 个连续周；左右按钮每次移动 8 周。横轴显示周一的 `M/D`。
+- 周数据启动时从日缓存聚合，使用公历日序号计算周一边界，不依赖 GNU `date -d`。
+- 柱顶使用 `45min` / `1h` / `2h5min` / `9h36min` 格式；纵轴使用自适应整数小时刻度。原始秒数和现有月统计口径未改。
+- 摘要文案「日均」改为「阅读日均」，算法仍为总阅读时间除以有阅读行为的天数。
 
-## 修改文件（相对 native-reading-time-package）
+### 阅读书籍
 
-| 文件 | 修改用途 |
+- 新增「近7日 / 本周 / 本月 / 今年」，默认近7日。
+- 口径：今天及前 6 个自然日；本周周一至今天；本月 1 日至今天；当年 1 月 1 日至今天。未来日期记录不进入当前区间。
+- 启动时在同一次原始 TSV 扫描中预聚合四个区间；点击筛选只切换临时会话缓存，不重扫原始文件。
+- UI 缓存层以 `>=300秒` 过滤；`299秒` 不显示，`300秒` 显示。原始记录、每日与累计统计不受影响。
+- 每个区间按该区间阅读秒数降序排列，再每页 5 本分页。切换筛选强制回到第 1 页。
+- 长书名延续两行布局；`(`、`[`、`{`、`《` 与后续词组作为轻量换行单元，避免左符号孤立在行末。
+
+## Kindle 商店书进度：只读调查与接入
+
+`/var/local/cc.db` 的 `Entries` 表公开可读字段包含 `p_percentFinished`、`p_lastAccessedPosition`、`p_cdeKey` 和 `p_location`。本插件原先已只读查询 `p_percentFinished`，但仅用完整书名匹配。Kindle 商店书的计时标题与目录显示标题可能不完全一致，这是「时长正常但暂无进度」的高概率原因。
+
+本版将同一条只读查询扩展为同时读取 `p_cdeKey`：先用 daemon 已记录的 `cdeKey` 与目录 `p_cdeKey` 精确匹配，再回退到完整书名匹配。不需要解密，不读取/修改 KFX，不修改 `cc.db`、sidecar 或 Kindle 行为。如果目录行没有合法百分比，或内容键/书名都无法精确匹配，仍显示「暂无进度」，不用 location 或文件大小猜测。
+
+公开实机架构记录：[cc.db schema](https://github.com/zevisvei/kindle-reading-dashboard/blob/main/docs/cc-db-schema.md)、[KRDS sidecar format](https://github.com/zevisvei/kindle-reading-dashboard/blob/main/docs/KRDS-format.md)。这些是第三方实机观察，不是 Amazon 官方保证。本轮未获得用户当前 Kindle 的 `cc.db` 副本，所以仍需实机验证这本特定英文书。
+
+## 修改文件
+
+| 文件 | 职责 |
 | --- | --- |
-| `阅读记录-optimized.sh` | 增高完整月历、详情分页、标题居中、进度对齐、图表上限和标签 |
-| `reading-insights-touch-ui.lua` | 新高度的点击区域、空格消费、条件详情翻页；保留输入读取和坐标换算 |
-| `reading-insights-titles.lua` | 不拆英文单词的两行排版 |
-| `reading-insights-render.lua` | 字体基线与 bearing、按实际字形边界居中/右对齐、标签白底 |
-| `render-assets/dynamic-glyphs.tsv` | 包含 baseline、bearing、ascent/descent 的字形表 |
-| `render-assets/dynamic-glyphs.pgm` | 使用原 Noto 字体重建的字形缓存 |
-| `ui-calendar/daily.png` | 配合月历增高调整卡片边界 |
-| `Install-Native-Reading-Time-Optimized.sh` | 发布目录/版本标识更新为 9.6.5-ui-polish；安装机制不变 |
+| `native-reading-time-package/阅读记录-optimized.sh` | 二级状态、8 周视图、h/min 图表、书籍范围/分页、进度 cdeKey 匹配、局部重绘 |
+| `native-reading-time-package/reading-insights-cache.awk` | 单次扫描生成周缓存及四个书籍时间范围缓存 |
+| `native-reading-time-package/reading-insights-touch-ui.lua` | 新增累计视图、周组和四个书籍筛选命中区 |
+| `native-reading-time-package/reading-insights-titles.lua` | 左符号与后续内容同行的轻量换行规则 |
+| `native-reading-time-package/ui-calendar/total.png` | 保留卡片/箭头，腾出二级按钮区 |
+| `native-reading-time-package/ui-calendar/books.png` | 保留 5 行卡片/翻页区，腾出筛选区 |
+| `native-reading-time-package/render-assets/dynamic-glyphs.tsv/.pgm` | 用原 Noto 字体补全新动态文字 |
+| `native-reading-time-package/Install-Native-Reading-Time-Optimized.sh` | 发布目录与版本号 |
+| `build_ui.py` | 确定性生成底图和字形资源 |
+| `validate_stats_filters.py` | 新功能、边界、触控、性能路径与 Lua 合成测试 |
+| `validate_install.py` | 隔离安装、数据保留、daemon 一致性验证 |
+| `package_release.py` | 新版 ZIP、哈希和预览联络表 |
 
-没有新增 Kindle 运行依赖或新的运行文件类型。`RUNME.sh`、计时守护进程、Upstart 配置、统计 AWK、进度查询、原后备界面/触控、原字体与 `ui/` 资源均保持原样。书籍页和累计页的静态底图也与 9.6.4 完全一致。
+`native-reading-time-daemon.sh`、数据库结构、`reading-time.tsv` 结构、Upstart 配置、每日页面、一级导航和原后备界面均未修改。
 
-开发辅助文件：`build_ui.py`、`validate_ui.py`、`checks_polish.py`、`validate_install.py`、`package_release.py` 及 `validation/`。它们无需复制到 Kindle。
+## 测试与已知限制
+
+`validation/stats-filters-results.json` 记录 13 组离线集成检查：四个时间范围、周中日期/未来记录、`4m59s/5m00s`、降序排列、5+1 分页/筛选回首页、四个指定 h/min 值、`12h30min`、按月/按周、前后 8 周、无数据、跨年周、整小时刻度、长中英文和左符号、cdeKey/书名/无进度、Lua 合成与触控命中、不重扫原始 TSV。
+
+`validation/installer-results.json` 记录隔离安装验证。离线布局预览为 `validation/total-month.png`、`total-week.png`、`books-7d.png`、`books-week.png`、`books-month.png`、`books-year.png`。
+
+已知限制：本轮没有连接用户的 Kindle 实机；安装、FBInk 最终字形、局部刷新残影和指定商店书的 `cc.db` 实际行仍需在 PW6 / 目标固件上复核。
 
 ## 安装
 
 1. 退出 Kindle 上的「阅读记录」，USB 连接电脑。
-2. 将本目录的 `RUNME.sh` 和**整个** `native-reading-time-package` 复制到 Kindle USB 根目录，覆盖同名文件。也可先解压 `Kindle安装包-v9.6.5-ui-polish.zip`，再复制其中这两项。
-3. 根目录应直接看到 `RUNME.sh` 和 `native-reading-time-package`，不要多套一层版本文件夹。
-4. 安全弹出 Kindle，搜索栏执行 `;log runme`。等待安装成功，再打开「阅读记录」。
+2. 将本目录的 `RUNME.sh` 和完整 `native-reading-time-package` 复制到 Kindle USB 根目录；也可解压 `Kindle安装包-v9.6.6-stats-filters.zip` 后复制这两项。
+3. 安全弹出 Kindle，在搜索栏执行 `;log runme`。
 
-安装器将新版放入 `/mnt/us/reading-time/releases/9.6.5-ui-polish/`，更新 `/mnt/us/documents/阅读记录.sh`。原安装机制保留：短暂停止/恢复计时服务，`cmp -s` 验证计时程序一致，保留阅读历史及已有备份。没有修改计时算法。
+安装器发布到 `/mnt/us/reading-time/releases/9.6.6-stats-filters/`，保留历史数据、备份和旧发布目录。
 
-## 回滚到已验证的 9.6.4
+## 回滚到 v9.6.5-ui-polish
 
-从电脑原目录 `v9.6.4-ui-calendar` 复制其 `RUNME.sh` 和完整 `native-reading-time-package` 到 Kindle 根目录，覆盖同名文件，安全弹出后再次执行 `;log runme`。即恢复你已实机验证的 9.6.4。
+从电脑原目录 `v9.6.5-ui-polish` 复制其 `RUNME.sh` 和完整 `native-reading-time-package` 到 Kindle USB 根目录，覆盖同名项，安全弹出后再次执行 `;log runme`。
 
-不要删除或用旧文件替换 `reading-time/reading-time.tsv`；回滚 UI 无需回滚阅读历史。新发布目录保留在设备上不影响旧版运行。
-
-## 验证结果与实机检查
-
-本轮 21 组离线检查通过，细节见 `validation/results.json`：
-
-- Shell 的 `sh -n` / `dash -n`、Lua 5.1 语法、UTF-8/LF 格式检查。
-- 2,412 个月份、263,634 次日期格点击检查，包括闰年、跨年、四至六行、前后空格与格间隙。
-- 使用实际 Shell 视图逻辑与 Lua 合成器生成 PGM，检查文字/图元是否越出画布。
-- 真实字形位置追踪：`1时33分`、`阅读 3小时18分钟`、`4小时54分钟`、`日均 1小时14分钟`、`300分` 等共享各自字符串的同一基线。
-- 9月/10月/1月/12月及多年份的实际像素中心误差不超过 0.5 个逻辑像素。
-- 11 种图表最大值与顶部余量、已知/未知进度同列对齐。
-- 英文、带拉丁重音字母、中文混排、连字符、标点与超长无空格单词。
-- 0/1/3/4/7/10 本书逐页遍历无遗漏/重复；无须分页时控件不显示；第一页/末页边界、切月重置、旧页码收敛、详情局部重绘检查。
-- 后台及受保护代码/资源逐字节比对；原书籍翻页分支和页脚图像不变。
-
-`validation/installer-results.json` 记录隔离安装验证：计时程序不匹配时，在停止服务前拒绝；正常安装保留数据、备份和旧发布目录。Kindle 服务、提示和分区命令在此测试中均被替代，未操作物理设备。
-
-`validation/daily-final.png` / `daily-final-page-3.png` / `books-polished.png` / `total-final.png` 为离线布局预览。它们的动态数字/单位使用实际 Lua 输出；书名部分近似 FBInk 显示。未使用桌面浏览器推断 Kindle 效果。
-
-**9.6.5 尚未实机运行。** PW6 上请重点核对数字/单位基线、时长字号、六行月历触控、English Edition 换行、详情第 4 本及之后能否翻到，以及详情翻页残影。若需要定位问题，保留 `install.log`、`dashboard-launch.log`、`dashboard-touch.log` 和 `display-layout.txt`。
+不要删除或替换 `/mnt/us/reading-time/reading-time.tsv`；回滚 UI 不需要回滚阅读历史。新发布目录留在设备上不影响旧版运行。

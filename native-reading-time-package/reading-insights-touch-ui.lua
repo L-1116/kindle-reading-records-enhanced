@@ -13,6 +13,8 @@ local view_h = tonumber(arg[9] or "1696") or 1696
 local detail_pages = tonumber(arg[10] or "1") or 1
 local detail_page = tonumber(arg[11] or "1") or 1
 local pager_y = tonumber(arg[12] or "1576") or 1576
+local total_period = arg[13] or "month"
+local book_filter = arg[14] or "7d"
 local logical_w, logical_h = 1272, 1696
 
 local f = assert(io.open(device, "rb"))
@@ -47,8 +49,10 @@ local function action_for_logical(px, py)
     if inside(px, py, 815, 165, 1237, 275) then return "tab_total" end
 
     if mode == "total" then
-        if inside(px, py, 280, 625, 440, 750) then return "year_prev" end
-        if inside(px, py, 840, 625, 1000, 750) then return "year_next" end
+        if inside(px, py, 65, 638, 160, 692) then return "total_week" end
+        if inside(px, py, 180, 638, 275, 692) then return "total_month" end
+        if inside(px, py, 280, 625, 440, 750) then return "total_prev" end
+        if inside(px, py, 840, 625, 1000, 750) then return "total_next" end
     elseif mode == "daily" then
         if inside(px, py, 220, 300, 450, 430) then return "month_prev" end
         if inside(px, py, 840, 300, 1070, 430) then return "month_next" end
@@ -72,6 +76,10 @@ local function action_for_logical(px, py)
             return "ignore"
         end
     elseif mode == "books" then
+        if inside(px, py, 70, 285, 330, 339) then return "books_7d" end
+        if inside(px, py, 354, 285, 614, 339) then return "books_week" end
+        if inside(px, py, 638, 285, 898, 339) then return "books_month" end
+        if inside(px, py, 922, 285, 1182, 339) then return "books_year" end
         if inside(px, py, 55, 1465, 385, 1595) then return "page_prev" end
         if inside(px, py, 885, 1465, 1217, 1595) then return "page_next" end
     end
