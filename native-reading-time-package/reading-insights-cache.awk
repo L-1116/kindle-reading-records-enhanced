@@ -45,7 +45,6 @@ NR > 1 {
 
 END {
     today_day = day_number(today)
-    today_weekday = today_day % 7 # Monday=0
     print today_day > calendar
     for (date in read_date) read_days++
     print total + 0 "\t" read_days + 0 > summary
@@ -71,7 +70,6 @@ END {
         age = today_day - date_day
         if (today_day >= 0 && date_day >= 0 && age >= 0) {
             if (age <= 6) range_7d[book_no] += seconds
-            if (age <= today_weekday) range_week[book_no] += seconds
             if (substr(date, 1, 7) == substr(today, 1, 7)) range_month[book_no] += seconds
             if (substr(date, 1, 4) == substr(today, 1, 4)) range_year[book_no] += seconds
         }
@@ -81,7 +79,6 @@ END {
         id = book_id[book_no]
         if (!usable(name, id)) name = id
         if (book_no in range_7d) print range_7d[book_no] + 0 "\t" name "\t" id "\t" book_no > books7
-        if (book_no in range_week) print range_week[book_no] + 0 "\t" name "\t" id "\t" book_no > booksweek
         if (book_no in range_month) print range_month[book_no] + 0 "\t" name "\t" id "\t" book_no > booksmonth
         if (book_no in range_year) print range_year[book_no] + 0 "\t" name "\t" id "\t" book_no > booksyear
     }

@@ -1,12 +1,12 @@
 #!/bin/sh
 
-# Kindle 原生阅读记录 9.6.6-stats-filters.  This process exists only while the
+# Kindle 原生阅读记录 9.6.7-week-view.  This process exists only while the
 # dashboard is open.  The tracker daemon and reading-time.tsv are untouched.
 BASE="/mnt/us/reading-time"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="/var/local/kmc/bin/fbink"
-RELEASE="$BASE/releases/9.6.6-stats-filters"
+RELEASE="$BASE/releases/9.6.7-week-view"
 UI_DIR="$RELEASE/ui-calendar"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch-ui.lua"
 RENDERER="$RELEASE/bin/reading-insights-render.lua"
@@ -18,7 +18,7 @@ CC_DB="/var/local/cc.db"
 SESSION_DIR="/tmp/native-reading-dashboard.$$"
 SUMMARY="$SESSION_DIR/summary.tsv"; MONTHS="$SESSION_DIR/months.tsv"; WEEKS="$SESSION_DIR/weeks.tsv"
 DAYS="$SESSION_DIR/days.tsv"; DAY_BOOKS="$SESSION_DIR/day-books.tsv"; CALENDAR="$SESSION_DIR/calendar.tsv"
-BOOKS="$SESSION_DIR/books.tsv"; BOOKS_7D="$SESSION_DIR/books-7d.tsv"; BOOKS_WEEK="$SESSION_DIR/books-week.tsv"
+BOOKS="$SESSION_DIR/books.tsv"; BOOKS_7D="$SESSION_DIR/books-7d.tsv"
 BOOKS_MONTH="$SESSION_DIR/books-month.tsv"; BOOKS_YEAR="$SESSION_DIR/books-year.tsv"
 PROGRESS_DB="$SESSION_DIR/cc-progress-viewer.db"
 PROGRESS="$SESSION_DIR/book-progress.tsv"; SPEC="$SESSION_DIR/render-spec.tsv"
@@ -79,6 +79,7 @@ time_text() { v="$1"; h=$((v/3600)); m=$(((v%3600)/60)); s=$((v%60)); if [ "$h" 
 # Display helpers only: raw seconds in the caches remain unchanged.
 minute_text() { mt_m=$(($1/60)); if [ "$mt_m" -ge 60 ]; then printf '%s小时%s分钟' "$((mt_m/60))" "$((mt_m%60))"; else printf '%s分钟' "$mt_m"; fi; }
 chart_time_text() { cht_m="$1"; cht_h=$((cht_m/60)); cht_r=$((cht_m%60)); if [ "$cht_h" -eq 0 ]; then printf '%smin' "$cht_r"; elif [ "$cht_r" -eq 0 ]; then printf '%sh' "$cht_h"; else printf '%sh%smin' "$cht_h" "$cht_r"; fi; }
+summary_time_text() { if [ "$1" -gt 0 ]; then time_text "$1"; else printf '0分钟'; fi; }
 calendar_time() { ct_s="$1"; ct_m=$((ct_s/60)); if [ "$ct_s" -le 0 ]; then return; elif [ "$ct_m" -eq 0 ]; then printf '%s秒' "$ct_s"; elif [ "$ct_m" -lt 60 ]; then printf '%s分' "$ct_m"; else printf '%s时%s分' "$((ct_m/60))" "$((ct_m%60))"; fi; }
 days_in_month() { case "$2" in 1|3|5|7|8|10|12) echo 31;;4|6|9|11) echo 30;;2) if { [ $(($1%400)) -eq 0 ] || { [ $(($1%4)) -eq 0 ] && [ $(($1%100)) -ne 0 ]; }; }; then echo 29; else echo 28; fi;;esac; }
 weekday_offset() { awk -v y="$1" -v m="$2" 'BEGIN{if(m<3){m+=12;y--}k=y%100;j=int(y/100);h=(1+int(13*(m+1)/5)+k+int(k/4)+int(j/4)+5*j)%7;print(h+5)%7}'; }
@@ -93,11 +94,11 @@ build_cache() {
     today="$(date +%Y-%m-%d)"
     case "$today" in ????-??-??) :;; *) return 1;; esac
     : > "$SUMMARY" && : > "$MONTHS" && : > "$DAYS" && : > "$DAY_BOOKS" && : > "$BOOKS.raw" && : > "$WEEKS.raw" && : > "$CALENDAR" || return 1
-    for range in 7d week month year; do : > "$SESSION_DIR/books-$range.raw" || return 1; done
-    awk -F '\t' -v today="$today" -v calendar="$CALENDAR" -v summary="$SUMMARY" -v months="$MONTHS" -v weeks="$WEEKS.raw" -v days="$DAYS" -v daybooks="$DAY_BOOKS" -v books="$BOOKS.raw" -v books7="$SESSION_DIR/books-7d.raw" -v booksweek="$SESSION_DIR/books-week.raw" -v booksmonth="$SESSION_DIR/books-month.raw" -v booksyear="$SESSION_DIR/books-year.raw" -f "$CACHE_BUILDER" "$DATA" || return 1
+    for range in 7d month year; do : > "$SESSION_DIR/books-$range.raw" || return 1; done
+    awk -F '\t' -v today="$today" -v calendar="$CALENDAR" -v summary="$SUMMARY" -v months="$MONTHS" -v weeks="$WEEKS.raw" -v days="$DAYS" -v daybooks="$DAY_BOOKS" -v books="$BOOKS.raw" -v books7="$SESSION_DIR/books-7d.raw" -v booksmonth="$SESSION_DIR/books-month.raw" -v booksyear="$SESSION_DIR/books-year.raw" -f "$CACHE_BUILDER" "$DATA" || return 1
     sort "$MONTHS" > "$MONTHS.sorted" && sort -n "$WEEKS.raw" > "$WEEKS" && sort "$DAYS" > "$DAYS.sorted" && sort "$DAY_BOOKS" > "$DAY_BOOKS.sorted" && sort -nr "$BOOKS.raw" > "$BOOKS" || return 1
     mv "$MONTHS.sorted" "$MONTHS" && mv "$DAYS.sorted" "$DAYS" && mv "$DAY_BOOKS.sorted" "$DAY_BOOKS" || return 1
-    for range in 7d week month year; do awk -F '\t' '$1 >= 300' "$SESSION_DIR/books-$range.raw" | sort -nr > "$SESSION_DIR/books-$range.tsv" || return 1; done
+    for range in 7d month year; do awk -F '\t' '$1 >= 300' "$SESSION_DIR/books-$range.raw" | sort -nr > "$SESSION_DIR/books-$range.tsv" || return 1; done
     rm -f "$BOOKS.raw" "$WEEKS.raw" "$SESSION_DIR"/books-*.raw; cache_ok=1
 }
 
@@ -137,7 +138,12 @@ slabel() { printf 'text\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t255\n' "$1" "$2" "$3" "
 swrite() { printf 'write\t%s\n' "$1" >> "$SPEC"; }
 
 prepare_week_view() {
-    awk -F '\t' -v today_day="$(cat "$CALENDAR")" -v group="$week_group" '
+    awk -F '\t' -v today_day="$(cat "$CALENDAR")" -v offset="$week_offset" '
+    function day_number(date,    y,m,d,a,yy,mm) {
+        y=substr(date,1,4)+0; m=substr(date,6,2)+0; d=substr(date,9,2)+0
+        a=int((14-m)/12); yy=y+4800-a; mm=m+12*a-3
+        return d+int((153*mm+2)/5)+365*yy+int(yy/4)-int(yy/100)+int(yy/400)-32045
+    }
     function civil(day,    l,n,i,j,d,m,y) {
         l=day+68569; n=int(4*l/146097); l=l-int((146097*n+3)/4)
         i=int(4000*(l+1)/1461001); l=l-int(1461*i/4)+31
@@ -145,24 +151,37 @@ prepare_week_view() {
         m=j+2-12*l; y=100*(n-49)+i+l
         return sprintf("%04d-%02d-%02d",y,m,d)
     }
-    BEGIN { current=today_day-(today_day%7); first=current+group*56-49 }
-    { value[$1]=$2+0 }
-    END { for(i=0;i<8;i++){ day=first+i*7; print civil(day) "\t" value[day]+0 "\t" (day==current?0:125) } }
-    ' "$WEEKS" > "$WEEK_VIEW"
+    BEGIN { first=today_day-(today_day%7)+offset*7 }
+    { day=day_number($1); if(offset<0 || day<=today_day) value[day]+=$2+0 }
+    END { for(i=0;i<7;i++){ day=first+i; print civil(day) "\t" value[day]+0 "\t" (day==today_day?0:125) } }
+    ' "$DAYS" > "$WEEK_VIEW"
 }
 
 prepare_total_values() {
     if [ "$total_period" = week ]; then
         prepare_week_view || return 1
-        awk -F '\t' '{printf "%d/%d\t%d\t%d\n",substr($1,6,2)+0,substr($1,9,2)+0,int($2/60),$3}' "$WEEK_VIEW" > "$TOTAL_VALUES"
+        awk -F '\t' 'BEGIN{split("周一 周二 周三 周四 周五 周六 周日",label," ")}{print label[NR] "\t" int($2/60) "\t" $3}' "$WEEK_VIEW" > "$TOTAL_VALUES"
         first_date="$(awk -F '\t' 'NR==1{print $1}' "$WEEK_VIEW")"; last_date="$(awk -F '\t' 'END{print $1}' "$WEEK_VIEW")"
-        first_year="${first_date%%-*}"; last_year="${last_date%%-*}"
-        if [ "$first_year" = "$last_year" ]; then period_title="${first_year}年"; else period_title="${first_year}-${last_year}年"; fi
+        first_md="${first_date#*-}"; first_m="${first_md%%-*}"; first_d="${first_md##*-}"
+        last_md="${last_date#*-}"; last_m="${last_md%%-*}"; last_d="${last_md##*-}"
+        first_m="${first_m#0}"; first_d="${first_d#0}"; last_m="${last_m#0}"; last_d="${last_d#0}"
+        period_title="${first_m}月${first_d}日 - ${last_m}月${last_d}日"
     else
-        cy="$(date +%Y)"; cm="$(date +%m | sed 's/^0//')"
-        awk -F '\t' -v y="$view_year" -v cy="$cy" -v cm="$cm" 'BEGIN{for(i=1;i<=12;i++)v[i]=0}$1~("^"y"-"){m=substr($1,6,2)+0;v[m]+=$2}END{for(i=1;i<=12;i++)print i "月\t" int(v[i]/60) "\t" (y==cy&&i==cm?0:125)}' "$MONTHS" > "$TOTAL_VALUES"
+        cy="$(date +%Y)"; cm="$(date +%m | sed 's/^0//')"; chart_today="$(date +%Y-%m-%d)"
+        awk -F '\t' -v y="$view_year" -v cy="$cy" -v cm="$cm" -v today="$chart_today" 'BEGIN{for(i=1;i<=12;i++)v[i]=0}substr($1,1,4)==y && (y<cy || $1<=today){m=substr($1,6,2)+0;v[m]+=$2}END{for(i=1;i<=12;i++)print i "月\t" int(v[i]/60) "\t" (y==cy&&i==cm?0:125)}' "$DAYS" > "$TOTAL_VALUES"
         period_title="${view_year}年"
     fi
+}
+
+prepare_period_summary() {
+    if [ "$total_period" = week ]; then
+        set -- $(awk -F '\t' '$2>0{total+=$2;days++}END{print total+0,days+0}' "$WEEK_VIEW")
+    else
+        summary_today="$(date +%Y-%m-%d)"
+        set -- $(awk -F '\t' -v y="$view_year" -v today="$summary_today" 'substr($1,1,4)==y && (y<substr(today,1,4) || $1<=today) && $2>0{total+=$2;days++}END{print total+0,days+0}' "$DAYS")
+    fi
+    total="${1:-0}"; read_days="${2:-0}"
+    [ "$read_days" -gt 0 ] && average=$(((total+read_days*30)/(read_days*60)*60)) || average=0
 }
 
 spec_toggle_button() {
@@ -173,20 +192,24 @@ spec_toggle_button() {
 }
 
 render_total() {
-    set -- $(cat "$SUMMARY"); total="${1:-0}"; read_days="${2:-0}"; [ "$read_days" -gt 0 ] && average=$(((total+read_days*30)/(read_days*60)*60)) || average=0
     prepare_total_values || return 1
+    prepare_period_summary || return 1
     max="$(awk -F '\t' '$2>m{m=$2}END{print m+0}' "$TOTAL_VALUES")"
     scale_hours=$(((max*112+5999)/6000)); [ "$scale_hours" -ge 1 ] || scale_hours=1; scale=$((scale_hours*60))
-    tick_hours="$(awk -v upper="$scale_hours" 'BEGIN{v=upper/5;p=1;while(v>=10){v/=10;p*=10}if(v<1.5)n=1;else if(v<3.5)n=2;else if(v<7.5)n=5;else n=10;print n*p}')"
+    if [ "$total_period" = week ]; then
+        if [ "$scale_hours" -le 3 ]; then tick_hours=1; elif [ "$scale_hours" -le 8 ]; then tick_hours=2; elif [ "$scale_hours" -le 15 ]; then tick_hours=3; else tick_hours=5; fi
+    else
+        tick_hours="$(awk -v upper="$scale_hours" 'BEGIN{v=upper/5;p=1;while(v>=10){v/=10;p*=10}if(v<1.5)n=1;else if(v<3.5)n=2;else if(v<7.5)n=5;else n=10;print n*p}')"
+    fi
     a="$SESSION_DIR/total-summary.pgm.new"; b="$SESSION_DIR/total-year.pgm.new"; c="$SESSION_DIR/total-chart.pgm.new"; d="$SESSION_DIR/total-toggle.pgm.new"; : > "$SPEC"
     canvas summary 1102 180 "$a"; srect summary 0 110 1102 2 190
-    stext summary B 70 10 5 left 0 "$(time_text "$total")"; stext summary B 32 40 137 left 0 "阅读天数  ${read_days}天"; stext summary B 32 645 137 left 0 "阅读日均  $(minute_text "$average")"; swrite summary
-    canvas toggle 210 58 "$d"; [ "$total_period" = week ] && week_selected=1 || week_selected=0; [ "$total_period" = month ] && month_selected=1 || month_selected=0
-    spec_toggle_button toggle 0 95 "按周" "$week_selected"; spec_toggle_button toggle 115 95 "按月" "$month_selected"; swrite toggle
-    canvas year 272 70 "$b"; if [ "$total_period" = week ] && [ "$first_year" != "$last_year" ]; then title_size=28; else title_size=39; fi; stext year B "$title_size" 136 10 center 0 "$period_title"; swrite year
+    stext summary B 70 10 5 left 0 "$(summary_time_text "$total")"; stext summary B 32 40 137 left 0 "阅读天数  ${read_days}天"; stext summary B 32 645 137 left 0 "阅读日均  $(minute_text "$average")"; swrite summary
+    canvas toggle 210 58 "$d"; [ "$total_period" = week ] && week_selected=1 || week_selected=0; [ "$total_period" = year ] && year_selected=1 || year_selected=0
+    spec_toggle_button toggle 0 95 "本周" "$week_selected"; spec_toggle_button toggle 115 95 "今年" "$year_selected"; swrite toggle
+    canvas year 360 70 "$b"; [ "$total_period" = week ] && title_size=30 || title_size=39; stext year B "$title_size" 180 10 center 0 "$period_title"; swrite year
     canvas chart 1122 690 "$c"; srect chart 0 630 1122 3 20
     gl="$tick_hours"; while [ "$gl" -le "$scale_hours" ]; do gy=$((630-590*gl/scale_hours)); srect chart 0 "$gy" 1122 2 190; stext chart R 20 7 $((gy-26)) left 0 "${gl}h"; gl=$((gl+tick_hours)); done
-    count="$(awk 'NF{n++}END{print n+0}' "$TOTAL_VALUES")"; if [ "$count" -eq 8 ]; then step=140; bar_w=70; start_x=35; axis_size=22; else step=94; bar_w=48; start_x=7; axis_size=24; fi
+    count="$(awk 'NF{n++}END{print n+0}' "$TOTAL_VALUES")"; if [ "$count" -eq 7 ]; then step=160; bar_w=76; start_x=22; axis_size=24; else step=94; bar_w=48; start_x=7; axis_size=24; fi
     pos=0; while IFS="$(printf '\t')" read -r axis_label mins color; do
         x=$((start_x+pos*step)); bh=$((mins*590/scale)); [ "$mins" -gt 0 ] && [ "$bh" -lt 8 ] && bh=8
         [ "$bh" -gt 0 ] && srect chart "$x" $((630-bh)) "$bar_w" "$bh" "$color"
@@ -195,9 +218,9 @@ render_total() {
         pos=$((pos+1))
     done < "$TOTAL_VALUES"
     swrite chart; run_renderer || return 1
-    pgm_valid "$a" 1102 180 && pgm_valid "$b" 272 70 && pgm_valid "$c" 1122 690 && pgm_valid "$d" 210 58 || return 1
+    pgm_valid "$a" 1102 180 && pgm_valid "$b" 360 70 && pgm_valid "$c" 1122 690 && pgm_valid "$d" 210 58 || return 1
     mv "$a" "$SESSION_DIR/total-summary.pgm" && mv "$b" "$SESSION_DIR/total-year.pgm" && mv "$c" "$SESSION_DIR/total-chart.pgm" && mv "$d" "$SESSION_DIR/total-toggle.pgm" || return 1
-    image "$SESSION_DIR/total-summary.pgm" 85 380 1102 180 && image "$SESSION_DIR/total-toggle.pgm" 65 638 210 58 && image "$SESSION_DIR/total-year.pgm" 500 650 272 70 && image "$SESSION_DIR/total-chart.pgm" 75 760 1122 690
+    image "$SESSION_DIR/total-summary.pgm" 85 380 1102 180 && image "$SESSION_DIR/total-toggle.pgm" 65 638 210 58 && image "$SESSION_DIR/total-year.pgm" 456 650 360 70 && image "$SESSION_DIR/total-chart.pgm" 75 760 1122 690
 }
 
 prepare_daily_view() {
@@ -297,13 +320,13 @@ render_daily() {
     publish_daily_detail
 }
 
-active_books() { case "$book_filter" in 7d) echo "$BOOKS_7D";; week) echo "$BOOKS_WEEK";; month) echo "$BOOKS_MONTH";; year) echo "$BOOKS_YEAR";; *) return 1;; esac; }
+active_books() { case "$book_filter" in 7d) echo "$BOOKS_7D";; month) echo "$BOOKS_MONTH";; year) echo "$BOOKS_YEAR";; *) return 1;; esac; }
 book_pages() { book_source="$(active_books)" || return 1; count="$(awk 'NF{n++}END{print n+0}' "$book_source")"; pages=$(((count+4)/5)); [ "$pages" -gt 0 ] || pages=1; echo "$pages"; }
 prepare_book_view() { book_source="$(active_books)" || return 1; start=$(((book_page-1)*5+1)); awk -v a="$start" -v b="$((start+4))" 'NR>=a&&NR<=b' "$book_source" > "$SESSION_DIR/book-view.tsv"; }
 
 spec_book_filters() {
     canvas filters 1132 58 "$SESSION_DIR/books-filters.pgm.new"
-    for filter_item in '7d:0:260:近7日' 'week:284:260:本周' 'month:568:260:本月' 'year:852:260:今年'; do
+    for filter_item in '7d:0:354:近7日' 'month:389:354:本月' 'year:778:354:今年'; do
         filter_key="${filter_item%%:*}"; filter_rest="${filter_item#*:}"; filter_x="${filter_rest%%:*}"; filter_rest="${filter_rest#*:}"; filter_w="${filter_rest%%:*}"; filter_text="${filter_rest#*:}"
         [ "$book_filter" = "$filter_key" ] && filter_selected=1 || filter_selected=0
         spec_toggle_button filters "$filter_x" "$filter_w" "$filter_text" "$filter_selected"
@@ -368,11 +391,11 @@ detect_screen; find_touch_device
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
 [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
-printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.6.6-stats-filters\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
+printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.6.7-week-view\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
 lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true; dashboard_active=1
 
-mode=daily; view_year="$(date +%Y)"; total_period=month; week_group=0; book_filter=7d; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; selected_day="$(date +%d | sed 's/^0//')"; book_page=1; detail_page=1; detail_pages=1
+mode=daily; view_year="$(date +%Y)"; total_period=week; week_offset=0; book_filter=7d; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; selected_day="$(date +%d | sed 's/^0//')"; book_page=1; detail_page=1; detail_pages=1
 metric_begin first_open; build_cache || fallback_to_legacy; draw_background || fallback_to_legacy; draw_dynamic 1 || fallback_to_legacy; refresh_region 0 0 1272 1696; metric_end optimized 0 1
 
 while :; do
@@ -384,16 +407,16 @@ while :; do
       tab_total) if [ "$mode" = total ]; then metric_begin tab_total_noop; metric_end none 0 0; else mode=total; perform_draw tab_to_total 1 1 0 0 1272 1696; fi;;
       tab_daily) if [ "$mode" = daily ]; then metric_begin tab_daily_noop; metric_end none 0 0; else mode=daily; perform_draw tab_to_daily 1 1 0 0 1272 1696; fi;;
       tab_books) if [ "$mode" = books ]; then metric_begin tab_books_noop; metric_end none 0 0; else mode=books; perform_draw tab_to_books 1 1 0 0 1272 1696; fi;;
-      total_week) if [ "$total_period" = week ]; then metric_begin total_week_noop; metric_end none 0 0; else total_period=week; week_group=0; perform_draw total_to_week 0 0 55 625 1162 845; fi;;
-      total_month) if [ "$total_period" = month ]; then metric_begin total_month_noop; metric_end none 0 0; else total_period=month; perform_draw total_to_month 0 0 55 625 1162 845; fi;;
-      total_prev) if [ "$total_period" = week ]; then week_group=$((week_group-1)); perform_draw week_previous 0 0 55 625 1162 845; else view_year=$((view_year-1)); perform_draw year_previous 0 0 55 625 1162 845; fi;;
-      total_next) if [ "$total_period" = week ]; then week_group=$((week_group+1)); perform_draw week_next 0 0 55 625 1162 845; else view_year=$((view_year+1)); perform_draw year_next 0 0 55 625 1162 845; fi;;
+      total_week) if [ "$total_period" = week ]; then metric_begin total_week_noop; metric_end none 0 0; else total_period=week; week_offset=0; perform_draw total_to_week 0 0 55 625 1162 845; fi;;
+      total_year) if [ "$total_period" = year ]; then metric_begin total_year_noop; metric_end none 0 0; else total_period=year; perform_draw total_to_year 0 0 55 625 1162 845; fi;;
+      total_prev) if [ "$total_period" = week ]; then week_offset=$((week_offset-1)); perform_draw week_previous 0 0 55 625 1162 845; else view_year=$((view_year-1)); perform_draw year_previous 0 0 55 625 1162 845; fi;;
+      total_next) if [ "$total_period" = week ]; then if [ "$week_offset" -lt 0 ]; then week_offset=$((week_offset+1)); perform_draw week_next 0 0 55 625 1162 845; else metric_begin week_next_noop; metric_end none 0 0; fi; else current_year="$(date +%Y)"; if [ "$view_year" -lt "$current_year" ]; then view_year=$((view_year+1)); perform_draw year_next 0 0 55 625 1162 845; else metric_begin year_next_noop; metric_end none 0 0; fi; fi;;
       month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 1308;;
       month_next) shift_month 1; perform_draw month_next 0 1 55 320 1162 1308;;
       day_*) new_day="${action#day_}"; if [ "$new_day" = "$selected_day" ]; then metric_begin date_noop; metric_end none 0 0; else selected_day="$new_day"; detail_page=1; perform_draw date_select 0 0 55 460 1162 1168; fi;;
       detail_prev) if [ "$detail_page" -gt 1 ]; then detail_page=$((detail_page-1)); perform_draw detail_previous 0 2 70 "$DETAIL_TOP" 1132 "$DETAIL_H"; else metric_begin detail_previous_noop; metric_end none 0 0; fi;;
       detail_next) if [ "$detail_page" -lt "$detail_pages" ]; then detail_page=$((detail_page+1)); perform_draw detail_next 0 2 70 "$DETAIL_TOP" 1132 "$DETAIL_H"; else metric_begin detail_next_noop; metric_end none 0 0; fi;;
-      books_7d|books_week|books_month|books_year) new_filter="${action#books_}"; if [ "$book_filter" = "$new_filter" ]; then metric_begin book_filter_noop; metric_end none 0 0; else book_filter="$new_filter"; book_page=1; perform_draw book_filter_change 0 0 55 285 1162 1275; fi;;
+      books_7d|books_month|books_year) new_filter="${action#books_}"; if [ "$book_filter" = "$new_filter" ]; then metric_begin book_filter_noop; metric_end none 0 0; else book_filter="$new_filter"; book_page=1; perform_draw book_filter_change 0 0 55 285 1162 1275; fi;;
       page_prev) if [ "$book_page" -gt 1 ]; then book_page=$((book_page-1)); perform_draw book_page_previous 0 0 70 345 1132 1215; else metric_begin page_previous_noop; metric_end none 0 0; fi;;
       page_next) pages="$(book_pages)"; if [ "$book_page" -lt "$pages" ]; then book_page=$((book_page+1)); perform_draw book_page_next 0 0 70 345 1132 1215; else metric_begin page_next_noop; metric_end none 0 0; fi;;
       *) metric_begin unknown_action; metric_end none 0 0;;

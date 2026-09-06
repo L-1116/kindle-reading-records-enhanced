@@ -5,7 +5,7 @@ import json, hashlib
 
 ROOT=Path(__file__).resolve().parent
 PKG=ROOT/'native-reading-time-package'
-BASE=ROOT.parent/'v9.6.5-ui-polish'
+BASE=ROOT.parent/'v9.6.6-stats-filters'
 FONT=PKG/'NotoSansCJKsc-Regular.otf'
 
 def build():
@@ -21,7 +21,7 @@ def build():
     old=(BASE/'native-reading-time-package/render-assets/dynamic-glyphs.tsv').read_text().splitlines()[1:]
     chars={chr(int(row.split('\t')[2],16)) for row in old}
     chars.update(chr(i) for i in range(32,127))
-    chars.update('按周月近本今年当前范围暂无满的书籍阅读日均')
+    chars.update('周一二三四五六日月近本今年当前范围暂无满的书籍阅读日均')
     sizes=sorted({int(row.split('\t')[1]) for row in old}|{28,44})
     records=[]
     for size in sizes:
