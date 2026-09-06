@@ -1,4 +1,4 @@
-"""Offline integration tests for v9.6.7-week-view.
+"""Offline integration tests for v9.6.8-summary-sync-fix.
 
 The production POSIX shell functions, AWK cache builder, Lua 5.1 renderer,
 title wrapper and touch hit-testing are exercised without Kindle hardware.
@@ -17,7 +17,7 @@ from lupa.lua51 import LuaRuntime
 
 ROOT = Path(__file__).resolve().parent
 PKG = ROOT / "native-reading-time-package"
-BASE = ROOT.parent / "v9.6.6-stats-filters" / "native-reading-time-package"
+BASE = ROOT.parent / "v9.6.7-week-view" / "native-reading-time-package"
 OUT = ROOT / "validation"
 SESSION = OUT / "stats-session"
 SH = Path("C:/Program Files/Git/usr/bin/sh.exe")
@@ -62,7 +62,7 @@ protected = [
 for relative in protected:
     assert (PKG / relative).read_bytes() == (BASE / relative).read_bytes(), relative
 assert not list(PKG.rglob("*.db"))
-record("protected core", "Daemon, Upstart config, legacy viewer/touch and daily background are byte-identical to v9.6.6; no database is shipped.")
+record("protected core", "Daemon, Upstart config, legacy viewer/touch and daily background are byte-identical to v9.6.7; no database is shipped.")
 
 viewer = (PKG / "阅读记录-optimized.sh").read_text(encoding="utf-8")
 baseline_viewer = (BASE / "阅读记录-optimized.sh").read_text(encoding="utf-8")
@@ -79,7 +79,7 @@ definitions = definitions.replace('exec >> "$LOG" 2>&1', "")
 definitions = definitions.replace('\ntrap cleanup EXIT INT TERM HUP\n', "\n")
 definitions = definitions.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"', "")
 definitions = definitions.replace('today="$(date +%Y-%m-%d)"', 'today="${TEST_TODAY:-$(date +%Y-%m-%d)}"')
-(OUT / "functions-v9.6.7.sh").write_text(definitions, encoding="utf-8", newline="\n")
+(OUT / "functions-v9.6.8.sh").write_text(definitions, encoding="utf-8", newline="\n")
 (OUT / "lua_runner.py").write_text(
     """import sys
 from pathlib import Path
@@ -112,7 +112,7 @@ fixture_rows = [
     encoding="utf-8",
 )
 
-setup = r'''. validation/functions-v9.6.7.sh
+setup = r'''. validation/functions-v9.6.8.sh
 SESSION_DIR=validation/stats-session
 DATA="$SESSION_DIR/reading-time.tsv"; SUMMARY="$SESSION_DIR/summary.tsv"; MONTHS="$SESSION_DIR/months.tsv"; WEEKS="$SESSION_DIR/weeks.tsv"
 DAYS="$SESSION_DIR/days.tsv"; DAY_BOOKS="$SESSION_DIR/day-books.tsv"; CALENDAR="$SESSION_DIR/calendar.tsv"
@@ -196,6 +196,55 @@ year_previous = run_shell(setup + 'total_period=year; view_year=2025; prepare_to
 assert year_current == "65399 11 5940 2026年", year_current
 assert year_previous == "7200 1 7200 2025年", year_previous
 record("period summaries", "Weekly totals/day counts/averages follow the selected Monday–Sunday range; annual values follow 2026 versus 2025 and exclude current-year future-dated rows.")
+
+# Regression for the on-device stale-summary report. The data, title and summary
+# are recalculated from the same selected period across repeated week/year moves.
+(SESSION / "days.tsv").write_text(
+    "2025-01-01\t7200\n"
+    "2026-08-17\t3600\n"
+    "2026-08-31\t7200\n2026-09-01\t7200\n2026-09-02\t7200\n"
+    "2026-09-03\t7200\n2026-09-04\t7800\n",
+    encoding="utf-8",
+)
+week_sequence = run_shell(setup + '''for week_offset in 0 -1 -2 -1 0; do
+  total_period=week; prepare_total_values; prepare_period_summary
+  printf '%s|%s|%s|%s|%s\\n' "$week_offset" "$period_title" "$total" "$read_days" "$average"
+done
+''').splitlines()
+assert week_sequence == [
+    "0|8月31日 - 9月6日|36600|5|7320",
+    "-1|8月24日 - 8月30日|0|0|0",
+    "-2|8月17日 - 8月23日|3600|1|3600",
+    "-1|8月24日 - 8月30日|0|0|0",
+    "0|8月31日 - 9月6日|36600|5|7320",
+], week_sequence
+mode_sequence = run_shell(setup + '''total_period=week; week_offset=0; prepare_total_values; prepare_period_summary; echo "week:$total:$read_days:$average"
+total_period=year; view_year=2026; prepare_total_values; prepare_period_summary; echo "year2026:$total:$read_days:$average"
+total_period=week; prepare_total_values; prepare_period_summary; echo "week:$total:$read_days:$average"
+total_period=year; view_year=2025; prepare_total_values; prepare_period_summary; echo "year2025:$total:$read_days:$average"
+view_year=2026; prepare_total_values; prepare_period_summary; echo "year2026:$total:$read_days:$average"
+''').splitlines()
+assert mode_sequence == [
+    "week:36600:5:7320",
+    "year2026:40200:6:6720",
+    "week:36600:5:7320",
+    "year2025:7200:1:7200",
+    "year2026:40200:6:6720",
+], mode_sequence
+run_shell(setup + "TEST_TODAY=2026-09-06; build_cache")
+record("period state sequences", "Current week → empty prior week → populated older week → current week, week ↔ year, and 2026 → 2025 → 2026 all recalculate title/chart data and summary from the selected period; the 10h10m/5-day fixture averages 2h2m.")
+
+# render_total already redraws all four tiles. Every total-page state change must
+# also refresh the summary tile on the physical e-ink display.
+for operation in ("total_to_week", "total_to_year", "week_previous", "year_previous", "week_next", "year_next"):
+    assert f"perform_draw {operation} 0 0 55 380 1162 1070" in viewer, operation
+assert "55 625 1162 845" not in viewer[viewer.index("      total_week)"):viewer.index("      month_prev)")]
+refresh_left, refresh_top, refresh_width, refresh_height = 55, 380, 1162, 1070
+for left, top, width, height in ((85, 380, 1102, 180), (65, 638, 210, 58), (456, 650, 360, 70), (75, 760, 1122, 690)):
+    assert refresh_left <= left and refresh_top <= top
+    assert refresh_left + refresh_width >= left + width
+    assert refresh_top + refresh_height >= top + height
+record("total partial refresh", "Week/year arrows and week/year mode switches retain one partial GC16_FAST update, now covering summary, toggle, period title and chart instead of starting below the summary.")
 
 (SESSION / "book-progress.tsv").write_text("88\tDifferent catalog title\ta\n42\tSecond ranked title\tb\n", encoding="utf-8")
 
