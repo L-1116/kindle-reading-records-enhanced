@@ -1,12 +1,12 @@
 #!/bin/sh
 
-# Kindle 原生阅读记录 9.6.8-summary-sync-fix.  This process exists only while the
+# Kindle 原生阅读记录 9.6.9-calendar-heatmap.  This process exists only while the
 # dashboard is open.  The tracker daemon and reading-time.tsv are untouched.
 BASE="/mnt/us/reading-time"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="/var/local/kmc/bin/fbink"
-RELEASE="$BASE/releases/9.6.8-summary-sync-fix"
+RELEASE="$BASE/releases/9.6.9-calendar-heatmap"
 UI_DIR="$RELEASE/ui-calendar"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch-ui.lua"
 RENDERER="$RELEASE/bin/reading-insights-render.lua"
@@ -81,6 +81,23 @@ minute_text() { mt_m=$(($1/60)); if [ "$mt_m" -ge 60 ]; then printf '%s小时%s�
 chart_time_text() { cht_m="$1"; cht_h=$((cht_m/60)); cht_r=$((cht_m%60)); if [ "$cht_h" -eq 0 ]; then printf '%smin' "$cht_r"; elif [ "$cht_r" -eq 0 ]; then printf '%sh' "$cht_h"; else printf '%sh%smin' "$cht_h" "$cht_r"; fi; }
 summary_time_text() { if [ "$1" -gt 0 ]; then time_text "$1"; else printf '0分钟'; fi; }
 calendar_time() { ct_s="$1"; ct_m=$((ct_s/60)); if [ "$ct_s" -le 0 ]; then return; elif [ "$ct_m" -eq 0 ]; then printf '%s秒' "$ct_s"; elif [ "$ct_m" -lt 60 ]; then printf '%s分' "$ct_m"; else printf '%s时%s分' "$((ct_m/60))" "$((ct_m%60))"; fi; }
+calendar_heat_level() {
+    ch_s="${1:-0}"
+    if [ "$ch_s" -le 0 ]; then echo 0
+    elif [ "$ch_s" -lt 1800 ]; then echo 1
+    elif [ "$ch_s" -lt 3600 ]; then echo 2
+    elif [ "$ch_s" -lt 7200 ]; then echo 3
+    elif [ "$ch_s" -lt 10800 ]; then echo 4
+    elif [ "$ch_s" -lt 14400 ]; then echo 5
+    else echo 6
+    fi
+}
+calendar_heat_gray() {
+    case "$1" in 0) echo 255;; 1) echo 235;; 2) echo 210;; 3) echo 180;; 4) echo 145;; 5) echo 105;; 6) echo 70;; *) return 1;; esac
+}
+calendar_heat_ink() {
+    case "$1" in 0|1|2|3|4) echo 0;; 5|6) echo 255;; *) return 1;; esac
+}
 days_in_month() { case "$2" in 1|3|5|7|8|10|12) echo 31;;4|6|9|11) echo 30;;2) if { [ $(($1%400)) -eq 0 ] || { [ $(($1%4)) -eq 0 ] && [ $(($1%100)) -ne 0 ]; }; }; then echo 29; else echo 28; fi;;esac; }
 weekday_offset() { awk -v y="$1" -v m="$2" 'BEGIN{if(m<3){m+=12;y--}k=y%100;j=int(y/100);h=(1+int(13*(m+1)/5)+k+int(k/4)+int(j/4)+5*j)%7;print(h+5)%7}'; }
 shift_month() { daily_m=$((daily_m+$1)); while [ "$daily_m" -lt 1 ]; do daily_m=$((daily_m+12)); daily_y=$((daily_y-1)); done; while [ "$daily_m" -gt 12 ]; do daily_m=$((daily_m-12)); daily_y=$((daily_y+1)); done; selected_day=1; detail_page=1; }
@@ -294,7 +311,10 @@ render_daily() {
     for sec in "$@"; do
         idx=$((offset+day-1)); row=$((idx/7)); col=$((idx%7)); x=$((col*160)); y=$((row*cell_h))
         [ "$sec" -gt 0 ] && month_read_days=$((month_read_days+1)); month_total=$((month_total+sec))
-        ink=0
+        heat_level="$(calendar_heat_level "$sec")" || return 1
+        heat_gray="$(calendar_heat_gray "$heat_level")" || return 1
+        ink="$(calendar_heat_ink "$heat_level")" || return 1
+        srect calendar $((x+2)) $((y+2)) 150 $((cell_h-10)) "$heat_gray"
         if [ "$day" -eq "$selected_day" ]; then srect calendar "$x" "$y" 154 $((cell_h-6)) 20; ink=255; fi
         stext calendar B 36 $((x+77)) $((y+10)) center "$ink" "$day"
         [ "$sec" -gt 0 ] && stext calendar R 27 $((x+77)) $((y+cell_h-43)) center "$ink" "$(calendar_time "$sec")"
@@ -391,7 +411,7 @@ detect_screen; find_touch_device
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
 [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
-printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.6.8-summary-sync-fix\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
+printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.6.9-calendar-heatmap\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
 lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true; dashboard_active=1
 

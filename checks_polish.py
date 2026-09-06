@@ -19,7 +19,7 @@ for y,m in [(2026,9),(2026,10),(2027,1),(2028,12)]:
 for y in [2026,2027,2030]:
     render(f'year-{y}','total',f'view_year={y}; render_total')
     box=ImageOps.invert(Image.open(session/'total-year.pgm')).getbbox()
-    assert abs(500+(box[0]+box[2])/2-636)<=0.5,(y,box)
+    assert abs(456+(box[0]+box[2])/2-636)<=0.5,(y,box)
 record('true horizontal centering','Rasterized ink bounds for Sep/Oct/Jan/Dec and three year titles center at logical x=636 within half a pixel.')
 
 # Trace actual renderer glyph placement without changing its production file.
@@ -54,16 +54,20 @@ spec=render('books-polished','books','progress_loaded=1; book_page=1; render_boo
 progress_fields=[l.split('\t') for l in spec.splitlines() if l.startswith('text\tbooks\t') and (l.endswith('暂无进度') or re.search(r'\d+%$',l))]
 assert progress_fields and {tuple(f[4:5]+f[6:7]) for f in progress_fields}=={('1090','right')}
 for maximum in [0,5,61,73,100,120,246,294,300,999,6000]:
-    (session/'months.tsv').write_text(f'2026-09\t{maximum*60}\n')
-    p=render(f'chart-{maximum}','total','view_year=2026; render_total; printf "%s %s\\n" "$scale" "$tick_step" > "$SESSION_DIR/chart-scale.tsv"')
+    (session/'days.tsv').write_text(f'2026-09-01\t{maximum*60}\n')
+    p=render(f'chart-{maximum}','total','view_year=2026; render_total; printf "%s %s\\n" "$scale" "$tick_hours" > "$SESSION_DIR/chart-scale.tsv"')
     ceiling,step=map(int,(session/'chart-scale.tsv').read_text(encoding='utf-8').split())
-    if maximum>=60:assert 1.10<=ceiling/maximum<=1.15,(maximum,ceiling)
-    else:assert ceiling==60
+    expected_ceiling=max(60,((maximum*112+5999)//6000)*60)
+    assert ceiling==expected_ceiling,(maximum,ceiling,expected_ceiling)
+    hours=ceiling//60; normalized=hours/5; magnitude=1
+    while normalized>=10: normalized/=10; magnitude*=10
+    expected_step=(1 if normalized<1.5 else 2 if normalized<3.5 else 5 if normalized<7.5 else 10)*magnitude
+    assert step==expected_step,(maximum,step,expected_step)
     if maximum==294:
-        assert ceiling==330
+        assert ceiling==360
         labels=[l.split('\t')[-1] for l in p.splitlines() if l.startswith('text\tchart\tR\t20')]
-        assert labels==['100分','200分','300分']
-record('progress column and chart headroom','Known/unknown progress share x=1090/right; 11 chart scales tested. 294min gives 330min ceiling and 100/200/300 ticks; normal maxima get 10–15% headroom.')
+        assert labels==['1h','2h','3h','4h','5h','6h']
+record('progress column and chart headroom','Known/unknown progress share x=1090/right; 11 current integer-hour annual chart scales and nice tick steps tested. 294min gives a 6h ceiling with 1h ticks.')
 
 # Titles must preserve Latin words at either line boundary, including ellipsis.
 title_cases=["Harry Potter and the Philosopher's Stone (English Edition)",

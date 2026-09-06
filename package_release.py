@@ -5,7 +5,7 @@ from PIL import Image
 
 root=Path(__file__).resolve().parent
 files=[root/'RUNME.sh',*sorted(p for p in (root/'native-reading-time-package').rglob('*') if p.is_file())]
-archive=root/'Kindle安装包-v9.6.8-summary-sync-fix.zip'
+archive=root/'Kindle安装包-v9.6.9-calendar-heatmap.zip'
 with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
     for p in files:z.write(p,p.relative_to(root).as_posix())
 with zipfile.ZipFile(archive) as z:
@@ -14,7 +14,7 @@ with zipfile.ZipFile(archive) as z:
     for p in files:assert z.read(p.relative_to(root).as_posix())==p.read_bytes()
 manifest={p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
 (root/'validation/release-sha256.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
-original=root.parent/'v9.6.7-week-view'
+original=root.parent/'v9.6.8-summary-sync-fix'
 baseline_manifest=json.loads((original/'validation/release-sha256.json').read_text(encoding='utf-8'))
 for name,sha256 in baseline_manifest.items():
     assert hashlib.sha256((original/name).read_bytes()).hexdigest()==sha256,name

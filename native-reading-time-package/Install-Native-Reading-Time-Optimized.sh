@@ -8,8 +8,8 @@ JOB="native-reading-time"
 CONF="/etc/upstart/${JOB}.conf"
 DAEMON="$BASE/bin/native-reading-time-daemon.sh"
 VIEWER="/mnt/us/documents/阅读记录.sh"
-RELEASE="$BASE/releases/9.6.8-summary-sync-fix"
-STAGE="$BASE/.install-9.6.8-summary-sync-fix.$$"
+RELEASE="$BASE/releases/9.6.9-calendar-heatmap"
+STAGE="$BASE/.install-9.6.9-calendar-heatmap.$$"
 ROOT_RW=0; ACTIVATED=0; SERVICE_WAS_RUNNING=0; ROLLBACK_DONE=0
 
 mkdir -p "$BASE" || exit 1
@@ -22,7 +22,7 @@ root_rw() {
     if mntroot rw >/dev/null 2>&1 || /usr/sbin/mntroot rw >/dev/null 2>&1 || /sbin/mntroot rw >/dev/null 2>&1; then ROOT_RW=1; return 0; fi
     return 1
 }
-cleanup_stage() { case "$STAGE" in /mnt/us/reading-time/.install-9.6.8-summary-sync-fix.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
+cleanup_stage() { case "$STAGE" in /mnt/us/reading-time/.install-9.6.9-calendar-heatmap.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
 
 rollback() {
     [ "$ROLLBACK_DONE" -eq 0 ] || return; ROLLBACK_DONE=1
@@ -98,8 +98,8 @@ lipc-set-prop com.lab126.scanner doFullScan 1 >/dev/null 2>&1 || lipc-set-prop c
 /sbin/initctl start "$JOB" >/dev/null 2>&1 || true; sleep 2
 /sbin/initctl status "$JOB" 2>/dev/null | grep -q 'start/running' || fail "tracker service did not start"
 cmp -s "$DAEMON" "$PKG/native-reading-time-daemon.sh" || fail "installed daemon differs from validated payload"
-printf '9.6.8-summary-sync-fix\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
+printf '9.6.9-calendar-heatmap\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
 
 ACTIVATED=0; cleanup_stage; trap - INT TERM HUP; root_ro; sync
-echo "$(date): 9.6.8-summary-sync-fix installed and running, daemon_cmp=identical"
-toast "Reading records 9.6.8-summary-sync-fix installed"; exit 0
+echo "$(date): 9.6.9-calendar-heatmap installed and running, daemon_cmp=identical"
+toast "Reading records 9.6.9-calendar-heatmap installed"; exit 0
