@@ -1,4 +1,4 @@
-"""Offline integration tests for v9.6.8-summary-sync-fix.
+"""Offline integration tests retained for v9.6.10-ui-layout-fix.
 
 The production POSIX shell functions, AWK cache builder, Lua 5.1 renderer,
 title wrapper and touch hit-testing are exercised without Kindle hardware.
@@ -78,7 +78,7 @@ definitions = viewer[: viewer.index("\ndetect_screen; find_touch_device")]
 definitions = definitions.replace('exec >> "$LOG" 2>&1', "")
 definitions = definitions.replace('\ntrap cleanup EXIT INT TERM HUP\n', "\n")
 definitions = definitions.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"', "")
-definitions = definitions.replace('today="$(date +%Y-%m-%d)"', 'today="${TEST_TODAY:-$(date +%Y-%m-%d)}"')
+definitions = definitions.replace('$(date +%Y-%m-%d)', '${TEST_TODAY:-$(date +%Y-%m-%d)}')
 (OUT / "functions-v9.6.8.sh").write_text(definitions, encoding="utf-8", newline="\n")
 (OUT / "lua_runner.py").write_text(
     """import sys
@@ -113,6 +113,7 @@ fixture_rows = [
 )
 
 setup = r'''. validation/functions-v9.6.8.sh
+TEST_TODAY=2026-09-06
 SESSION_DIR=validation/stats-session
 DATA="$SESSION_DIR/reading-time.tsv"; SUMMARY="$SESSION_DIR/summary.tsv"; MONTHS="$SESSION_DIR/months.tsv"; WEEKS="$SESSION_DIR/weeks.tsv"
 DAYS="$SESSION_DIR/days.tsv"; DAY_BOOKS="$SESSION_DIR/day-books.tsv"; CALENDAR="$SESSION_DIR/calendar.tsv"

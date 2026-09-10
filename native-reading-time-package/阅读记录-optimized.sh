@@ -1,12 +1,12 @@
 #!/bin/sh
 
-# Kindle 原生阅读记录 9.6.9-calendar-heatmap.  This process exists only while the
+# Kindle 原生阅读记录 9.6.10-ui-layout-fix.  This process exists only while the
 # dashboard is open.  The tracker daemon and reading-time.tsv are untouched.
 BASE="/mnt/us/reading-time"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="/var/local/kmc/bin/fbink"
-RELEASE="$BASE/releases/9.6.9-calendar-heatmap"
+RELEASE="$BASE/releases/9.6.10-ui-layout-fix"
 UI_DIR="$RELEASE/ui-calendar"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch-ui.lua"
 RENDERER="$RELEASE/bin/reading-insights-render.lua"
@@ -152,6 +152,7 @@ srect() { printf 'rect\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" 
 sround() { printf 'round\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" >> "$SPEC"; }
 stext() { printf 'text\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" >> "$SPEC"; }
 slabel() { printf 'text\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t255\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" >> "$SPEC"; }
+sfitlabel() { printf 'textfit\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t255\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}" >> "$SPEC"; }
 swrite() { printf 'write\t%s\n' "$1" >> "$SPEC"; }
 
 prepare_week_view() {
@@ -224,14 +225,25 @@ render_total() {
     canvas toggle 210 58 "$d"; [ "$total_period" = week ] && week_selected=1 || week_selected=0; [ "$total_period" = year ] && year_selected=1 || year_selected=0
     spec_toggle_button toggle 0 95 "本周" "$week_selected"; spec_toggle_button toggle 115 95 "今年" "$year_selected"; swrite toggle
     canvas year 360 70 "$b"; [ "$total_period" = week ] && title_size=30 || title_size=39; stext year B "$title_size" 180 10 center 0 "$period_title"; swrite year
-    canvas chart 1122 690 "$c"; srect chart 0 630 1122 3 20
-    gl="$tick_hours"; while [ "$gl" -le "$scale_hours" ]; do gy=$((630-590*gl/scale_hours)); srect chart 0 "$gy" 1122 2 190; stext chart R 20 7 $((gy-26)) left 0 "${gl}h"; gl=$((gl+tick_hours)); done
-    count="$(awk 'NF{n++}END{print n+0}' "$TOTAL_VALUES")"; if [ "$count" -eq 7 ]; then step=160; bar_w=76; start_x=22; axis_size=24; else step=94; bar_w=48; start_x=7; axis_size=24; fi
+    canvas chart 1122 690 "$c"
+    # Reserve a measured Y-axis gutter and a separate safety gap before the
+    # plot.  Bar centers are then derived uniformly from the remaining area.
+    chart_w=1122; chart_base=630; chart_height=590; axis_text_left=7; axis_gap=28; right_margin=16; plot_right=$((chart_w-right_margin))
+    set --; gl="$tick_hours"; while [ "$gl" -le "$scale_hours" ]; do set -- "$@" "${gl}h"; gl=$((gl+tick_hours)); done
+    [ "$#" -gt 0 ] || set -- "${scale_hours}h"
+    axis_label_w="$(lua "$RENDERER" "$RENDER_ASSETS" --measure R 20 "$@")" || return 1
+    case "$axis_label_w" in ''|*[!0-9]*) return 1;; esac
+    axis_text_right=$((axis_text_left+axis_label_w)); plot_left=$((axis_text_right+axis_gap)); plot_width=$((plot_right-plot_left))
+    [ "$plot_width" -gt 0 ] || return 1
+    srect chart "$plot_left" "$chart_base" "$plot_width" 3 20
+    gl="$tick_hours"; while [ "$gl" -le "$scale_hours" ]; do gy=$((chart_base-chart_height*gl/scale_hours)); srect chart "$plot_left" "$gy" "$plot_width" 2 190; stext chart R 20 "$axis_text_right" $((gy-26)) right 0 "${gl}h"; gl=$((gl+tick_hours)); done
+    count="$(awk 'NF{n++}END{print n+0}' "$TOTAL_VALUES")"; if [ "$count" -eq 7 ]; then bar_w=76; axis_size=24; else bar_w=48; axis_size=24; fi
+    [ "$count" -gt 0 ] || return 1
     pos=0; while IFS="$(printf '\t')" read -r axis_label mins color; do
-        x=$((start_x+pos*step)); bh=$((mins*590/scale)); [ "$mins" -gt 0 ] && [ "$bh" -lt 8 ] && bh=8
-        [ "$bh" -gt 0 ] && srect chart "$x" $((630-bh)) "$bar_w" "$bh" "$color"
-        stext chart B "$axis_size" $((x+bar_w/2)) 650 center 0 "$axis_label"
-        [ "$mins" -gt 0 ] && slabel chart B 20 $((x+bar_w/2)) $((630-bh-32)) center 0 "$(chart_time_text "$mins")"
+        center=$((plot_left+plot_width*(2*pos+1)/(2*count))); x=$((center-bar_w/2)); bh=$((mins*chart_height/scale)); [ "$mins" -gt 0 ] && [ "$bh" -lt 8 ] && bh=8
+        [ "$bh" -gt 0 ] && srect chart "$x" $((chart_base-bh)) "$bar_w" "$bh" "$color"
+        stext chart B "$axis_size" "$center" 650 center 0 "$axis_label"
+        [ "$mins" -gt 0 ] && sfitlabel chart B 20 "$center" $((chart_base-bh-32)) center 0 "$(chart_time_text "$mins")" "$plot_left" "$plot_right"
         pos=$((pos+1))
     done < "$TOTAL_VALUES"
     swrite chart; run_renderer || return 1
@@ -298,6 +310,10 @@ render_detail_page() {
 render_daily() {
     with_labels="$1"; dim="$(days_in_month "$daily_y" "$daily_m")"; offset="$(weekday_offset "$daily_y" "$daily_m")"
     rows=$(((offset+dim+6)/7)); cell_h=$((CALENDAR_GRID_H/rows))
+    calendar_today="${today:-$(date +%Y-%m-%d)}"
+    today_y="${calendar_today%%-*}"; today_md="${calendar_today#*-}"; today_m="${today_md%%-*}"; today_d="${calendar_today##*-}"
+    today_m="${today_m#0}"; today_d="${today_d#0}"
+    case "$today_y:$today_m:$today_d" in *[!0-9:]*) today_y=0; today_m=0; today_d=0;; esac
     set -- $(awk -F '\t' -v y="$daily_y" -v m="$daily_m" -v n="$dim" 'BEGIN{for(i=1;i<=n;i++)v[i]=0}$1~sprintf("^%04d-%02d-",y,m){d=substr($1,9,2)+0;v[d]+=$2}END{for(i=1;i<=n;i++)printf "%d%s",v[i]+0,(i<n?" ":"\n")}' "$DAYS")
     a="$SESSION_DIR/daily-calendar.pgm.new"; : > "$SPEC"; canvas calendar 1122 722 "$a"
     # Render the complete rectangle, including all leading/trailing empty slots.
@@ -315,7 +331,15 @@ render_daily() {
         heat_gray="$(calendar_heat_gray "$heat_level")" || return 1
         ink="$(calendar_heat_ink "$heat_level")" || return 1
         srect calendar $((x+2)) $((y+2)) 150 $((cell_h-10)) "$heat_gray"
-        if [ "$day" -eq "$selected_day" ]; then srect calendar "$x" "$y" 154 $((cell_h-6)) 20; ink=255; fi
+        if [ "$daily_y" -eq "$today_y" ] && [ "$daily_m" -eq "$today_m" ] && [ "$day" -eq "$today_d" ]; then
+            # The normal border is 2 px.  Draw today's 4 px border inward so
+            # the heat fill remains truthful and neighboring cells never move.
+            cell_box_h=$((cell_h-6)); today_border=4
+            srect calendar "$x" "$y" 154 "$today_border" 20
+            srect calendar "$x" "$y" "$today_border" "$cell_box_h" 20
+            srect calendar $((x+154-today_border)) "$y" "$today_border" "$cell_box_h" 20
+            srect calendar "$x" $((y+cell_box_h-today_border)) 154 "$today_border" 20
+        fi
         stext calendar B 36 $((x+77)) $((y+10)) center "$ink" "$day"
         [ "$sec" -gt 0 ] && stext calendar R 27 $((x+77)) $((y+cell_h-43)) center "$ink" "$(calendar_time "$sec")"
         day=$((day+1))
@@ -411,7 +435,7 @@ detect_screen; find_touch_device
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
 [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
-printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.6.9-calendar-heatmap\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
+    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.6.10-ui-layout-fix\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
 lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true; dashboard_active=1
 

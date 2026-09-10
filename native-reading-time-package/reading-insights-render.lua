@@ -174,6 +174,21 @@ local function measure(style, size, text)
     return width, left or 0, right or width
 end
 
+-- Reuse the compositor's exact glyph metrics for shell-side layout.  This
+-- mode performs no drawing and exists so gutters need not rely on guessed
+-- character widths.
+if spec_path == "--measure" then
+    local style = assert(arg[3], "missing measure style")
+    local size = assert(tonumber(arg[4]), "missing measure size")
+    local max_width = 0
+    for index = 5, #arg do
+        local _, left, right = measure(style, size, arg[index])
+        max_width = math.max(max_width, math.ceil(right - left))
+    end
+    io.write(tostring(max_width), "\n")
+    return
+end
+
 local function draw_glyph(canvas, glyph, x, y, color)
     for row_index = 0, glyph.h - 1 do
         local atlas_start = (glyph.y + row_index) * atlas.width + glyph.x + 1
@@ -204,10 +219,15 @@ local function draw_glyph(canvas, glyph, x, y, color)
     end
 end
 
-local function text(canvas, style, size, x, y, align, color, message, background)
+local function text(canvas, style, size, x, y, align, color, message, background, min_x, max_x)
     local width, left, right = measure(style, size, message)
     if align == "center" then x = math.floor(x - (left + right) / 2)
     elseif align == "right" then x = x - right end
+    if min_x and max_x then
+        local padding = background and 4 or 0
+        if x + left - padding < min_x then x = min_x - left + padding end
+        if x + right + padding > max_x then x = max_x - right - padding end
+    end
     if background then
         local bottom = 0
         for char in utf8_chars(message) do
@@ -248,6 +268,8 @@ for line in io.lines(spec_path) do
             rounded_rect(assert(canvases[f[2]]), tonumber(f[3]), tonumber(f[4]), tonumber(f[5]), tonumber(f[6]), tonumber(f[7]), tonumber(f[8]))
         elseif op == "text" then
             text(assert(canvases[f[2]]), f[3], tonumber(f[4]), tonumber(f[5]), tonumber(f[6]), f[7], tonumber(f[8]), f[9] or "", tonumber(f[10]))
+        elseif op == "textfit" then
+            text(assert(canvases[f[2]]), f[3], tonumber(f[4]), tonumber(f[5]), tonumber(f[6]), f[7], tonumber(f[8]), f[9] or "", tonumber(f[10]), tonumber(f[11]), tonumber(f[12]))
         elseif op == "write" then
             write_canvas(assert(canvases[f[2]]))
         else
