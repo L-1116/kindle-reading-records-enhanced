@@ -4,7 +4,7 @@ import hashlib, json, shutil, subprocess
 
 ROOT=Path(__file__).resolve().parent
 PKG=ROOT/'native-reading-time-package'
-BASELINE=ROOT.parent/'v9.6.9-calendar-heatmap/native-reading-time-package'
+BASELINE=ROOT.parent/'v9.6.10-ui-layout-fix/native-reading-time-package'
 SANDBOX=ROOT/'validation/install-sandbox'
 assert SANDBOX.resolve().is_relative_to((ROOT/'validation').resolve())
 # No recursive removal: tests can be rerun in a fresh numbered sandbox.
@@ -22,7 +22,7 @@ data=state/'reading-time.tsv'
 data.write_text('date\tbook_id\tseconds\ttitle\n2026-09-05\tb1\t14760\tKeep reading history\n',encoding='utf-8')
 shutil.copy2(BASELINE/'阅读记录-optimized.sh',viewer)
 shutil.copy2(BASELINE/'native-reading-time.conf',conf)
-old_release=state/'releases/9.6.9-calendar-heatmap'; old_release.mkdir(parents=True)
+old_release=state/'releases/9.6.10-ui-layout-fix'; old_release.mkdir(parents=True)
 (old_release/'preserved-marker').write_text('old release stays available')
 before={str(p):digest(p) for p in (viewer,conf,data,old_release/'preserved-marker')}
 fake_ld=SANDBOX/'ld-linux-armhf.so.3'; fake_ld.write_bytes(b'test')
@@ -57,18 +57,19 @@ assert not (SANDBOX/'service-calls.log').exists()
 shutil.copy2(PKG/'native-reading-time-daemon.sh',daemon)
 p=subprocess.run([sh,script.as_posix()],capture_output=True)
 assert p.returncode==0,(p.stdout,p.stderr,(state/'install.log').read_text(encoding='utf-8'))
-release=state/'releases/9.6.10-ui-layout-fix'
+release=state/'releases/9.7.1-day-detail'
 assert digest(viewer)==digest(PKG/'阅读记录-optimized.sh')
 assert digest(daemon)==digest(PKG/'native-reading-time-daemon.sh')
 assert digest(conf)==digest(PKG/'native-reading-time.conf')
 assert digest(data)==before[str(data)]
 assert digest(state/'reading-time.tsv.bak')==before[str(data)]
-assert (state/'VERSION').read_text().strip()=='9.6.10-ui-layout-fix'
+assert (state/'VERSION').read_text().strip()=='9.7.1-day-detail'
 assert digest(old_release/'preserved-marker')==before[str(old_release/'preserved-marker')]
 for f in ['reading-insights-touch-ui.lua','reading-insights-titles.lua','reading-insights-title-widths.lua','reading-insights-cache.awk','reading-insights-render.lua']:
     assert digest(release/'bin'/f)==digest(PKG/f),f
-for f in ['daily.png','books.png','total.png']:
+for f in ['daily.png','books.png','total.png','day_detail.png']:
     assert digest(release/'ui-calendar'/f)==digest(PKG/'ui-calendar'/f)
+for f in ['daily.png','books.png','total.png']:
     assert digest(state/'ui'/f)==digest(BASELINE/'ui'/f)
 assert digest(state/'bin/reading-insights-touch.lua')==digest(BASELINE/'reading-insights-touch.lua')
 assert digest(release/'bin/reading-records-v9.6.3.sh')==digest(BASELINE/'阅读记录.sh')

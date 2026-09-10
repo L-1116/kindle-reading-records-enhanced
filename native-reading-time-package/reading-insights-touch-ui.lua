@@ -43,16 +43,24 @@ local function inside(px, py, left, top, right, bottom)
     return px >= left and px <= right and py >= top and py <= bottom
 end
 local function action_for_logical(px, py)
-    if inside(px, py, 20, 20, 270, 155) then return "exit" end
-    if inside(px, py, 35, 165, 415, 275) then return "tab_daily" end
-    if inside(px, py, 430, 165, 800, 275) then return "tab_books" end
-    if inside(px, py, 815, 165, 1237, 275) then return "tab_total" end
+    if mode == "day_detail" and inside(px, py, 20, 20, 300, 155) then return "day_detail_back" end
+    if mode ~= "day_detail" and inside(px, py, 20, 20, 270, 155) then return "exit" end
+    if mode ~= "day_detail" then
+        if inside(px, py, 35, 165, 415, 275) then return "tab_daily" end
+        if inside(px, py, 430, 165, 800, 275) then return "tab_books" end
+        if inside(px, py, 815, 165, 1237, 275) then return "tab_total" end
+    end
 
     if mode == "total" then
         if inside(px, py, 65, 638, 160, 692) then return "total_week" end
         if inside(px, py, 180, 638, 275, 692) then return "total_year" end
         if inside(px, py, 280, 625, 440, 750) then return "total_prev" end
         if inside(px, py, 840, 625, 1000, 750) then return "total_next" end
+        if total_period == "week" and inside(px, py, 135, 760, 1181, 1450) then
+            local day_index = math.floor((px - 135) * 7 / 1047)
+            if day_index > 6 then day_index = 6 end
+            return "week_day_" .. day_index
+        end
     elseif mode == "daily" then
         if inside(px, py, 220, 300, 450, 430) then return "month_prev" end
         if inside(px, py, 840, 300, 1070, 430) then return "month_next" end
@@ -60,6 +68,9 @@ local function action_for_logical(px, py)
             if detail_page > 1 and inside(px, py, 390, pager_y, 529, pager_y+47) then return "detail_prev" end
             if detail_page < detail_pages and inside(px, py, 742, pager_y, 881, pager_y+47) then return "detail_next" end
         end
+        -- The visible title is small, but the complete quick-preview header is
+        -- a generous drill-down target.
+        if inside(px, py, 70, 1222, 1202, 1305) then return "day_detail_open" end
         -- Same 1120 x 648 grid as render_daily; Monday=0, four to six rows.
         local rows = math.floor((calendar_offset + calendar_days + 6) / 7)
         local cell_h = math.floor(648 / rows)
@@ -74,6 +85,11 @@ local function action_for_logical(px, py)
             -- Consume visible blank cells/gutters at the UI hit-test layer:
             -- they must not fall through to the swapped-axis compatibility retry.
             return "ignore"
+        end
+    elseif mode == "day_detail" then
+        if detail_pages > 1 then
+            if detail_page > 1 and inside(px, py, 390, pager_y, 529, pager_y+53) then return "day_detail_prev" end
+            if detail_page < detail_pages and inside(px, py, 742, pager_y, 881, pager_y+53) then return "day_detail_next" end
         end
     elseif mode == "books" then
         if inside(px, py, 70, 285, 424, 339) then return "books_7d" end

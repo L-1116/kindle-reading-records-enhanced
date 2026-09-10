@@ -5,23 +5,27 @@ import json, hashlib
 
 ROOT=Path(__file__).resolve().parent
 PKG=ROOT/'native-reading-time-package'
-BASE=ROOT.parent/'v9.6.6-stats-filters'
 FONT=PKG/'NotoSansCJKsc-Regular.otf'
 
 def build():
-    # Preserve the stable cards and navigation.  Only clear the two old static
-    # section labels so the new dynamic secondary filters can occupy that space.
-    total=Image.open(BASE/'native-reading-time-package/ui-calendar/total.png').convert('L')
-    ImageDraw.Draw(total).rectangle((70,630,292,724),fill=255)
-    total.save(PKG/'ui-calendar/total.png')
-    books=Image.open(BASE/'native-reading-time-package/ui-calendar/books.png').convert('L')
-    ImageDraw.Draw(books).rectangle((60,285,1210,342),fill=255)
-    books.save(PKG/'ui-calendar/books.png')
+    # The three primary backgrounds were copied byte-for-byte from v9.6.10.
+    # Add one reusable secondary-page shell in the same monochrome language.
+    detail=Image.new('L',(1272,1696),255)
+    draw=ImageDraw.Draw(detail)
+    draw.rounded_rectangle((22,22,1250,1674),radius=30,outline=20,width=3)
+    draw.rounded_rectangle((55,54,266,145),radius=22,outline=20,width=3)
+    draw.rounded_rectangle((55,190,1217,520),radius=24,outline=20,width=3)
+    draw.rounded_rectangle((55,560,1217,1640),radius=24,outline=20,width=3)
+    font_back=ImageFont.truetype(str(FONT),38)
+    font_title=ImageFont.truetype(str(FONT),48)
+    draw.text((160,99),'返回',font=font_back,fill=0,anchor='mm',stroke_width=1,stroke_fill=0)
+    draw.text((636,99),'阅读详情',font=font_title,fill=0,anchor='mm',stroke_width=1,stroke_fill=0)
+    detail.save(PKG/'ui-calendar/day_detail.png')
 
-    old=(BASE/'native-reading-time-package/render-assets/dynamic-glyphs.tsv').read_text().splitlines()[1:]
+    old=(PKG/'render-assets/dynamic-glyphs.tsv').read_text(encoding='utf-8').splitlines()[1:]
     chars={chr(int(row.split('\t')[2],16)) for row in old}
     chars.update(chr(i) for i in range(32,127))
-    chars.update('周一二三四五六日月近本今年当前范围暂无满的书籍阅读日均')
+    chars.update('周一二三四五六日月近本今年当前范围暂无满的书籍阅读日均详情星期总时长明细记录最多›‹')
     sizes=sorted({int(row.split('\t')[1]) for row in old}|{28,44})
     records=[]
     for size in sizes:

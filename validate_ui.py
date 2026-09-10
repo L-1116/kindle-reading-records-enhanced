@@ -10,7 +10,7 @@ from lupa.lua51 import LuaRuntime
 ROOT=Path(__file__).resolve().parent
 PKG=ROOT/'native-reading-time-package'
 BASE=ROOT.parent/'v9.6.4-ui-calendar'
-STABLE=ROOT.parent/'v9.6.9-calendar-heatmap'
+STABLE=ROOT.parent/'v9.6.10-ui-layout-fix'
 OUT=ROOT/'validation'
 OUT.mkdir(exist_ok=True)
 os.chdir(ROOT)
@@ -42,10 +42,13 @@ for file in sorted(PKG.rglob('*')):
             stable_payload_changes.append(file.relative_to(ROOT).as_posix())
 assert stable_payload_changes==[
     'native-reading-time-package/Install-Native-Reading-Time-Optimized.sh',
-    'native-reading-time-package/reading-insights-render.lua',
+    'native-reading-time-package/reading-insights-touch-ui.lua',
+    'native-reading-time-package/render-assets/dynamic-glyphs.pgm',
+    'native-reading-time-package/render-assets/dynamic-glyphs.tsv',
+    'native-reading-time-package/ui-calendar/day_detail.png',
     'native-reading-time-package/阅读记录-optimized.sh',
 ]
-record('stable payload scope','Against v9.6.9, only the optimized viewer, compositor and versioned installer payload changed; all other shipped payload bytes are identical.')
+record('stable payload scope','Against v9.6.10, only the optimized viewer/touch map, added detail background/glyphs and versioned installer payload changed.')
 
 unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-cache.awk','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:
@@ -53,7 +56,7 @@ for rel in unchanged:
 for folder in ('ui',):
     for file in (PKG/folder).iterdir():
         assert file.read_bytes()==(STABLE/'native-reading-time-package'/folder/file.name).read_bytes()
-record('preserved core','Daemon, Upstart, cache, progress query, legacy viewer/touch, UI/font byte-identical to v9.6.9.')
+record('preserved core','Daemon, Upstart, cache builder, progress query, legacy viewer/touch, primary UI/font byte-identical to v9.6.10.')
 
 viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
 old=(STABLE/'native-reading-time-package/阅读记录-optimized.sh').read_text(encoding='utf-8')
@@ -97,12 +100,12 @@ cached.write_text(rows); cache_key.write_text(calendar_key)
 print('Calendar arithmetic passed.',flush=True)
 
 shift=run_shell('''. validation/functions.sh
-daily_y=2026; daily_m=12; selected_day=31; shift_month 1; echo "$daily_y $daily_m $selected_day"
-shift_month -1; echo "$daily_y $daily_m $selected_day"
-daily_y=2024; daily_m=3; selected_day=31; shift_month -1; echo "$daily_y $daily_m $selected_day"
+daily_y=2026; daily_m=12; selected_date=2026-12-31; shift_month 1; echo "$daily_y $daily_m $selected_date"
+shift_month -1; echo "$daily_y $daily_m $selected_date"
+daily_y=2024; daily_m=3; selected_date=2024-03-31; shift_month -1; echo "$daily_y $daily_m $selected_date"
 ''')
-assert shift.splitlines()==['2027 1 1','2026 12 1','2024 2 1']
-record('month transitions','December ↔ January and March 31 → leap February reset selection to valid day 1.')
+assert shift.splitlines()==['2027 1 2027-01-01','2026 12 2026-12-01','2024 2 2024-02-01']
+record('month transitions','December ↔ January and March 31 → leap February move selected_date to the target month day 1.')
 
 touch=(PKG/'reading-insights-touch-ui.lua').read_text(encoding='utf-8')
 touch=touch[:touch.index('\nnote(string.format("interactive watcher started')]
@@ -141,10 +144,10 @@ lua.execute(Path(sys.argv[1]).read_text(encoding="utf-8"))
 setup='''. validation/functions.sh
 SESSION_DIR=validation/session; mkdir -p "$SESSION_DIR"
 DATA="$SESSION_DIR/reading-time.tsv"; SUMMARY="$SESSION_DIR/summary.tsv"; MONTHS="$SESSION_DIR/months.tsv"; WEEKS="$SESSION_DIR/weeks.tsv"; DAYS="$SESSION_DIR/days.tsv"; DAY_BOOKS="$SESSION_DIR/day-books.tsv"; CALENDAR="$SESSION_DIR/calendar.tsv"
-BOOKS="$SESSION_DIR/books.tsv"; BOOKS_7D="$SESSION_DIR/books-7d.tsv"; BOOKS_MONTH="$SESSION_DIR/books-month.tsv"; BOOKS_YEAR="$SESSION_DIR/books-year.tsv"; PROGRESS="$SESSION_DIR/book-progress.tsv"; SPEC="$SESSION_DIR/render-spec.tsv"; TOTAL_VALUES="$SESSION_DIR/total-values.tsv"; WEEK_VIEW="$SESSION_DIR/week-view.tsv"
+BOOKS="$SESSION_DIR/books.tsv"; BOOKS_7D="$SESSION_DIR/books-7d.tsv"; BOOKS_MONTH="$SESSION_DIR/books-month.tsv"; BOOKS_YEAR="$SESSION_DIR/books-year.tsv"; PROGRESS="$SESSION_DIR/book-progress.tsv"; SPEC="$SESSION_DIR/render-spec.tsv"; TOTAL_VALUES="$SESSION_DIR/total-values.tsv"; WEEK_VIEW="$SESSION_DIR/week-view.tsv"; DAY_DETAIL_ALL="$SESSION_DIR/day-detail-all.tsv"; DAY_DETAIL_VIEW="$SESSION_DIR/day-detail-view.tsv"
 RENDERER=native-reading-time-package/reading-insights-render.lua; RENDER_ASSETS=native-reading-time-package/render-assets; CACHE_BUILDER=native-reading-time-package/reading-insights-cache.awk; TITLE_LAYOUT=native-reading-time-package/reading-insights-titles.lua
 renderer_available=1; RFONT=native-reading-time-package/NotoSansCJKsc-Regular.otf
-today=0000-00-00
+today_date=2026-09-11; selected_date=2026-09-05
 lua() { python validation/lua_runner.py "$@"; }
 image() { printf 'image\\t%s\\t%s\\t%s\\t%s\\t%s\\n' "$@" >> "$SESSION_DIR/draw.tsv"; }
 ot() { printf 'ot\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' "$@" >> "$SESSION_DIR/draw.tsv"; }
@@ -212,7 +215,7 @@ def render(name,mode,code):
     im.save(OUT/(name+'.png'))
     return spec
 
-spec=render('daily-2026-09','daily','daily_y=2026; daily_m=9; selected_day=5; render_daily 1')
+spec=render('daily-2026-09','daily','daily_y=2026; daily_m=9; selected_date=2026-09-05; render_daily 1')
 assert '1时18分' in spec and '本月阅读 4 天  共 4小时6分钟' in spec
 spec=render('total-rounding','total','view_year=2026; render_total')
 assert '日均  1小时2分钟' in spec
@@ -228,7 +231,7 @@ for sec,days,label in [(0,0,'0分钟'),(29,1,'0分钟'),(30,1,'1分钟'),(3599,1
     assert '日均  '+label in p
 record('rounding boundaries','Zero days and values just below/at half-minute boundaries rendered; hour carry and 61.495min vs 61.5min verified.')
 for name,y,m,day in [('empty-six-row',2026,3,31),('empty-four-row',2027,2,28),('leap-month',2024,2,29),('new-year',2027,1,1)]:
-    spec=render(name,'daily',f'daily_y={y}; daily_m={m}; selected_day={day}; render_daily 1')
+    spec=render(name,'daily',f'daily_y={y}; daily_m={m}; selected_date={y:04}-{m:02}-{day:02}; render_daily 1')
     assert '当日无阅读记录' in spec
     assert '本月阅读 0 天  共 0分钟' in spec
 record('empty month rendering','Real rendered four/five/six-row months, Feb 29, Jan 1, empty day/month: dates remain visible with no duration, explicit empty detail.')
@@ -239,7 +242,7 @@ expected=['[0]','[1]1秒','[25]25秒','[59]59秒','[60]1分','[61]1分','[3599]5
 assert actual.splitlines()==expected
 # Exercise atlas glyphs and short durations on one real rendered month.
 (session/'days.tsv').write_text(''.join(f'2026-09-{i:02}\t{v}\n' for i,v in enumerate(times,1)),encoding='utf-8')
-render('duration-range','daily','daily_y=2026; daily_m=9; selected_day=10; render_daily 1')
+render('duration-range','daily','daily_y=2026; daily_m=9; selected_date=2026-09-10; render_daily 1')
 record('duration boundaries','0, 1–59 sec, 1–59 min, exact hour, several hours and 24h tested; no record shows only date; sub-minute reading remains visible in seconds.')
 
 book_fixture=''.join(f'{sec}\t{title}\tb{i}\t{i}\n' for i,(sec,title) in enumerate([(9000,'72-庆余年'),(4416,long_cn),(1344,'55-变身荒野女主播'),(25,'67-球状闪电'),(10,long_en)],1))
@@ -252,7 +255,7 @@ title_lines=(session/'book-titles.tsv').read_text(encoding='utf-8').splitlines()
 assert len(title_lines)<=10 and sum('…' in x for x in title_lines)==2
 (session/'day-books.tsv').write_text(f'2026-09-05\t3600\t{long_cn}\n2026-09-05\t1800\t{long_en}\n2026-09-05\t60\t短书名\n',encoding='utf-8')
 (session/'days.tsv').write_text('2026-09-05\t5460\n',encoding='utf-8')
-render('daily-long-titles','daily','daily_y=2026; daily_m=9; selected_day=5; render_daily 1')
+render('daily-long-titles','daily','daily_y=2026; daily_m=9; selected_date=2026-09-05; render_daily 1')
 lines=(session/'daily-titles.tsv').read_text(encoding='utf-8').splitlines()
 assert len(lines)<=6 and sum('…' in x for x in lines)==2
 record('long titles and progress','Very long Chinese and English/no-space titles wrap to at most two lines then ellipsis; measured width within native text margins. Progress 0/13/30/100 and unknown render successfully.')
@@ -298,12 +301,12 @@ def calendar_pixels():
     return Image.open(session/'daily-calendar.pgm').convert('L')
 
 # One month covers Level 0–6, threshold edges, a non-Monday month start and
-# trailing empty slots. Day 13 is today and retains its true level-6 fill.
+# trailing empty slots. Day 13 is selected and retains its true level-6 fill.
 (session/'days.tsv').write_text(''.join(
     f'2026-09-{day:02}\t{seconds}\n' for day,seconds in enumerate(boundary_seconds,1)
 ),encoding='utf-8')
 (session/'day-books.tsv').write_text('2026-09-13\t19020\t热力测试书籍\n',encoding='utf-8')
-heat_spec=render('heatmap-boundaries','daily','today=2026-09-13; daily_y=2026; daily_m=9; selected_day=13; detail_page=1; render_daily 1')
+heat_spec=render('heatmap-boundaries','daily','today_date=2026-09-13; daily_y=2026; daily_m=9; selected_date=2026-09-13; detail_page=1; render_daily 1')
 heat_image=calendar_pixels()
 for day,(gray,level) in enumerate(zip(expected_grays,expected_levels),1):
     assert heat_image.getpixel(calendar_cell_point(2026,9,day))==gray,(day,level,gray)
@@ -318,35 +321,35 @@ assert '共 5小时17分钟' in heat_spec
 today_x,today_y=calendar_cell_point(2026,9,13,0,0)
 assert all(heat_image.getpixel((today_x+d,today_y+20))==20 for d in range(4))
 assert heat_image.getpixel((today_x+4,today_y+20))==70
-record('heatmap month rendering','A September fixture covers all levels and boundaries: inner fills match exact gray values, Level 5/6 text is white, Level 4 and lighter text is black, today keeps Level 6 while gaining a 4 px inward border, and empty slots stay white.')
+record('heatmap month rendering','A September fixture covers all levels and boundaries: inner fills match exact gray values, Level 5/6 text is white, Level 4 and lighter text is black, selected day 13 keeps Level 6 while gaining a 4 px inward border, and empty slots stay white.')
 
-# Selection continues to drive details but no longer changes any heat fill;
-# today's border remains attached to the actual date rather than selection.
-render('heatmap-selection-moved','daily','today=2026-09-13; daily_y=2026; daily_m=9; selected_day=2; detail_page=1; render_daily 0')
+# Selection drives both details and the independent border without changing
+# either the selected or formerly selected cell's heat fill.
+render('heatmap-selection-moved','daily','today_date=2026-09-13; daily_y=2026; daily_m=9; selected_date=2026-09-02; detail_page=1; render_daily 0')
 moved_image=calendar_pixels()
 assert moved_image.getpixel(calendar_cell_point(2026,9,13))==70
 assert moved_image.getpixel(calendar_cell_point(2026,9,2))==235
 today_x,today_y=calendar_cell_point(2026,9,13,0,0)
 selected_x,selected_y=calendar_cell_point(2026,9,2,0,0)
-assert moved_image.getpixel((today_x+3,today_y+20))==20 and moved_image.getpixel((today_x+4,today_y+20))==70
-assert moved_image.getpixel((selected_x+2,selected_y+20))==235
-record('today versus selection','Selecting another date changes details only: both cells retain their heat gray and the 4 px border remains exclusively on today.')
+assert moved_image.getpixel((today_x+1,today_y+20))==20 and moved_image.getpixel((today_x+2,today_y+20))==70
+assert moved_image.getpixel((selected_x+3,selected_y+20))==20 and moved_image.getpixel((selected_x+4,selected_y+20))==235
+record('selected-date border','Moving selection from Sep 13 to Sep 2 restores day 13 to 2 px and gives day 2 the sole 4 px border; both heat fills remain unchanged.')
 
 # Empty month, one active day, and a fully populated 31-day month exercise the
 # three density extremes without changing calendar geometry or summaries.
 (session/'days.tsv').write_text('',encoding='utf-8'); (session/'day-books.tsv').write_text('',encoding='utf-8')
-empty_spec=render('heatmap-empty-month','daily','daily_y=2026; daily_m=3; selected_day=31; detail_page=1; render_daily 1')
+empty_spec=render('heatmap-empty-month','daily','daily_y=2026; daily_m=3; selected_date=2026-03-31; detail_page=1; render_daily 1')
 empty_image=calendar_pixels()
 assert all(empty_image.getpixel(calendar_cell_point(2026,3,day))==255 for day in range(1,32))
 assert all(empty_image.getpixel(slot_point(2026,3,index))==255 for index in range(6))
 assert '本月阅读 0 天  共 0分钟' in empty_spec and '当日无阅读记录' in empty_spec
 (session/'days.tsv').write_text('2026-04-15\t1\n',encoding='utf-8')
-one_spec=render('heatmap-one-day','daily','daily_y=2026; daily_m=4; selected_day=1; detail_page=1; render_daily 1')
+one_spec=render('heatmap-one-day','daily','daily_y=2026; daily_m=4; selected_date=2026-04-01; detail_page=1; render_daily 1')
 assert calendar_pixels().getpixel(calendar_cell_point(2026,4,15))==235
 assert '本月阅读 1 天  共 0分钟' in one_spec
 all_month_seconds=[(day%6+1)*1800 for day in range(1,32)]
 (session/'days.tsv').write_text(''.join(f'2026-05-{day:02}\t{seconds}\n' for day,seconds in enumerate(all_month_seconds,1)),encoding='utf-8')
-full_spec=render('heatmap-31-days','daily','daily_y=2026; daily_m=5; selected_day=1; detail_page=1; render_daily 1')
+full_spec=render('heatmap-31-days','daily','daily_y=2026; daily_m=5; selected_date=2026-05-01; detail_page=1; render_daily 1')
 assert '本月阅读 31 天' in full_spec
 assert all(calendar_pixels().getpixel(calendar_cell_point(2026,5,day))!=(255) for day in range(2,32))
 record('heatmap month densities','Completely empty, one-reading-day and all-31-days-populated months render correctly; no-reading cells remain white and existing month statistics stay intact.')
@@ -354,17 +357,17 @@ record('heatmap month densities','Completely empty, one-reading-day and all-31-d
 # Month changes and returning from another page both regenerate from DAYS. Use
 # deliberately different August/September values to detect stale backgrounds.
 (session/'days.tsv').write_text('2026-08-01\t1800\n2026-09-01\t14400\n',encoding='utf-8')
-render('heatmap-september-before-switch','daily','daily_y=2026; daily_m=9; selected_day=2; detail_page=1; render_daily 1')
+render('heatmap-september-before-switch','daily','daily_y=2026; daily_m=9; selected_date=2026-09-02; detail_page=1; render_daily 1')
 assert calendar_pixels().getpixel(calendar_cell_point(2026,9,1))==70
-switch_spec=render('heatmap-august-after-switch','daily','daily_y=2026; daily_m=9; selected_day=28; detail_page=4; shift_month -1; render_daily 1')
+switch_spec=render('heatmap-august-after-switch','daily','daily_y=2026; daily_m=9; selected_date=2026-09-28; detail_page=4; shift_month -1; render_daily 1')
 assert '2026年8月' in switch_spec and '8月1日 阅读详情' in switch_spec
 assert calendar_pixels().getpixel(calendar_cell_point(2026,8,1))==210
-render('heatmap-august-unselected','daily','daily_y=2026; daily_m=8; selected_day=2; detail_page=1; render_daily 1')
+render('heatmap-august-unselected','daily','daily_y=2026; daily_m=8; selected_date=2026-08-02; detail_page=1; render_daily 1')
 assert calendar_pixels().getpixel(calendar_cell_point(2026,8,1))==210
 (session/'books.tsv').write_text('',encoding='utf-8'); (session/'books-7d.tsv').write_text('',encoding='utf-8')
 (session/'books-month.tsv').write_text('',encoding='utf-8'); (session/'books-year.tsv').write_text('',encoding='utf-8')
 render('heatmap-other-page','books','progress_loaded=1; book_filter=7d; book_page=1; render_books')
-render('heatmap-return-daily','daily','daily_y=2026; daily_m=9; selected_day=2; detail_page=1; render_daily 1')
+render('heatmap-return-daily','daily','daily_y=2026; daily_m=9; selected_date=2026-09-02; detail_page=1; render_daily 1')
 assert calendar_pixels().getpixel(calendar_cell_point(2026,9,1))==70
 record('heatmap redraw lifecycle','Previous/next-month state resets selection/page and rebuilds all cell fills from the target month; returning from another primary page and a fresh render both regenerate the correct heatmap with no stale prior-month gray.')
 
@@ -372,13 +375,13 @@ record('heatmap redraw lifecycle','Previous/next-month state resets selection/pa
 representative={2:1740,3:5580,4:2700,5:19020,6:7500}
 (session/'days.tsv').write_text(''.join(f'2026-09-{day:02}\t{seconds}\n' for day,seconds in representative.items()),encoding='utf-8')
 (session/'day-books.tsv').write_text('2026-09-05\t19020\t实机灰度预期检查\n',encoding='utf-8')
-representative_spec=render('heatmap-2026-09','daily','daily_y=2026; daily_m=9; selected_day=1; detail_page=1; render_daily 1')
+representative_spec=render('heatmap-2026-09','daily','daily_y=2026; daily_m=9; selected_date=2026-09-01; detail_page=1; render_daily 1')
 representative_image=calendar_pixels()
 assert [representative_image.getpixel(calendar_cell_point(2026,9,day)) for day in representative]==[235,180,210,70,145]
 assert '本月阅读 5 天  共 10小时9分钟' in representative_spec
 record('heatmap representative month','Visual preview matches the requested pattern: Sep 2/3/4/5/6 are Level 1/3/2/6/4 (235/180/210/70/145).')
 
-# Required today cases: the interior must keep its duration gray, the 4 px
+# Required selected-date cases: the interior must keep its duration gray, the 4 px
 # border must remain black, and text ink must continue to follow heat level.
 today_cases=[
     ('zero',0,255,0),
@@ -390,14 +393,14 @@ today_cases=[
 for case,seconds,gray,ink in today_cases:
     rows='' if seconds==0 else f'2026-09-10\t{seconds}\n'
     (session/'days.tsv').write_text(rows,encoding='utf-8')
-    spec=render(f'today-{case}','daily',f'today=2026-09-10; daily_y=2026; daily_m=9; selected_day=9; detail_page=1; render_daily 1')
+    spec=render(f'today-{case}','daily',f'today_date=2026-09-10; daily_y=2026; daily_m=9; selected_date=2026-09-10; detail_page=1; render_daily 1')
     image=calendar_pixels(); x,y=calendar_cell_point(2026,9,10,0,0)
     assert all(image.getpixel((x+dx,y+55))==20 for dx in range(4)),case
     assert image.getpixel((x+4,y+55))==gray,case
     date_line=next(line.split('\t') for line in spec.splitlines()
                    if line.startswith('text\tcalendar\tB\t36\t') and line.split('\t')[8]=='10')
     assert int(date_line[7])==ink,(case,date_line)
-record('today duration matrix','Today at 0 min, 4 min, 45 min, 90 min and 4 h keeps gray 255/235/210/180/70 respectively, always has a 4 px inward black border, and keeps the heat-derived black/white text decision.')
+record('selected duration matrix','A selected day at 0 min, 4 min, 45 min, 90 min and 4 h keeps gray 255/235/210/180/70 respectively, always has a 4 px inward black border, and keeps the heat-derived black/white text decision.')
 
 # Required weekly Monday cases.  Override only the prepared view/summary in
 # this isolated render harness; production period calculations remain intact.
@@ -439,14 +442,14 @@ record('weekly plot layout','Monday at 0, 35, 120 and 210 min uses one measured 
 # No cache/database/daemon/other-page logic changed. Calendar rendering remains
 # one offscreen canvas publication followed by the existing single region refresh.
 stable_viewer=(STABLE/'native-reading-time-package/阅读记录-optimized.sh').read_text(encoding='utf-8')
-for start,end in [('build_cache()','progress_loaded=0'),('prepare_total_values()','spec_toggle_button()'),('active_books()','draw_background()'),('refresh_region()','dashboard_active=0')]:
+for start,end in [('prepare_total_values()','spec_toggle_button()'),('active_books()','draw_background()'),('refresh_region()','dashboard_active=0')]:
     assert viewer[viewer.index(start):viewer.index(end)]==stable_viewer[stable_viewer.index(start):stable_viewer.index(end)]
 daily_block=viewer[viewer.index('render_daily()'):viewer.index('active_books()')]
 assert daily_block.count('canvas calendar ')==1 and daily_block.count('swrite calendar')==1
 assert daily_block.count('image "$SESSION_DIR/daily-calendar.pgm"')==1 and 'refresh_region' not in daily_block
 assert 'month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 1308;;' in viewer
 assert 'day_*) new_day=' in viewer and 'perform_draw date_select 0 0 55 460 1162 1168' in viewer
-record('heatmap isolation and refresh','Cache builder, daemon, database inputs, period-data calculations, books functions and refresh policy are byte-identical to v9.6.9. The calendar is composed offscreen once, published once, then refreshed once through the existing GC16 region path.')
+record('heatmap isolation and refresh','Cache builder payload, daemon, database inputs, period-data calculations, books functions and refresh policy are byte-identical to v9.6.10. The calendar is composed offscreen once, published once, then refreshed once through the existing GC16 region path.')
 
 manifest={}
 for file in sorted(BASE.rglob('*')):
@@ -457,6 +460,6 @@ for file in sorted(PKG.rglob('*')):
     if file.is_file():
         rel=file.relative_to(ROOT); source=STABLE/rel
         if not source.exists() or file.read_bytes()!=source.read_bytes():changes.append(str(rel))
-result={'checks':checks,'modified_or_added_payload':changes,'limits':['No physical Kindle/FBInk runtime test performed. PNG previews approximate native FBInk text only; grayscale distinction and ghosting need on-device observation.','Date selection still redraws the whole calendar+detail offscreen and performs one regional refresh, preserving the low-risk v9.6.9 interaction path.','Daily details paginate all books; capacity is derived from available height.','Books retain baseline sorting by cumulative seconds and five books per page.']}
+result={'checks':checks,'modified_or_added_payload':changes,'limits':['No physical Kindle/FBInk runtime test performed. PNG previews approximate native FBInk text only; grayscale distinction and ghosting need on-device observation.','Date selection redraws the whole calendar+preview offscreen and performs one regional refresh, preserving the low-risk v9.6.10 interaction path.','The quick preview still paginates as before; the reusable full day-detail page is covered separately.','Books retain baseline sorting by cumulative seconds and five books per page.']}
 (OUT/'results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(result,ensure_ascii=True,indent=2))

@@ -3,7 +3,7 @@ import re
 from PIL import ImageOps
 
 for y,m,day in [(2026,9,1),(2026,3,1),(2027,2,1),(2026,10,31)]:
-    p=render(f'grid-{y}-{m}','daily',f'daily_y={y}; daily_m={m}; selected_day={day}; detail_page=1; render_daily 1')
+    p=render(f'grid-{y}-{m}','daily',f'daily_y={y}; daily_m={m}; selected_date={y:04}-{m:02}-{day:02}; detail_page=1; render_daily 1')
     off,dim=calendar.monthrange(y,m); nr=(off+dim+6)//7; height=648//nr
     rects={tuple(map(int,line.split('\t')[2:6])) for line in p.splitlines() if line.startswith('rect\tcalendar\t')}
     for row in range(nr):
@@ -13,7 +13,7 @@ record('complete and taller grid','Every one of the seven slots in every row has
 
 # Ink bounding boxes, not guessed string lengths or arrow margins, are centered.
 for y,m in [(2026,9),(2026,10),(2027,1),(2028,12)]:
-    render(f'center-{y}-{m}','daily',f'daily_y={y}; daily_m={m}; selected_day=1; detail_page=1; render_daily 1')
+    render(f'center-{y}-{m}','daily',f'daily_y={y}; daily_m={m}; selected_date={y:04}-{m:02}-01; detail_page=1; render_daily 1')
     box=ImageOps.invert(Image.open(session/'daily-month.pgm')).getbbox()
     assert abs(450+(box[0]+box[2])/2-636)<=0.5,(y,m,box)
 for y in [2026,2027,2030]:
@@ -100,7 +100,7 @@ for count in [0,1,3,4,7,10]:
     total=sum(v for v,t in entries);(session/'days.tsv').write_text(f'2026-09-05\t{total}\n')
     seen=[];pages=max(1,(count+2)//3)
     for page in range(1,pages+1):
-        p=render(f'detail-{count}-page-{page}','daily',f'daily_y=2026; daily_m=9; selected_day=5; detail_page={page}; render_daily 1')
+        p=render(f'detail-{count}-page-{page}','daily',f'daily_y=2026; daily_m=9; selected_date=2026-09-05; detail_page={page}; render_daily 1')
         selected=(session/'daily-view.tsv').read_text(encoding='utf-8').splitlines()
         seen.extend(line.split('\t')[1] for line in selected)
         assert len(selected)<=3
@@ -110,13 +110,13 @@ for count in [0,1,3,4,7,10]:
             totals=[l for l in p.splitlines() if l.startswith('text\tdetail\tB\t32')]
             assert len(totals)==1
         old_calendar=(session/'daily-calendar.pgm').read_bytes()
-        run_shell(setup+f'cache_ok=1; daily_y=2026; daily_m=9; selected_day=5; detail_page={page}; render_detail_page')
+        run_shell(setup+f'cache_ok=1; daily_y=2026; daily_m=9; selected_date=2026-09-05; detail_page={page}; render_detail_page')
         assert (session/'daily-calendar.pgm').read_bytes()==old_calendar
         assert 'canvas\tcalendar' not in (session/'render-spec.tsv').read_text(encoding='utf-8')
     assert seen==[t for v,t in entries],(count,seen,entries)
     # Entering a day with fewer entries clamps an old page; month shift resets it.
-    values=run_shell(setup+f'daily_y=2026; daily_m=9; selected_day=5; detail_page=99; prepare_daily_view; echo "$detail_page $detail_pages $detail_capacity"; shift_month 1; echo "$detail_page $selected_day"')
-    assert values.splitlines()==[f'{pages} {pages} 3','1 1']
+    values=run_shell(setup+f'daily_y=2026; daily_m=9; selected_date=2026-09-05; detail_page=99; prepare_daily_view; echo "$detail_page $detail_pages $detail_capacity"; shift_month 1; echo "$detail_page $selected_date"')
+    assert values.splitlines()==[f'{pages} {pages} 3','1 2026-10-01']
 record('all daily books accessible','0/1/3/4/7/10 entries traversed without loss/duplication; whole-day totals retained, controls only when needed, page clamps and month resets checked; page-only renders leave calendar bytes unchanged.')
 
 # Pager hit tests, including hidden controls and disabled edge actions.
@@ -137,7 +137,7 @@ record('blank-cell and pager touch','Leading blank cells/gutters consumed withou
 entries=[(3357,"Harry Potter and the Philosopher's Stone (English Edition)"),(1344,'55-变身荒野女主播'),(600,'第三本：English Edition 混合书名'),(300,'第四本书'),(180,'第五本书'),(120,'第六本书'),(60,'第七本书')]
 (session/'day-books.tsv').write_text(''.join(f'2026-09-05\t{sec}\t{title}\n' for sec,title in entries),encoding='utf-8')
 (session/'days.tsv').write_text(f'2026-09-05\t{sum(s for s,t in entries)}\n2026-09-04\t1080\n',encoding='utf-8')
-render('daily-final','daily','daily_y=2026; daily_m=9; selected_day=5; detail_page=1; render_daily 1')
-render('daily-final-page-3','daily','daily_y=2026; daily_m=9; selected_day=5; detail_page=3; render_daily 1')
+render('daily-final','daily','daily_y=2026; daily_m=9; selected_date=2026-09-05; detail_page=1; render_daily 1')
+render('daily-final-page-3','daily','daily_y=2026; daily_m=9; selected_date=2026-09-05; detail_page=3; render_daily 1')
 (session/'months.tsv').write_text('2026-09\t17640\n');(session/'summary.tsv').write_text('17640\t4\n')
 render('total-final','total','view_year=2026; render_total')
