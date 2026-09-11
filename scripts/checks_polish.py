@@ -25,14 +25,14 @@ record('true horizontal centering','Rasterized ink bounds for Sep/Oct/Jan/Dec an
 # Trace actual renderer glyph placement without changing its production file.
 samples=[('R',27,'1时33分'),('R',27,'阅读 3小时18分钟'),('B',70,'4小时54分钟'),('B',32,'日均 1小时14分钟'),('R',20,'300分'),('R',24,'14% 暂无进度'),('B',44,'2026年10月')]
 probe=OUT/'baseline-probe.tsv'
-commands=['canvas\tprobe\t1122\t700\tvalidation/baseline-probe.pgm']
+commands=['canvas\tprobe\t1122\t700\tbuild/validation/baseline-probe.pgm']
 for i,(st,sz,msg) in enumerate(samples):commands.append(f'text\tprobe\t{st}\t{sz}\t20\t{i*95+10}\tleft\t0\t{msg}')
 commands.append('write\tprobe');probe.write_text('\n'.join(commands)+'\n',encoding='utf-8')
 renderer_source=(PKG/'reading-insights-render.lua').read_text(encoding='utf-8')
 traced=renderer_source.replace('local function draw_glyph(canvas, glyph, x, y, color)','''local function draw_glyph(canvas, glyph, x, y, color)
     glyph_trace[#glyph_trace+1]={x=x,y=y,by=glyph.bearing_y,bx=glyph.bearing_x,baseline=glyph.baseline}
 ''')
-lua=LuaRuntime(); lua.globals().glyph_trace=lua.table();lua.globals().arg=lua.table_from({1:'native-reading-time-package/render-assets',2:'validation/baseline-probe.tsv'})
+lua=LuaRuntime(); lua.globals().glyph_trace=lua.table();lua.globals().arg=lua.table_from({1:'native-reading-time-package/render-assets',2:'build/validation/baseline-probe.tsv'})
 lua.execute(traced)
 trace=lua.globals().glyph_trace;idx=1
 for i,(st,sz,msg) in enumerate(samples):

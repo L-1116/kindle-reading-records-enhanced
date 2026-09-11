@@ -1,16 +1,14 @@
 """Exercise the installer in a workspace sandbox with all device operations mocked."""
 from pathlib import Path
-import hashlib, json, shutil, subprocess
+import atexit, hashlib, json, shutil, subprocess, tempfile
 
-ROOT=Path(__file__).resolve().parent
+ROOT=Path(__file__).resolve().parents[1]
 PKG=ROOT/'native-reading-time-package'
-BASELINE=ROOT.parent/'v9.6.10-ui-layout-fix/native-reading-time-package'
-SANDBOX=ROOT/'validation/install-sandbox'
-assert SANDBOX.resolve().is_relative_to((ROOT/'validation').resolve())
-# No recursive removal: tests can be rerun in a fresh numbered sandbox.
-index=0
-while SANDBOX.exists():
-    index+=1; SANDBOX=ROOT/f'validation/install-sandbox-{index}'
+BASELINE=ROOT/'tests/baselines/v9.6.10'
+OUT=ROOT/'build/validation'; OUT.mkdir(parents=True,exist_ok=True)
+SANDBOX=Path(tempfile.mkdtemp(prefix='install-sandbox-',dir=OUT))
+assert SANDBOX.resolve().is_relative_to(OUT.resolve())
+atexit.register(shutil.rmtree,SANDBOX,ignore_errors=True)
 us=SANDBOX/'us'; state=us/'reading-time'; bin_dir=state/'bin'; docs=us/'documents'
 etc=SANDBOX/'etc/upstart'; mockbin=SANDBOX/'mockbin'
 for folder in (bin_dir,docs,etc,mockbin):folder.mkdir(parents=True,exist_ok=True)
@@ -21,7 +19,7 @@ conf=etc/'native-reading-time.conf'
 data=state/'reading-time.tsv'
 data.write_text('date\tbook_id\tseconds\ttitle\n2026-09-05\tb1\t14760\tKeep reading history\n',encoding='utf-8')
 shutil.copy2(BASELINE/'阅读记录-optimized.sh',viewer)
-shutil.copy2(BASELINE/'native-reading-time.conf',conf)
+shutil.copy2(PKG/'native-reading-time.conf',conf)
 old_release=state/'releases/9.6.10-ui-layout-fix'; old_release.mkdir(parents=True)
 (old_release/'preserved-marker').write_text('old release stays available')
 before={str(p):digest(p) for p in (viewer,conf,data,old_release/'preserved-marker')}
@@ -32,21 +30,22 @@ printf '%s\\n' "$*" >> "'''+(SANDBOX/'service-calls.log').as_posix()+'''"
 case "$1" in status) echo 'native-reading-time start/running, process 123';; esac
 exit 0
 ''',encoding='utf-8',newline='\n')
+lipc=mockbin/'lipc-set-prop'
+lipc.write_text('#!/bin/sh\nexit 0\n',encoding='utf-8',newline='\n')
 installer=(PKG/'Install-Native-Reading-Time-Optimized.sh').read_text(encoding='utf-8')
 installer=installer.replace('/mnt/us',us.as_posix()).replace('/etc/upstart',etc.as_posix())
 installer=installer.replace('/sbin/initctl','"'+initctl.as_posix()+'"').replace('/lib/ld-linux-armhf.so.3',fake_ld.as_posix())
 installer=installer.replace('PKG="'+us.as_posix()+'/native-reading-time-package"','PKG="'+PKG.as_posix()+'"')
 prelude='''#!/bin/sh
-export PATH="/usr/bin:$PATH"
+export PATH="'''+mockbin.as_posix()+''':/usr/bin:$PATH"
 id() { echo 0; }
 mntroot() { return 0; }
-lipc-set-prop() { return 0; }
 sleep() { return 0; }
 sync() { return 0; }
 '''
 script=SANDBOX/'installer-test.sh'; script.write_text(prelude+installer,encoding='utf-8',newline='\n')
-sh='C:/Program Files/Git/usr/bin/sh.exe'
-subprocess.run([sh,'-c','/usr/bin/chmod 755 "$1"','test',initctl.as_posix()],check=True)
+sh=shutil.which('sh') or 'C:/Program Files/Git/usr/bin/sh.exe'
+subprocess.run([sh,'-c','/usr/bin/chmod 755 "$1" "$2"','test',initctl.as_posix(),lipc.as_posix()],check=True)
 # The negative case must reject a changed daemon before activating anything.
 daemon.write_bytes(b'not the validated daemon\n')
 p=subprocess.run([sh,script.as_posix()],capture_output=True)
@@ -70,9 +69,9 @@ for f in ['reading-insights-touch-ui.lua','reading-insights-titles.lua','reading
 for f in ['daily.png','books.png','total.png','day_detail.png']:
     assert digest(release/'ui-calendar'/f)==digest(PKG/'ui-calendar'/f)
 for f in ['daily.png','books.png','total.png']:
-    assert digest(state/'ui'/f)==digest(BASELINE/'ui'/f)
-assert digest(state/'bin/reading-insights-touch.lua')==digest(BASELINE/'reading-insights-touch.lua')
-assert digest(release/'bin/reading-records-v9.6.3.sh')==digest(BASELINE/'阅读记录.sh')
+    assert digest(state/'ui'/f)==digest(PKG/'ui'/f)
+assert digest(state/'bin/reading-insights-touch.lua')==digest(PKG/'reading-insights-touch.lua')
+assert digest(release/'bin/reading-records-v9.6.3.sh')==digest(PKG/'阅读记录.sh')
 result={'result':'PASS','checks':['Mismatched daemon rejected before service stop or viewer/data changes.','Successful staging and activation include all new helpers and UI assets.','Daemon/config exact payload match; history preserved; initial backup created.','Original release retained; legacy background and touch resources still match baseline.'],'limitation':'Installer paths redirected into workspace; Kindle service/root/toaster commands mocked, not an on-device install.'}
-(ROOT/'validation/installer-results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
+(OUT/'installer-results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(result,indent=2))

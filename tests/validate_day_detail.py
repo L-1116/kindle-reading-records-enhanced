@@ -1,24 +1,27 @@
 """Focused offline checks for selected_date and the reusable day-detail page."""
 from pathlib import Path
+import hashlib
 import json
+import shutil
 import subprocess
 
 from PIL import Image, ImageDraw, ImageFont
 from lupa.lua51 import LuaRuntime
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 PKG = ROOT / "native-reading-time-package"
-OUT = ROOT / "validation"
+BASE_HASHES = json.loads((ROOT / "tests/baselines/v9.6.10/payload-sha256.json").read_text(encoding="utf-8"))
+OUT = ROOT / "build/validation"
 SESSION = OUT / "day-detail-session"
-OUT.mkdir(exist_ok=True)
+OUT.mkdir(parents=True, exist_ok=True)
 SESSION.mkdir(exist_ok=True)
-SH = "C:/Program Files/Git/usr/bin/sh.exe"
+SH = shutil.which("sh") or "C:/Program Files/Git/usr/bin/sh.exe"
 
 
 def run_shell(code: str) -> str:
     result = subprocess.run(
-        [SH, "-c", 'export PATH="/usr/bin:$PATH"\n' + code],
+        [SH, "-c", 'PYTHON_BIN=$(command -v python)\nexport PATH="/usr/bin:$PATH"\n' + code],
         cwd=ROOT,
         capture_output=True,
         encoding="utf-8",
@@ -44,14 +47,14 @@ lua.execute(Path(sys.argv[1]).read_text(encoding='utf-8'))
     newline="\n",
 )
 
-setup = r'''. validation/functions-day-detail.sh
-SESSION_DIR=validation/day-detail-session
+setup = r'''. build/validation/functions-day-detail.sh
+SESSION_DIR=build/validation/day-detail-session
 DAYS="$SESSION_DIR/days.tsv"; DAY_BOOKS="$SESSION_DIR/day-books.tsv"
 DAY_DETAIL_ALL="$SESSION_DIR/day-detail-all.tsv"; DAY_DETAIL_VIEW="$SESSION_DIR/day-detail-view.tsv"
 SPEC="$SESSION_DIR/render-spec.tsv"; RENDERER=native-reading-time-package/reading-insights-render.lua
 RENDER_ASSETS=native-reading-time-package/render-assets; TITLE_LAYOUT=native-reading-time-package/reading-insights-titles.lua
 RFONT=native-reading-time-package/NotoSansCJKsc-Regular.otf; renderer_available=1; cache_ok=1
-lua() { python validation/lua_runner_day_detail.py "$@"; }
+lua() { "$PYTHON_BIN" build/validation/lua_runner_day_detail.py "$@"; }
 image() { printf 'image\t%s\t%s\t%s\t%s\t%s\n' "$@" >> "$SESSION_DIR/draw.tsv"; }
 ot() { printf 'ot\t%s\t%s\t%s\t%s\t%s\t%s\n' "$@" >> "$SESSION_DIR/draw.tsv"; }
 '''
@@ -229,9 +232,9 @@ assert viewer.index("day_detail_back)") < viewer.index("day_*)")
 assert 'week_offset=0' not in next(line for line in viewer.splitlines() if line.strip().startswith("day_detail_back)"))
 passed("return state", "Opening from calendar preserves selected_date/month; opening from a historical week preserves week_offset. Back restores the recorded source mode without resetting either context.")
 
-baseline = ROOT.parent / "v9.6.10-ui-layout-fix/native-reading-time-package"
 for unchanged in ("native-reading-time-daemon.sh", "native-reading-time.conf", "reading-insights-cache.awk", "阅读记录.sh", "reading-insights-touch.lua"):
-    assert (PKG / unchanged).read_bytes() == (baseline / unchanged).read_bytes(), unchanged
+    key = f"native-reading-time-package/{unchanged}"
+    assert hashlib.sha256((PKG / unchanged).read_bytes()).hexdigest() == BASE_HASHES[key], unchanged
 assert "$DATA" not in viewer[viewer.index("get_day_detail()"):viewer.index("prepare_daily_view()")]
 passed("data/core isolation", "Day detail reads only DAYS and DAY_BOOKS session aggregates; daemon, data format, cache builder, fallback viewer and legacy touch reader remain byte-identical to v9.6.10.")
 

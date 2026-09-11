@@ -3,7 +3,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 import json, hashlib
 
-ROOT=Path(__file__).resolve().parent
+ROOT=Path(__file__).resolve().parents[1]
 PKG=ROOT/'native-reading-time-package'
 FONT=PKG/'NotoSansCJKsc-Regular.otf'
 
@@ -63,7 +63,7 @@ def build():
     assets=PKG/'render-assets'
     atlas.save(assets/'dynamic-glyphs.pgm')
     (assets/'dynamic-glyphs.tsv').write_text('\n'.join(lines)+'\n',encoding='utf-8',newline='\n')
-    out=ROOT/'validation';out.mkdir(exist_ok=True)
+    out=ROOT/'build/validation';out.mkdir(parents=True,exist_ok=True)
     (out/'font-metrics.json').write_text(json.dumps({'font_sha256':hashlib.sha256(FONT.read_bytes()).hexdigest(),'sizes':sizes,'glyphs':len(records),'baseline_policy':'One shared baseline per size; per-glyph bearings from the same Noto font. No fallback font.'},indent=2),encoding='utf-8')
 
 if __name__=='__main__':build()

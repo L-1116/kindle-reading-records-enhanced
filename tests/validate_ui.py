@@ -3,24 +3,25 @@ No Kindle commands or foreground UI are used. Native FBInk text is approximated
 only in preview images; those previews are NOT a Kindle validation result.
 """
 from pathlib import Path
-import calendar, datetime, hashlib, json, os, subprocess, sys
+import calendar, datetime, hashlib, json, os, shutil, subprocess, sys
 from PIL import Image, ImageDraw, ImageFont
 from lupa.lua51 import LuaRuntime
 
-ROOT=Path(__file__).resolve().parent
+ROOT=Path(__file__).resolve().parents[1]
 PKG=ROOT/'native-reading-time-package'
-BASE=ROOT.parent/'v9.6.4-ui-calendar'
-STABLE=ROOT.parent/'v9.6.10-ui-layout-fix'
-OUT=ROOT/'validation'
-OUT.mkdir(exist_ok=True)
+BASELINES=ROOT/'tests/baselines'
+STABLE_VIEWER=BASELINES/'v9.6.10/阅读记录-optimized.sh'
+STABLE_HASHES=json.loads((BASELINES/'v9.6.10/payload-sha256.json').read_text(encoding='utf-8'))
+OUT=ROOT/'build/validation'
+OUT.mkdir(parents=True,exist_ok=True)
 os.chdir(ROOT)
-SH='C:/Program Files/Git/usr/bin/sh.exe'
-DASH='C:/Program Files/Git/usr/bin/dash.exe'
+SH=shutil.which('sh') or 'C:/Program Files/Git/usr/bin/sh.exe'
+DASH=shutil.which('dash') or 'C:/Program Files/Git/usr/bin/dash.exe'
 checks=[]
 def record(name,detail):
     checks.append({'check':name,'result':'PASS','detail':detail})
 def run_shell(code):
-    p=subprocess.run([SH,'-c','export PATH="/usr/bin:$PATH"\n'+code],capture_output=True,encoding='utf-8')
+    p=subprocess.run([SH,'-c','PYTHON_BIN=$(command -v python)\nexport PATH="/usr/bin:$PATH"\n'+code],capture_output=True,encoding='utf-8')
     assert p.returncode==0,(code,p.stdout,p.stderr)
     return p.stdout
 
@@ -37,8 +38,8 @@ record('syntax','All shipped .sh files: sh -n and dash -n; Lua files: Lua 5.1 lo
 stable_payload_changes=[]
 for file in sorted(PKG.rglob('*')):
     if file.is_file():
-        source=STABLE/file.relative_to(ROOT)
-        if not source.exists() or file.read_bytes()!=source.read_bytes():
+        rel=file.relative_to(ROOT).as_posix()
+        if STABLE_HASHES.get(rel)!=hashlib.sha256(file.read_bytes()).hexdigest():
             stable_payload_changes.append(file.relative_to(ROOT).as_posix())
 assert stable_payload_changes==[
     'native-reading-time-package/Install-Native-Reading-Time-Optimized.sh',
@@ -52,14 +53,16 @@ record('stable payload scope','Against v9.6.10, only the optimized viewer/touch 
 
 unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-cache.awk','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:
-    assert (PKG/rel).read_bytes()==(STABLE/'native-reading-time-package'/rel).read_bytes(),rel
+    key=f'native-reading-time-package/{rel}'
+    assert hashlib.sha256((PKG/rel).read_bytes()).hexdigest()==STABLE_HASHES[key],rel
 for folder in ('ui',):
     for file in (PKG/folder).iterdir():
-        assert file.read_bytes()==(STABLE/'native-reading-time-package'/folder/file.name).read_bytes()
+        key=f'native-reading-time-package/{folder}/{file.name}'
+        assert hashlib.sha256(file.read_bytes()).hexdigest()==STABLE_HASHES[key]
 record('preserved core','Daemon, Upstart, cache builder, progress query, legacy viewer/touch, primary UI/font byte-identical to v9.6.10.')
 
 viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
-old=(STABLE/'native-reading-time-package/阅读记录-optimized.sh').read_text(encoding='utf-8')
+old=STABLE_VIEWER.read_text(encoding='utf-8')
 for start,end in [('ensure_progress()','pgm_valid()'),('detect_screen()','time_text()'),('refresh_region()','dashboard_active=0'),('book_pages()','render_books()')]:
     assert viewer[viewer.index(start):viewer.index(end)]==old[old.index(start):old.index(end)]
 for name in ('page_prev)','page_next)'):
@@ -75,15 +78,13 @@ defs=defs.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=
 calendar_key=hashlib.sha256(viewer[viewer.index('days_in_month()'):viewer.index('shift_month()')].encode()).hexdigest()
 cached=OUT/'calendar-arithmetic.tsv'
 if not cached.exists():
-    import shutil
-    assert viewer[viewer.index('days_in_month()'):viewer.index('shift_month()')]==old[old.index('days_in_month()'):old.index('shift_month()')]
-    shutil.copy2(BASE/'validation/calendar-arithmetic.tsv',cached)
+    shutil.copy2(BASELINES/'v9.6.4/calendar-arithmetic.tsv',cached)
     (OUT/'calendar-arithmetic.sha256').write_text(calendar_key)
 cache_key=OUT/'calendar-arithmetic.sha256'
 if cached.exists() and cache_key.exists() and cache_key.read_text()==calendar_key:
     rows=cached.read_text()
 else:
-    rows=run_shell('''. validation/functions.sh
+    rows=run_shell('''. build/validation/functions.sh
 y=1900
 while [ "$y" -le 2100 ]; do
  m=1
@@ -99,7 +100,7 @@ record('calendar arithmetic',f'{len(months)} months (1900–2100), including cen
 cached.write_text(rows); cache_key.write_text(calendar_key)
 print('Calendar arithmetic passed.',flush=True)
 
-shift=run_shell('''. validation/functions.sh
+shift=run_shell('''. build/validation/functions.sh
 daily_y=2026; daily_m=12; selected_date=2026-12-31; shift_month 1; echo "$daily_y $daily_m $selected_date"
 shift_month -1; echo "$daily_y $daily_m $selected_date"
 daily_y=2024; daily_m=3; selected_date=2024-03-31; shift_month -1; echo "$daily_y $daily_m $selected_date"
@@ -141,14 +142,14 @@ lua=LuaRuntime()
 lua.globals().arg=lua.table_from({i:v for i,v in enumerate(sys.argv[1:])})
 lua.execute(Path(sys.argv[1]).read_text(encoding="utf-8"))
 ''',encoding='utf-8')
-setup='''. validation/functions.sh
-SESSION_DIR=validation/session; mkdir -p "$SESSION_DIR"
+setup='''. build/validation/functions.sh
+SESSION_DIR=build/validation/session; mkdir -p "$SESSION_DIR"
 DATA="$SESSION_DIR/reading-time.tsv"; SUMMARY="$SESSION_DIR/summary.tsv"; MONTHS="$SESSION_DIR/months.tsv"; WEEKS="$SESSION_DIR/weeks.tsv"; DAYS="$SESSION_DIR/days.tsv"; DAY_BOOKS="$SESSION_DIR/day-books.tsv"; CALENDAR="$SESSION_DIR/calendar.tsv"
 BOOKS="$SESSION_DIR/books.tsv"; BOOKS_7D="$SESSION_DIR/books-7d.tsv"; BOOKS_MONTH="$SESSION_DIR/books-month.tsv"; BOOKS_YEAR="$SESSION_DIR/books-year.tsv"; PROGRESS="$SESSION_DIR/book-progress.tsv"; SPEC="$SESSION_DIR/render-spec.tsv"; TOTAL_VALUES="$SESSION_DIR/total-values.tsv"; WEEK_VIEW="$SESSION_DIR/week-view.tsv"; DAY_DETAIL_ALL="$SESSION_DIR/day-detail-all.tsv"; DAY_DETAIL_VIEW="$SESSION_DIR/day-detail-view.tsv"
 RENDERER=native-reading-time-package/reading-insights-render.lua; RENDER_ASSETS=native-reading-time-package/render-assets; CACHE_BUILDER=native-reading-time-package/reading-insights-cache.awk; TITLE_LAYOUT=native-reading-time-package/reading-insights-titles.lua
 renderer_available=1; RFONT=native-reading-time-package/NotoSansCJKsc-Regular.otf
 today_date=2026-09-11; selected_date=2026-09-05
-lua() { python validation/lua_runner.py "$@"; }
+lua() { "$PYTHON_BIN" build/validation/lua_runner.py "$@"; }
 image() { printf 'image\\t%s\\t%s\\t%s\\t%s\\t%s\\n' "$@" >> "$SESSION_DIR/draw.tsv"; }
 ot() { printf 'ot\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' "$@" >> "$SESSION_DIR/draw.tsv"; }
 rect() { :; }
@@ -266,7 +267,7 @@ for mode in ('books',):
     assert a.crop((0,1460,1272,1696)).tobytes()==b.crop((0,1460,1272,1696)).tobytes()
 record('book footer unchanged','Pagination footer and buttons byte-identical pixels; existing no-op behavior retained.')
 
-exec((ROOT/'checks_polish.py').read_text(encoding='utf-8'))
+exec((ROOT/'scripts/checks_polish.py').read_text(encoding='utf-8'))
 
 # Calendar heatmap uses the same raw daily seconds already consumed by the
 # duration labels and month summary. Verify exact second boundaries first.
@@ -441,7 +442,7 @@ record('weekly plot layout','Monday at 0, 35, 120 and 210 min uses one measured 
 
 # No cache/database/daemon/other-page logic changed. Calendar rendering remains
 # one offscreen canvas publication followed by the existing single region refresh.
-stable_viewer=(STABLE/'native-reading-time-package/阅读记录-optimized.sh').read_text(encoding='utf-8')
+stable_viewer=STABLE_VIEWER.read_text(encoding='utf-8')
 for start,end in [('prepare_total_values()','spec_toggle_button()'),('active_books()','draw_background()'),('refresh_region()','dashboard_active=0')]:
     assert viewer[viewer.index(start):viewer.index(end)]==stable_viewer[stable_viewer.index(start):stable_viewer.index(end)]
 daily_block=viewer[viewer.index('render_daily()'):viewer.index('active_books()')]
@@ -451,15 +452,11 @@ assert 'month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 
 assert 'day_*) new_day=' in viewer and 'perform_draw date_select 0 0 55 460 1162 1168' in viewer
 record('heatmap isolation and refresh','Cache builder payload, daemon, database inputs, period-data calculations, books functions and refresh policy are byte-identical to v9.6.10. The calendar is composed offscreen once, published once, then refreshed once through the existing GC16 region path.')
 
-manifest={}
-for file in sorted(BASE.rglob('*')):
-    if file.is_file():manifest[file.relative_to(BASE).as_posix()]=hashlib.sha256(file.read_bytes()).hexdigest()
-(OUT/'baseline-sha256.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
 changes=[]
 for file in sorted(PKG.rglob('*')):
     if file.is_file():
-        rel=file.relative_to(ROOT); source=STABLE/rel
-        if not source.exists() or file.read_bytes()!=source.read_bytes():changes.append(str(rel))
+        rel=file.relative_to(ROOT).as_posix()
+        if STABLE_HASHES.get(rel)!=hashlib.sha256(file.read_bytes()).hexdigest():changes.append(rel)
 result={'checks':checks,'modified_or_added_payload':changes,'limits':['No physical Kindle/FBInk runtime test performed. PNG previews approximate native FBInk text only; grayscale distinction and ghosting need on-device observation.','Date selection redraws the whole calendar+preview offscreen and performs one regional refresh, preserving the low-risk v9.6.10 interaction path.','The quick preview still paginates as before; the reusable full day-detail page is covered separately.','Books retain baseline sorting by cumulative seconds and five books per page.']}
 (OUT/'results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(result,ensure_ascii=True,indent=2))

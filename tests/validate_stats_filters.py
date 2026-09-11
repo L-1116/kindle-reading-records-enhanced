@@ -9,21 +9,23 @@ from pathlib import Path
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import time
 
 from PIL import Image, ImageDraw, ImageFont
 from lupa.lua51 import LuaRuntime
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 PKG = ROOT / "native-reading-time-package"
-BASE = ROOT.parent / "v9.6.7-week-view" / "native-reading-time-package"
-OUT = ROOT / "validation"
+BASE = ROOT / "tests/baselines/v9.6.7"
+BASE_HASHES = json.loads((BASE / "payload-sha256.json").read_text(encoding="utf-8"))
+OUT = ROOT / "build/validation"
 SESSION = OUT / "stats-session"
-SH = Path("C:/Program Files/Git/usr/bin/sh.exe")
-DASH = Path("C:/Program Files/Git/usr/bin/dash.exe")
+SH = Path(shutil.which("sh") or "C:/Program Files/Git/usr/bin/sh.exe")
+DASH = Path(shutil.which("dash") or "C:/Program Files/Git/usr/bin/dash.exe")
 os.chdir(ROOT)
-OUT.mkdir(exist_ok=True)
+OUT.mkdir(parents=True, exist_ok=True)
 SESSION.mkdir(exist_ok=True)
 checks: list[dict[str, str]] = []
 
@@ -34,7 +36,7 @@ def record(name: str, detail: str) -> None:
 
 def run_shell(code: str) -> str:
     result = subprocess.run(
-        [SH, "-c", 'export PATH="/usr/bin:$PATH"\n' + code],
+        [SH, "-c", 'PYTHON_BIN=$(command -v python)\nexport PATH="/usr/bin:$PATH"\n' + code],
         capture_output=True,
         encoding="utf-8",
     )
@@ -60,7 +62,8 @@ protected = [
     "ui-calendar/daily.png",
 ]
 for relative in protected:
-    assert (PKG / relative).read_bytes() == (BASE / relative).read_bytes(), relative
+    key = f"native-reading-time-package/{relative}"
+    assert hashlib.sha256((PKG / relative).read_bytes()).hexdigest() == BASE_HASHES[key], relative
 assert not list(PKG.rglob("*.db"))
 record("protected core", "Daemon, Upstart config, legacy viewer/touch and daily background are byte-identical to v9.6.7; no database is shipped.")
 
@@ -112,16 +115,16 @@ fixture_rows = [
     encoding="utf-8",
 )
 
-setup = r'''. validation/functions-v9.6.8.sh
+setup = r'''. build/validation/functions-v9.6.8.sh
 TEST_TODAY=2026-09-06
-SESSION_DIR=validation/stats-session
+SESSION_DIR=build/validation/stats-session
 DATA="$SESSION_DIR/reading-time.tsv"; SUMMARY="$SESSION_DIR/summary.tsv"; MONTHS="$SESSION_DIR/months.tsv"; WEEKS="$SESSION_DIR/weeks.tsv"
 DAYS="$SESSION_DIR/days.tsv"; DAY_BOOKS="$SESSION_DIR/day-books.tsv"; CALENDAR="$SESSION_DIR/calendar.tsv"
 BOOKS="$SESSION_DIR/books.tsv"; BOOKS_7D="$SESSION_DIR/books-7d.tsv"; BOOKS_MONTH="$SESSION_DIR/books-month.tsv"; BOOKS_YEAR="$SESSION_DIR/books-year.tsv"
 PROGRESS="$SESSION_DIR/book-progress.tsv"; SPEC="$SESSION_DIR/render-spec.tsv"; TOTAL_VALUES="$SESSION_DIR/total-values.tsv"; WEEK_VIEW="$SESSION_DIR/week-view.tsv"
 RENDERER=native-reading-time-package/reading-insights-render.lua; RENDER_ASSETS=native-reading-time-package/render-assets; CACHE_BUILDER=native-reading-time-package/reading-insights-cache.awk; TITLE_LAYOUT=native-reading-time-package/reading-insights-titles.lua
 renderer_available=1; RFONT=native-reading-time-package/NotoSansCJKsc-Regular.otf
-lua() { python validation/lua_runner.py "$@"; }
+lua() { "$PYTHON_BIN" build/validation/lua_runner.py "$@"; }
 image() { printf 'image\t%s\t%s\t%s\t%s\t%s\n' "$@" >> "$SESSION_DIR/draw.tsv"; }
 ot() { printf 'ot\t%s\t%s\t%s\t%s\t%s\t%s\n' "$@" >> "$SESSION_DIR/draw.tsv"; }
 rect() { :; }
