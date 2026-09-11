@@ -8,8 +8,8 @@ JOB="native-reading-time"
 CONF="/etc/upstart/${JOB}.conf"
 DAEMON="$BASE/bin/native-reading-time-daemon.sh"
 VIEWER="/mnt/us/documents/阅读记录.sh"
-RELEASE="$BASE/releases/9.7.1-day-detail"
-STAGE="$BASE/.install-9.7.1-day-detail.$$"
+RELEASE="$BASE/releases/9.7.2-测试版"
+STAGE="$BASE/.install-9.7.2-测试版.$$"
 ROOT_RW=0; ACTIVATED=0; SERVICE_WAS_RUNNING=0; ROLLBACK_DONE=0
 
 mkdir -p "$BASE" || exit 1
@@ -22,7 +22,7 @@ root_rw() {
     if mntroot rw >/dev/null 2>&1 || /usr/sbin/mntroot rw >/dev/null 2>&1 || /sbin/mntroot rw >/dev/null 2>&1; then ROOT_RW=1; return 0; fi
     return 1
 }
-cleanup_stage() { case "$STAGE" in /mnt/us/reading-time/.install-9.7.1-day-detail.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
+cleanup_stage() { case "$STAGE" in /mnt/us/reading-time/.install-9.7.2-测试版.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
 
 rollback() {
     [ "$ROLLBACK_DONE" -eq 0 ] || return; ROLLBACK_DONE=1
@@ -48,7 +48,7 @@ atomic_file() { src="$1"; dst="$2"; mode="$3"; tmp="${dst}.new.$$"; cp "$src" "$
 command -v cmp >/dev/null 2>&1 || fail "cmp unavailable"
 for f in native-reading-time-daemon.sh native-reading-time.conf 阅读记录.sh 阅读记录-optimized.sh reading-insights-touch.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt; do [ -f "$PKG/$f" ] || fail "missing payload: $f"; done
 for f in total.png daily.png books.png day-1.png day-31.png; do [ -f "$PKG/ui/$f" ] || fail "missing UI asset: $f"; done
-for f in total.png daily.png books.png day_detail.png; do [ -f "$PKG/ui-calendar/$f" ] || fail "missing calendar UI: $f"; done
+for f in total.png daily.png books.png day_detail.png month_detail.png week_trend.png; do [ -f "$PKG/ui-calendar/$f" ] || fail "missing calendar UI: $f"; done
 [ -f "$PKG/render-assets/dynamic-glyphs.pgm" ] && [ -f "$PKG/render-assets/dynamic-glyphs.tsv" ] || fail "missing optimized render assets"
 [ -f "$DAEMON" ] || fail "original 9.6.3 daemon not found; optimized package supports in-place upgrade only"
 cmp -s "$PKG/native-reading-time-daemon.sh" "$DAEMON" || fail "payload daemon differs from installed 9.6.3"
@@ -98,8 +98,8 @@ lipc-set-prop com.lab126.scanner doFullScan 1 >/dev/null 2>&1 || lipc-set-prop c
 /sbin/initctl start "$JOB" >/dev/null 2>&1 || true; sleep 2
 /sbin/initctl status "$JOB" 2>/dev/null | grep -q 'start/running' || fail "tracker service did not start"
 cmp -s "$DAEMON" "$PKG/native-reading-time-daemon.sh" || fail "installed daemon differs from validated payload"
-printf '9.7.1-day-detail\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
+printf '9.7.2-测试版\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
 
 ACTIVATED=0; cleanup_stage; trap - INT TERM HUP; root_ro; sync
-echo "$(date): 9.7.1-day-detail installed and running, daemon_cmp=identical"
-toast "Reading records 9.7.1-day-detail installed"; exit 0
+echo "$(date): 9.7.2-测试版 installed and running, daemon_cmp=identical"
+toast "Reading records 9.7.2-测试版 installed"; exit 0

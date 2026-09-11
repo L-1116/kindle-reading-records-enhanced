@@ -43,9 +43,14 @@ local function inside(px, py, left, top, right, bottom)
     return px >= left and px <= right and py >= top and py <= bottom
 end
 local function action_for_logical(px, py)
-    if mode == "day_detail" and inside(px, py, 20, 20, 300, 155) then return "day_detail_back" end
-    if mode ~= "day_detail" and inside(px, py, 20, 20, 270, 155) then return "exit" end
-    if mode ~= "day_detail" then
+    local secondary = mode == "day_detail" or mode == "month_detail" or mode == "week_trend"
+    if secondary and inside(px, py, 20, 20, 300, 155) then
+        if mode == "day_detail" then return "day_detail_back" end
+        if mode == "month_detail" then return "month_detail_back" end
+        return "week_trend_back"
+    end
+    if not secondary and inside(px, py, 20, 20, 270, 155) then return "exit" end
+    if not secondary then
         if inside(px, py, 35, 165, 415, 275) then return "tab_daily" end
         if inside(px, py, 430, 165, 800, 275) then return "tab_books" end
         if inside(px, py, 815, 165, 1237, 275) then return "tab_total" end
@@ -56,6 +61,12 @@ local function action_for_logical(px, py)
         if inside(px, py, 180, 638, 275, 692) then return "total_year" end
         if inside(px, py, 280, 625, 440, 750) then return "total_prev" end
         if inside(px, py, 840, 625, 1000, 750) then return "total_next" end
+        if total_period == "week" and inside(px, py, 85, 380, 1187, 560) then return "week_trend_open" end
+        if total_period == "year" and inside(px, py, 75, 760, 1197, 1450) then
+            local month = math.floor((px - 75) * 12 / 1123) + 1
+            if month > 12 then month = 12 end
+            return "year_month_" .. month
+        end
         if total_period == "week" and inside(px, py, 135, 760, 1181, 1450) then
             local day_index = math.floor((px - 135) * 7 / 1047)
             if day_index > 6 then day_index = 6 end
@@ -64,6 +75,7 @@ local function action_for_logical(px, py)
     elseif mode == "daily" then
         if inside(px, py, 220, 300, 450, 430) then return "month_prev" end
         if inside(px, py, 840, 300, 1070, 430) then return "month_next" end
+        if inside(px, py, 450, 300, 822, 430) then return "month_detail_open" end
         if detail_pages > 1 then
             if detail_page > 1 and inside(px, py, 390, pager_y, 529, pager_y+47) then return "detail_prev" end
             if detail_page < detail_pages and inside(px, py, 742, pager_y, 881, pager_y+47) then return "detail_next" end

@@ -9,7 +9,7 @@ FONT=PKG/'NotoSansCJKsc-Regular.otf'
 
 def build():
     # The three primary backgrounds were copied byte-for-byte from v9.6.10.
-    # Add one reusable secondary-page shell in the same monochrome language.
+    # Secondary-page shells keep the same monochrome language and card rhythm.
     detail=Image.new('L',(1272,1696),255)
     draw=ImageDraw.Draw(detail)
     draw.rounded_rectangle((22,22,1250,1674),radius=30,outline=20,width=3)
@@ -22,11 +22,31 @@ def build():
     draw.text((636,99),'阅读详情',font=font_title,fill=0,anchor='mm',stroke_width=1,stroke_fill=0)
     detail.save(PKG/'ui-calendar/day_detail.png')
 
+    def secondary_page(title, first_card, second_card, filename):
+        page=Image.new('L',(1272,1696),255)
+        page_draw=ImageDraw.Draw(page)
+        page_draw.rounded_rectangle((22,22,1250,1674),radius=30,outline=20,width=3)
+        page_draw.rounded_rectangle((55,54,266,145),radius=22,outline=20,width=3)
+        page_draw.rounded_rectangle(first_card,radius=24,outline=20,width=3)
+        page_draw.rounded_rectangle(second_card,radius=24,outline=20,width=3)
+        page_draw.text((160,99),'返回',font=font_back,fill=0,anchor='mm',stroke_width=1,stroke_fill=0)
+        page_draw.text((636,99),title,font=font_title,fill=0,anchor='mm',stroke_width=1,stroke_fill=0)
+        page.save(PKG/'ui-calendar'/filename)
+
+    secondary_page('月份详情',(55,190,1217,670),(55,700,1217,1640),'month_detail.png')
+    secondary_page('最近8周',(55,190,1217,650),(55,680,1217,1640),'week_trend.png')
+
     old=(PKG/'render-assets/dynamic-glyphs.tsv').read_text(encoding='utf-8').splitlines()[1:]
     chars={chr(int(row.split('\t')[2],16)) for row in old}
     chars.update(chr(i) for i in range(32,127))
+    # Keep the atlas small: new fixed headings are rasterized into their PNG
+    # backgrounds.  Only the few new dynamic-label glyphs are added, and only
+    # at the sizes where the compositor actually uses them.
+    v972_chars=set('上份佳势回平每趋较返高')
+    chars.difference_update(v972_chars)
+    extra_chars_by_size={24:set('上佳平较高'),34:set('势每趋')}
     chars.update('周一二三四五六日月近本今年当前范围暂无满的书籍阅读日均详情星期总时长明细记录最多›‹')
-    sizes=sorted({int(row.split('\t')[1]) for row in old}|{28,44})
+    sizes=sorted(({int(row.split('\t')[1]) for row in old}-{19,25,38})|{28,44})
     records=[]
     for size in sizes:
         font=ImageFont.truetype(str(FONT),size)
@@ -34,7 +54,7 @@ def build():
         group=[]
         for style in ('R','B'):
             stroke=max(1,round(size/40)) if style=='B' else 0
-            for ch in sorted(chars):
+            for ch in sorted(chars|extra_chars_by_size.get(size,set())):
                 x0,y0,x1,y1=font.getbbox(ch,anchor='ls',stroke_width=stroke)
                 tile=Image.new('L',(max(1,x1-x0),max(1,y1-y0)),255)
                 ImageDraw.Draw(tile).text((-x0,-y0),ch,font=font,fill=0,anchor='ls',stroke_width=stroke)

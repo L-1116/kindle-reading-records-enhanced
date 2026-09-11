@@ -204,12 +204,12 @@ assert daily_touch(600, 1250) == "day_detail_open"
 lua = LuaRuntime(); lua.globals().arg = lua.table_from({3: "total", 13: "week"}); week_touch = lua.execute(touch)
 assert [week_touch(x, 1000) for x in (180, 330, 480, 630, 780, 930, 1130)] == [f"week_day_{i}" for i in range(7)]
 lua = LuaRuntime(); lua.globals().arg = lua.table_from({3: "total", 13: "year"}); year_touch = lua.execute(touch)
-assert year_touch(630, 1000) is None
+assert year_touch(630, 1000) == "year_month_6"
 lua = LuaRuntime(); lua.globals().arg = lua.table_from({3: "day_detail", 10: 2, 11: 1, 12: 1520}); detail_touch = lua.execute(touch)
 assert detail_touch(150, 90) == "day_detail_back"
 assert detail_touch(800, 1540) == "day_detail_next"
 assert detail_touch(600, 210) is None
-passed("shared touch routes", "The quick-preview header, all seven weekly columns, detail pager and large back button resolve to shared day-detail actions; annual chart and hidden primary tabs do not.")
+passed("shared touch routes", "The quick-preview header, all seven weekly columns, detail pager and large back button resolve to shared day-detail actions; annual bars now route only to the shared month detail and hidden primary tabs remain inactive.")
 
 # The one open function does not reset source navigation state.
 write_fixture([("2026-09-07", 60, "Book")])

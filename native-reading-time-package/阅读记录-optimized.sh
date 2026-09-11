@@ -1,12 +1,12 @@
 #!/bin/sh
 
-# Kindle 原生阅读记录 9.7.1-day-detail.  This process exists only while the
+# Kindle 原生阅读记录 9.7.2-测试版.  This process exists only while the
 # dashboard is open.  The tracker daemon and reading-time.tsv are untouched.
 BASE="/mnt/us/reading-time"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="/var/local/kmc/bin/fbink"
-RELEASE="$BASE/releases/9.7.1-day-detail"
+RELEASE="$BASE/releases/9.7.2-测试版"
 UI_DIR="$RELEASE/ui-calendar"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch-ui.lua"
 RENDERER="$RELEASE/bin/reading-insights-render.lua"
@@ -24,12 +24,17 @@ PROGRESS_DB="$SESSION_DIR/cc-progress-viewer.db"
 PROGRESS="$SESSION_DIR/book-progress.tsv"; SPEC="$SESSION_DIR/render-spec.tsv"
 TOTAL_VALUES="$SESSION_DIR/total-values.tsv"; WEEK_VIEW="$SESSION_DIR/week-view.tsv"
 DAY_DETAIL_ALL="$SESSION_DIR/day-detail-all.tsv"; DAY_DETAIL_VIEW="$SESSION_DIR/day-detail-view.tsv"
+PERIOD_SUMMARY="$SESSION_DIR/period-summary.tsv"; PERIOD_DAILY="$SESSION_DIR/period-daily.tsv"
+PERIOD_BOOKS="$SESSION_DIR/period-books.tsv"; MONTH_VALUES="$SESSION_DIR/month-values.tsv"
+MONTH_TOP="$SESSION_DIR/month-top.tsv"; WEEK_TREND_VALUES="$SESSION_DIR/week-trend-values.tsv"
 LOGICAL_W=1272; LOGICAL_H=1696; CLEAN_REFRESH_INTERVAL=6
 CALENDAR_GRID_H=648; DETAIL_TOP=1222; DETAIL_H=406
 DETAIL_ROWS_Y=65; DETAIL_ROW_H=96; DETAIL_PAGER_H=52
 DAY_DETAIL_SUMMARY_TOP=205; DAY_DETAIL_SUMMARY_H=300
 DAY_DETAIL_LIST_TOP=590; DAY_DETAIL_LIST_H=1035
 DAY_DETAIL_ROWS_Y=100; DAY_DETAIL_ROW_H=190; DAY_DETAIL_PAGER_Y=930
+MONTH_SUMMARY_TOP=205; MONTH_SUMMARY_H=450; MONTH_BODY_TOP=715; MONTH_BODY_H=900
+WEEK_TREND_SUMMARY_TOP=205; WEEK_TREND_SUMMARY_H=420; WEEK_TREND_CHART_TOP=695; WEEK_TREND_CHART_H=920
 
 exec >> "$LOG" 2>&1
 echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"
@@ -84,6 +89,7 @@ time_text() { v="$1"; h=$((v/3600)); m=$(((v%3600)/60)); s=$((v%60)); if [ "$h" 
 minute_text() { mt_m=$(($1/60)); if [ "$mt_m" -ge 60 ]; then printf '%s小时%s分钟' "$((mt_m/60))" "$((mt_m%60))"; else printf '%s分钟' "$mt_m"; fi; }
 chart_time_text() { cht_m="$1"; cht_h=$((cht_m/60)); cht_r=$((cht_m%60)); if [ "$cht_h" -eq 0 ]; then printf '%smin' "$cht_r"; elif [ "$cht_r" -eq 0 ]; then printf '%sh' "$cht_h"; else printf '%sh%smin' "$cht_h" "$cht_r"; fi; }
 summary_time_text() { if [ "$1" -gt 0 ]; then time_text "$1"; else printf '0分钟'; fi; }
+signed_time_text() { st_v="$1"; if [ "$st_v" -gt 0 ]; then printf '+'; time_text "$st_v"; elif [ "$st_v" -lt 0 ]; then printf '-'; time_text "$((-st_v))"; else printf '0分钟'; fi; }
 calendar_time() { ct_s="$1"; ct_m=$((ct_s/60)); if [ "$ct_s" -le 0 ]; then return; elif [ "$ct_m" -eq 0 ]; then printf '%s秒' "$ct_s"; elif [ "$ct_m" -lt 60 ]; then printf '%s分' "$ct_m"; else printf '%s时%s分' "$((ct_m/60))" "$((ct_m%60))"; fi; }
 calendar_heat_level() {
     ch_s="${1:-0}"
@@ -104,6 +110,15 @@ calendar_heat_ink() {
 }
 days_in_month() { case "$2" in 1|3|5|7|8|10|12) echo 31;;4|6|9|11) echo 30;;2) if { [ $(($1%400)) -eq 0 ] || { [ $(($1%4)) -eq 0 ] && [ $(($1%100)) -ne 0 ]; }; }; then echo 29; else echo 28; fi;;esac; }
 weekday_offset() { awk -v y="$1" -v m="$2" 'BEGIN{if(m<3){m+=12;y--}k=y%100;j=int(y/100);h=(1+int(13*(m+1)/5)+k+int(k/4)+int(j/4)+5*j)%7;print(h+5)%7}'; }
+civil_date() {
+    awk -v day="$1" 'BEGIN{
+        l=day+68569; n=int(4*l/146097); l=l-int((146097*n+3)/4)
+        i=int(4000*(l+1)/1461001); l=l-int(1461*i/4)+31
+        j=int(80*l/2447); d=l-int(2447*j/80); l=int(j/11)
+        m=j+2-12*l; y=100*(n-49)+i+l
+        printf "%04d-%02d-%02d\n",y,m,d
+    }'
+}
 date_parts() {
     parsed_date="$1"; parsed_y="${parsed_date%%-*}"; parsed_md="${parsed_date#*-}"
     parsed_m="${parsed_md%%-*}"; parsed_d="${parsed_date##*-}"
@@ -276,6 +291,47 @@ render_total() {
     image "$SESSION_DIR/total-summary.pgm" 85 380 1102 180 && image "$SESSION_DIR/total-toggle.pgm" 65 638 210 58 && image "$SESSION_DIR/total-year.pgm" 456 650 360 70 && image "$SESSION_DIR/total-chart.pgm" 75 760 1122 690
 }
 
+# Reusable on-demand interval aggregation.  It reads the launch-time caches
+# once each, never the raw log.  Callers that do not display books may pass 0
+# as the third argument and avoid even reading DAY_BOOKS.
+get_period_stats() {
+    period_start="$1"; period_end="$2"; period_need_books="${3:-1}"
+    valid_date "$period_start" || return 1; valid_date "$period_end" || return 1
+    awk -v s="$period_start" -v e="$period_end" 'BEGIN{exit !(s<=e)}' || return 1
+    : > "$PERIOD_SUMMARY" && : > "$PERIOD_DAILY" && : > "$PERIOD_BOOKS.raw" && : > "$PERIOD_BOOKS" || return 1
+    set -- "$DAYS"
+    [ "$period_need_books" = 1 ] && set -- "$DAYS" phase=books "$DAY_BOOKS"
+    awk -F '\t' -v start="$period_start" -v finish="$period_end" -v need_books="$period_need_books" \
+        -v summary="$PERIOD_SUMMARY" -v daily="$PERIOD_DAILY" -v books="$PERIOD_BOOKS.raw" '
+        phase!="books" && $1>=start && $1<=finish {
+            seconds=$2+0
+            print $1 "\t" seconds > daily
+            if(seconds>0) {
+                total+=seconds; days++
+                if(peak_date=="" || seconds>peak || (seconds==peak && $1<peak_date)) {
+                    peak=seconds; peak_date=$1
+                }
+            }
+            next
+        }
+        phase=="books" && need_books && $1>=start && $1<=finish && $2>0 {
+            book[$3]+=$2+0
+        }
+        END {
+            count=0
+            if(need_books) for(title in book) if(book[title]>0) {
+                count++; print book[title] "\t" title > books
+            }
+            average=(days>0 ? int((total+days*30)/(days*60))*60 : 0)
+            if(peak_date=="") peak_date="-"
+            print total+0 "\t" days+0 "\t" average+0 "\t" count+0 "\t" peak_date "\t" peak+0 > summary
+        }
+    ' "$@" || return 1
+    if [ "$period_need_books" = 1 ]; then LC_ALL=C sort -nr "$PERIOD_BOOKS.raw" > "$PERIOD_BOOKS" || return 1; fi
+    rm -f "$PERIOD_BOOKS.raw"
+    IFS="$(printf '\t')" read -r period_total period_read_days period_average period_book_count period_peak_date period_peak_seconds < "$PERIOD_SUMMARY" || return 1
+}
+
 weekday_text() {
     case "$1" in 0) echo "星期一";; 1) echo "星期二";; 2) echo "星期三";; 3) echo "星期四";; 4) echo "星期五";; 5) echo "星期六";; 6) echo "星期日";; *) return 1;; esac
 }
@@ -423,6 +479,175 @@ render_day_detail_page() {
     publish_day_detail_list
 }
 
+prepare_month_detail() {
+    month_dim="$(days_in_month "$month_detail_y" "$month_detail_m")"
+    month_start="$(printf '%04d-%02d-01' "$month_detail_y" "$month_detail_m")"
+    month_end="$(printf '%04d-%02d-%02d' "$month_detail_y" "$month_detail_m" "$month_dim")"
+    get_period_stats "$month_start" "$month_end" 1 || return 1
+    awk -F '\t' -v y="$month_detail_y" -v m="$month_detail_m" -v n="$month_dim" '
+        BEGIN{for(i=1;i<=n;i++)v[i]=0}
+        $1~sprintf("^%04d-%02d-",y,m){d=substr($1,9,2)+0;v[d]+=$2}
+        END{for(i=1;i<=n;i++)print i "\t" int(v[i]/60)}
+    ' "$PERIOD_DAILY" > "$MONTH_VALUES" || return 1
+    awk 'NR<=3' "$PERIOD_BOOKS" > "$MONTH_TOP" || return 1
+    if [ "$period_peak_date" != - ]; then
+        date_parts "$period_peak_date"; month_peak_label="${parsed_m}月${parsed_d}日"
+    else month_peak_label="暂无"; fi
+}
+
+spec_month_summary() {
+    a="$SESSION_DIR/month-summary.pgm.new"; canvas month_summary 1132 "$MONTH_SUMMARY_H" "$a"
+    stext month_summary B 44 566 15 center 0 "${month_detail_y}年${month_detail_m}月"
+    srect month_summary 20 80 1092 2 190
+    if [ "$period_read_days" -eq 0 ]; then
+        stext month_summary R 36 566 220 center 0 "本月暂无阅读记录"
+    else
+        stext month_summary R 24 60 112 left 0 "总阅读"
+        stext month_summary R 24 410 112 left 0 "阅读天数"
+        stext month_summary R 24 790 112 left 0 "阅读日均"
+        stext month_summary B 36 60 154 left 0 "$(summary_time_text "$period_total")"
+        stext month_summary B 36 410 154 left 0 "${period_read_days}天"
+        stext month_summary B 36 790 154 left 0 "$(summary_time_text "$period_average")"
+        srect month_summary 20 225 1092 2 210
+        stext month_summary R 24 60 260 left 0 "阅读书籍"
+        stext month_summary R 24 600 260 left 0 "最高一天"
+        stext month_summary B 36 60 305 left 0 "${period_book_count}本"
+        stext month_summary B 34 600 305 left 0 "$month_peak_label"
+        stext month_summary R 27 600 360 left 0 "$(summary_time_text "$period_peak_seconds")"
+    fi
+    swrite month_summary
+}
+
+spec_month_body() {
+    b="$SESSION_DIR/month-body.pgm.new"; canvas month_body 1132 "$MONTH_BODY_H" "$b"
+    if [ "$period_read_days" -eq 0 ]; then
+        stext month_body B 34 20 18 left 0 "每日阅读趋势"
+        srect month_body 20 72 1092 2 190
+        swrite month_body; return
+    fi
+    stext month_body B 34 20 12 left 0 "本月阅读最多"
+    srect month_body 20 65 1092 2 190
+    row=0
+    while IFS="$(printf '\t')" read -r top_seconds top_title; do
+        [ -n "$top_title" ] || continue
+        row_y=$((88+row*86)); stext month_body B 27 1090 "$row_y" right 0 "$(summary_time_text "$top_seconds")"
+        row=$((row+1))
+    done < "$MONTH_TOP"
+    stext month_body B 34 20 355 left 0 "每日阅读趋势"
+    srect month_body 20 405 1092 2 190
+    max="$(awk -F '\t' '$2>m{m=$2}END{print m+0}' "$MONTH_VALUES")"
+    scale_hours=$(((max*112+5999)/6000)); [ "$scale_hours" -ge 1 ] || scale_hours=1; scale=$((scale_hours*60))
+    if [ "$scale_hours" -le 3 ]; then tick_hours=1; elif [ "$scale_hours" -le 8 ]; then tick_hours=2; elif [ "$scale_hours" -le 15 ]; then tick_hours=3; else tick_hours=5; fi
+    chart_base=840; chart_height=360; axis_text_left=7; axis_gap=24; plot_right=1114
+    set --; gl="$tick_hours"; while [ "$gl" -le "$scale_hours" ]; do set -- "$@" "${gl}h"; gl=$((gl+tick_hours)); done
+    [ "$#" -gt 0 ] || set -- "${scale_hours}h"
+    axis_label_w="$(lua "$RENDERER" "$RENDER_ASSETS" --measure R 20 "$@")" || return 1
+    case "$axis_label_w" in ''|*[!0-9]*) return 1;; esac
+    axis_text_right=$((axis_text_left+axis_label_w)); plot_left=$((axis_text_right+axis_gap)); plot_width=$((plot_right-plot_left))
+    srect month_body "$plot_left" "$chart_base" "$plot_width" 3 20
+    gl="$tick_hours"; while [ "$gl" -le "$scale_hours" ]; do gy=$((chart_base-chart_height*gl/scale_hours)); srect month_body "$plot_left" "$gy" "$plot_width" 2 205; stext month_body R 20 "$axis_text_right" $((gy-24)) right 0 "${gl}h"; gl=$((gl+tick_hours)); done
+    count="$month_dim"; bar_w=$((plot_width/count-7)); [ "$bar_w" -gt 24 ] && bar_w=24; [ "$bar_w" -ge 8 ] || bar_w=8
+    pos=0
+    while IFS="$(printf '\t')" read -r day_label mins; do
+        center=$((plot_left+plot_width*(2*pos+1)/(2*count))); x=$((center-bar_w/2)); bh=$((mins*chart_height/scale)); [ "$mins" -gt 0 ] && [ "$bh" -lt 6 ] && bh=6
+        [ "$bh" -gt 0 ] && srect month_body "$x" $((chart_base-bh)) "$bar_w" "$bh" 90
+        case "$day_label" in 1|5|10|15|20|25|"$month_dim") stext month_body B 20 "$center" 858 center 0 "$day_label";; esac
+        pos=$((pos+1))
+    done < "$MONTH_VALUES"
+    swrite month_body
+}
+
+publish_month_detail() {
+    pgm_valid "$SESSION_DIR/month-summary.pgm.new" 1132 "$MONTH_SUMMARY_H" && pgm_valid "$SESSION_DIR/month-body.pgm.new" 1132 "$MONTH_BODY_H" || return 1
+    mv "$SESSION_DIR/month-summary.pgm.new" "$SESSION_DIR/month-summary.pgm" && mv "$SESSION_DIR/month-body.pgm.new" "$SESSION_DIR/month-body.pgm" || return 1
+    image "$SESSION_DIR/month-summary.pgm" 70 "$MONTH_SUMMARY_TOP" 1132 "$MONTH_SUMMARY_H" && image "$SESSION_DIR/month-body.pgm" 70 "$MONTH_BODY_TOP" 1132 "$MONTH_BODY_H" || return 1
+    [ -s "$MONTH_TOP" ] || return 0
+    lua "$TITLE_LAYOUT" "$MONTH_TOP" 760 30 1 86 > "$SESSION_DIR/month-top-titles.tsv" || return 1
+    while IFS="$(printf '\t')" read -r title_y title_line; do
+        [ -n "$title_line" ] || continue
+        ot 30 "$((MONTH_BODY_TOP+90+title_y))" 100 360 BOLD "$title_line" || return 1
+    done < "$SESSION_DIR/month-top-titles.tsv"
+}
+
+render_month_detail() {
+    : > "$SPEC"; spec_month_summary; spec_month_body; run_renderer || return 1
+    publish_month_detail
+}
+
+prepare_week_trend() {
+    trend_today_day="$(cat "$CALENDAR")"; case "$trend_today_day" in ''|*[!0-9]*) return 1;; esac
+    trend_current_monday=$((trend_today_day-trend_today_day%7)); trend_start_day=$((trend_current_monday-49))
+    trend_start_date="$(civil_date "$trend_start_day")" || return 1
+    trend_current_date="$(civil_date "$trend_current_monday")" || return 1
+    get_period_stats "$trend_start_date" "$today_date" 0 || return 1
+    awk -F '\t' -v first="$trend_start_day" '
+        function day_number(date,    y,m,d,a,yy,mm) {
+            y=substr(date,1,4)+0;m=substr(date,6,2)+0;d=substr(date,9,2)+0
+            a=int((14-m)/12);yy=y+4800-a;mm=m+12*a-3
+            return d+int((153*mm+2)/5)+365*yy+int(yy/4)-int(yy/100)+int(yy/400)-32045
+        }
+        function civil(day,    l,n,i,j,d,m,y) {
+            l=day+68569;n=int(4*l/146097);l=l-int((146097*n+3)/4)
+            i=int(4000*(l+1)/1461001);l=l-int(1461*i/4)+31
+            j=int(80*l/2447);d=l-int(2447*j/80);l=int(j/11)
+            m=j+2-12*l;y=100*(n-49)+i+l
+            return sprintf("%04d-%02d-%02d",y,m,d)
+        }
+        {day=day_number($1);bucket=int((day-first)/7);if(bucket>=0&&bucket<8)value[bucket]+=$2}
+        END{for(i=0;i<8;i++){date=civil(first+i*7);m=substr(date,6,2)+0;d=substr(date,9,2)+0;print m "/" d "\t" value[i]+0 "\t" (i==7?1:0)}}
+    ' "$PERIOD_DAILY" > "$WEEK_TREND_VALUES" || return 1
+    week_current="$(awk -F '\t' 'NR==8{print $2+0}' "$WEEK_TREND_VALUES")"
+    week_previous="$(awk -F '\t' 'NR==7{print $2+0}' "$WEEK_TREND_VALUES")"
+    week_total="$(awk -F '\t' '{s+=$2}END{print s+0}' "$WEEK_TREND_VALUES")"
+    week_best="$(awk -F '\t' '$2>m{m=$2}END{print m+0}' "$WEEK_TREND_VALUES")"
+    week_average=$(((week_total+4*60)/(8*60)*60)); week_difference=$((week_current-week_previous))
+    week_current_days="$(awk -F '\t' -v start="$trend_current_date" '$1>=start&&$2>0{n++}END{print n+0}' "$PERIOD_DAILY")"
+}
+
+render_week_trend() {
+    a="$SESSION_DIR/week-trend-summary.pgm.new"; b="$SESSION_DIR/week-trend-chart.pgm.new"; : > "$SPEC"
+    canvas trend_summary 1132 "$WEEK_TREND_SUMMARY_H" "$a"
+    for item in "本周:$week_current:60" "上周:$week_previous:410" "较上周:$week_difference:790"; do
+        label="${item%%:*}"; rest="${item#*:}"; value="${rest%%:*}"; x="${rest##*:}"
+        stext trend_summary R 24 "$x" 35 left 0 "$label"
+        if [ "$label" = "较上周" ]; then display="$(signed_time_text "$value")"; else display="$(summary_time_text "$value")"; fi
+        stext trend_summary B 34 "$x" 82 left 0 "$display"
+    done
+    srect trend_summary 20 165 1092 2 205
+    stext trend_summary R 24 60 205 left 0 "8周平均"; stext trend_summary B 34 60 252 left 0 "$(summary_time_text "$week_average")"
+    stext trend_summary R 24 410 205 left 0 "最佳一周"; stext trend_summary B 34 410 252 left 0 "$(summary_time_text "$week_best")"
+    stext trend_summary R 24 790 205 left 0 "本周阅读"; stext trend_summary B 34 790 252 left 0 "${week_current_days}天"
+    swrite trend_summary
+    canvas trend_chart 1132 "$WEEK_TREND_CHART_H" "$b"; stext trend_chart B 34 20 18 left 0 "每周阅读趋势"; srect trend_chart 20 72 1092 2 190
+    max="$(awk -F '\t' '$2>m{m=$2}END{print int(m/60)+0}' "$WEEK_TREND_VALUES")"
+    scale_hours=$(((max*112+5999)/6000)); [ "$scale_hours" -ge 1 ] || scale_hours=1; scale=$((scale_hours*60))
+    if [ "$scale_hours" -le 3 ]; then tick_hours=1; elif [ "$scale_hours" -le 8 ]; then tick_hours=2; elif [ "$scale_hours" -le 15 ]; then tick_hours=3; else tick_hours=5; fi
+    chart_base=820; chart_height=660; axis_text_left=7; axis_gap=28; plot_right=1114
+    set --; gl="$tick_hours"; while [ "$gl" -le "$scale_hours" ]; do set -- "$@" "${gl}h"; gl=$((gl+tick_hours)); done
+    [ "$#" -gt 0 ] || set -- "${scale_hours}h"
+    axis_label_w="$(lua "$RENDERER" "$RENDER_ASSETS" --measure R 20 "$@")" || return 1
+    case "$axis_label_w" in ''|*[!0-9]*) return 1;; esac
+    axis_text_right=$((axis_text_left+axis_label_w)); plot_left=$((axis_text_right+axis_gap)); plot_width=$((plot_right-plot_left)); srect trend_chart "$plot_left" "$chart_base" "$plot_width" 3 20
+    gl="$tick_hours"; while [ "$gl" -le "$scale_hours" ]; do gy=$((chart_base-chart_height*gl/scale_hours)); srect trend_chart "$plot_left" "$gy" "$plot_width" 2 205; stext trend_chart R 20 "$axis_text_right" $((gy-26)) right 0 "${gl}h"; gl=$((gl+tick_hours)); done
+    pos=0; count=8; bar_w=72
+    while IFS="$(printf '\t')" read -r week_label seconds current; do
+        mins=$((seconds/60)); center=$((plot_left+plot_width*(2*pos+1)/(2*count))); x=$((center-bar_w/2)); bh=$((mins*chart_height/scale)); [ "$mins" -gt 0 ] && [ "$bh" -lt 8 ] && bh=8
+        [ "$bh" -gt 0 ] && srect trend_chart "$x" $((chart_base-bh)) "$bar_w" "$bh" 125
+        if [ "$current" -eq 1 ]; then
+            outline_h="$bh"; [ "$outline_h" -ge 8 ] || outline_h=8; outline_y=$((chart_base-outline_h))
+            srect trend_chart $((x-4)) $((outline_y-4)) $((bar_w+8)) 4 20; srect trend_chart $((x-4)) $((outline_y-4)) 4 $((outline_h+8)) 20
+            srect trend_chart $((x+bar_w)) $((outline_y-4)) 4 $((outline_h+8)) 20; srect trend_chart $((x-4)) $((chart_base+4)) $((bar_w+8)) 4 20
+        fi
+        stext trend_chart B 22 "$center" 846 center 0 "$week_label"
+        [ "$mins" -gt 0 ] && sfitlabel trend_chart B 20 "$center" $((chart_base-bh-34)) center 0 "$(chart_time_text "$mins")" "$plot_left" "$plot_right"
+        pos=$((pos+1))
+    done < "$WEEK_TREND_VALUES"
+    swrite trend_chart; run_renderer || return 1
+    pgm_valid "$a" 1132 "$WEEK_TREND_SUMMARY_H" && pgm_valid "$b" 1132 "$WEEK_TREND_CHART_H" || return 1
+    mv "$a" "$SESSION_DIR/week-trend-summary.pgm" && mv "$b" "$SESSION_DIR/week-trend-chart.pgm" || return 1
+    image "$SESSION_DIR/week-trend-summary.pgm" 70 "$WEEK_TREND_SUMMARY_TOP" 1132 "$WEEK_TREND_SUMMARY_H" && image "$SESSION_DIR/week-trend-chart.pgm" 70 "$WEEK_TREND_CHART_TOP" 1132 "$WEEK_TREND_CHART_H"
+}
+
 publish_daily_detail() {
     pgm_valid "$SESSION_DIR/daily-detail.pgm.new" 1132 "$DETAIL_H" || return 1
     mv "$SESSION_DIR/daily-detail.pgm.new" "$SESSION_DIR/daily-detail.pgm" || return 1
@@ -528,7 +753,7 @@ render_books() {
 }
 
 draw_background() { image "$UI_DIR/${mode}.png" 0 0 1272 1696; }
-draw_dynamic() { case "$mode" in total) render_total;; daily) if [ "$1" = 2 ]; then render_detail_page; else render_daily "$1"; fi;; books) render_books;; day_detail) if [ "$1" = 2 ]; then render_day_detail_page; else render_day_detail; fi;; *) return 1;; esac; }
+draw_dynamic() { case "$mode" in total) render_total;; daily) if [ "$1" = 2 ]; then render_detail_page; else render_daily "$1"; fi;; books) render_books;; day_detail) if [ "$1" = 2 ]; then render_day_detail_page; else render_day_detail; fi;; month_detail) render_month_detail;; week_trend) render_week_trend;; *) return 1;; esac; }
 
 draw_count=0; refresh_kind=none
 refresh_region() {
@@ -569,15 +794,30 @@ open_day_detail() {
     perform_draw day_detail_open 1 0 0 0 1272 1696
 }
 
+# Calendar titles and annual bars share this single month-detail destination.
+open_month_detail() {
+    month_detail_y="$1"; month_detail_m="$2"; month_detail_source="$3"
+    case "$month_detail_y:$month_detail_m" in *[!0-9:]*) return 1;; esac
+    [ "$month_detail_y" -ge 1 ] && [ "$month_detail_m" -ge 1 ] && [ "$month_detail_m" -le 12 ] || return 1
+    case "$month_detail_source" in daily|total) :;; *) return 1;; esac
+    prepare_month_detail || return 1
+    mode=month_detail; perform_draw month_detail_open 1 0 0 0 1272 1696
+}
+
+open_week_trend() {
+    prepare_week_trend || return 1
+    mode=week_trend; perform_draw week_trend_open 1 0 0 0 1272 1696
+}
+
 detect_screen; find_touch_device
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
-    [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
+    [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] && [ -f "$UI_DIR/month_detail.png" ] && [ -f "$UI_DIR/week_trend.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
-    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.7.1-day-detail\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
+    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.7.2-测试版\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
 lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true; dashboard_active=1
 
-mode=daily; view_year="$(date +%Y)"; total_period=week; week_offset=0; book_filter=7d; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; today_date="$(date +%Y-%m-%d)"; selected_date="$today_date"; book_page=1; detail_page=1; detail_pages=1; day_detail_page=1; day_detail_pages=1; day_detail_source=daily
+mode=daily; view_year="$(date +%Y)"; total_period=week; week_offset=0; book_filter=7d; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; today_date="$(date +%Y-%m-%d)"; selected_date="$today_date"; book_page=1; detail_page=1; detail_pages=1; day_detail_page=1; day_detail_pages=1; day_detail_source=daily; month_detail_source=daily
 metric_begin first_open; build_cache || fallback_to_legacy; selected_date="$today_date"; draw_background || fallback_to_legacy; draw_dynamic 1 || fallback_to_legacy; refresh_region 0 0 1272 1696; metric_end optimized 0 1
 
 while :; do
@@ -594,6 +834,11 @@ while :; do
       total_year) if [ "$total_period" = year ]; then metric_begin total_year_noop; metric_end none 0 0; else total_period=year; perform_draw total_to_year 0 0 55 380 1162 1070; fi;;
       total_prev) if [ "$total_period" = week ]; then week_offset=$((week_offset-1)); perform_draw week_previous 0 0 55 380 1162 1070; else view_year=$((view_year-1)); perform_draw year_previous 0 0 55 380 1162 1070; fi;;
       total_next) if [ "$total_period" = week ]; then if [ "$week_offset" -lt 0 ]; then week_offset=$((week_offset+1)); perform_draw week_next 0 0 55 380 1162 1070; else metric_begin week_next_noop; metric_end none 0 0; fi; else current_year="$(date +%Y)"; if [ "$view_year" -lt "$current_year" ]; then view_year=$((view_year+1)); perform_draw year_next 0 0 55 380 1162 1070; else metric_begin year_next_noop; metric_end none 0 0; fi; fi;;
+      week_trend_open) open_week_trend || fallback_to_legacy;;
+      week_trend_back) mode=total; perform_draw week_trend_back 1 1 0 0 1272 1696;;
+      month_detail_open) open_month_detail "$daily_y" "$daily_m" daily || fallback_to_legacy;;
+      year_month_*) open_month="${action#year_month_}"; open_month_detail "$view_year" "$open_month" total || fallback_to_legacy;;
+      month_detail_back) mode="$month_detail_source"; perform_draw month_detail_back 1 1 0 0 1272 1696;;
       month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 1308;;
       month_next) shift_month 1; perform_draw month_next 0 1 55 320 1162 1308;;
       day_detail_open) open_day_detail "$selected_date" daily || fallback_to_legacy;;

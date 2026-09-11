@@ -47,9 +47,11 @@ assert stable_payload_changes==[
     'native-reading-time-package/render-assets/dynamic-glyphs.pgm',
     'native-reading-time-package/render-assets/dynamic-glyphs.tsv',
     'native-reading-time-package/ui-calendar/day_detail.png',
+    'native-reading-time-package/ui-calendar/month_detail.png',
+    'native-reading-time-package/ui-calendar/week_trend.png',
     'native-reading-time-package/阅读记录-optimized.sh',
 ]
-record('stable payload scope','Against v9.6.10, only the optimized viewer/touch map, added detail background/glyphs and versioned installer payload changed.')
+record('stable payload scope','Against v9.6.10, only the optimized viewer/touch map, secondary-page backgrounds/glyphs and versioned installer payload changed.')
 
 unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-cache.awk','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:
