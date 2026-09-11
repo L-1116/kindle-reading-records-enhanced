@@ -64,7 +64,10 @@ END {
         name = title[book_no]
         id = book_id[book_no]
         if (!usable(name, id)) name = id
-        print date "\t" seconds "\t" name > daybooks
+        # Preserve the original first three columns for every existing
+        # consumer, while carrying the stable session identity needed by the
+        # lazy per-book detail page.
+        print date "\t" seconds "\t" name "\t" id "\t" book_no > daybooks
 
         date_day = day_number(date)
         age = today_day - date_day

@@ -1,12 +1,12 @@
 #!/bin/sh
 
-# Kindle 原生阅读记录 9.7.2-测试版.  This process exists only while the
+# Kindle 原生阅读记录 9.7.3-测试版.  This process exists only while the
 # dashboard is open.  The tracker daemon and reading-time.tsv are untouched.
 BASE="/mnt/us/reading-time"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="/var/local/kmc/bin/fbink"
-RELEASE="$BASE/releases/9.7.2-测试版"
+RELEASE="$BASE/releases/9.7.3-测试版"
 UI_DIR="$RELEASE/ui-calendar"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch-ui.lua"
 RENDERER="$RELEASE/bin/reading-insights-render.lua"
@@ -27,6 +27,8 @@ DAY_DETAIL_ALL="$SESSION_DIR/day-detail-all.tsv"; DAY_DETAIL_VIEW="$SESSION_DIR/
 PERIOD_SUMMARY="$SESSION_DIR/period-summary.tsv"; PERIOD_DAILY="$SESSION_DIR/period-daily.tsv"
 PERIOD_BOOKS="$SESSION_DIR/period-books.tsv"; MONTH_VALUES="$SESSION_DIR/month-values.tsv"
 MONTH_TOP="$SESSION_DIR/month-top.tsv"; WEEK_TREND_VALUES="$SESSION_DIR/week-trend-values.tsv"
+BOOK_DETAIL_SUMMARY="$SESSION_DIR/book-detail-summary.tsv"; BOOK_DETAIL_DAILY="$SESSION_DIR/book-detail-daily.tsv"
+BOOK_DETAIL_TITLE="$SESSION_DIR/book-detail-title.tsv"; BOOK_DETAIL_TITLE_LAYOUT="$SESSION_DIR/book-detail-title-layout.tsv"
 LOGICAL_W=1272; LOGICAL_H=1696; CLEAN_REFRESH_INTERVAL=6
 CALENDAR_GRID_H=648; DETAIL_TOP=1222; DETAIL_H=406
 DETAIL_ROWS_Y=65; DETAIL_ROW_H=96; DETAIL_PAGER_H=52
@@ -35,6 +37,7 @@ DAY_DETAIL_LIST_TOP=590; DAY_DETAIL_LIST_H=1035
 DAY_DETAIL_ROWS_Y=100; DAY_DETAIL_ROW_H=190; DAY_DETAIL_PAGER_Y=930
 MONTH_SUMMARY_TOP=205; MONTH_SUMMARY_H=450; MONTH_BODY_TOP=715; MONTH_BODY_H=900
 WEEK_TREND_SUMMARY_TOP=205; WEEK_TREND_SUMMARY_H=420; WEEK_TREND_CHART_TOP=695; WEEK_TREND_CHART_H=920
+BOOK_DETAIL_SUMMARY_TOP=205; BOOK_DETAIL_SUMMARY_H=500; BOOK_DETAIL_CHART_TOP=765; BOOK_DETAIL_CHART_H=860
 
 exec >> "$LOG" 2>&1
 echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"
@@ -330,6 +333,61 @@ get_period_stats() {
     if [ "$period_need_books" = 1 ]; then LC_ALL=C sort -nr "$PERIOD_BOOKS.raw" > "$PERIOD_BOOKS" || return 1; fi
     rm -f "$PERIOD_BOOKS.raw"
     IFS="$(printf '\t')" read -r period_total period_read_days period_average period_book_count period_peak_date period_peak_seconds < "$PERIOD_SUMMARY" || return 1
+}
+
+# Unified lazy per-book boundary. One pass over the launch-time DAY_BOOKS
+# cache produces every summary value and all 30 natural-day buckets. The raw
+# reading-time.tsv is intentionally outside this path.
+get_book_detail() {
+    book_detail_book_no="$1"; book_detail_title="$2"; book_detail_id="$3"
+    case "$book_detail_book_no" in ''|*[!0-9]*) return 1;; esac
+    [ "$book_detail_book_no" -gt 0 ] && [ -n "$book_detail_title" ] || return 1
+    book_detail_today_day="$(cat "$CALENDAR")"; case "$book_detail_today_day" in ''|*[!0-9]*) return 1;; esac
+    : > "$BOOK_DETAIL_SUMMARY" && : > "$BOOK_DETAIL_DAILY" || return 1
+    awk -F '\t' -v target="$book_detail_book_no" -v today_day="$book_detail_today_day" -v today="$today_date" \
+        -v summary="$BOOK_DETAIL_SUMMARY" -v daily="$BOOK_DETAIL_DAILY" '
+        function day_number(date,    y,m,d,a,yy,mm) {
+            if(date !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) return -1
+            y=substr(date,1,4)+0;m=substr(date,6,2)+0;d=substr(date,9,2)+0
+            if(m<1||m>12||d<1||d>31)return -1
+            a=int((14-m)/12);yy=y+4800-a;mm=m+12*a-3
+            return d+int((153*mm+2)/5)+365*yy+int(yy/4)-int(yy/100)+int(yy/400)-32045
+        }
+        function civil(day,    l,n,i,j,d,m,y) {
+            l=day+68569;n=int(4*l/146097);l=l-int((146097*n+3)/4)
+            i=int(4000*(l+1)/1461001);l=l-int(1461*i/4)+31
+            j=int(80*l/2447);d=l-int(2447*j/80);l=int(j/11)
+            m=j+2-12*l;y=100*(n-49)+i+l
+            return sprintf("%04d-%02d-%02d",y,m,d)
+        }
+        BEGIN { first_day=today_day-29; month=substr(today,1,7) }
+        ($5+0)==target {
+            seconds=$2+0; date=$1; day=day_number(date)
+            total+=seconds; by_date[date]+=seconds
+            if(substr(date,1,7)==month) month_total+=seconds
+            if(day>=first_day&&day<=today_day) { recent30+=seconds; trend[day]+=seconds }
+            if(day>=today_day-6&&day<=today_day) recent7+=seconds
+        }
+        END {
+            for(date in by_date) if(by_date[date]>0) {
+                read_days++
+                if(first_date==""||date<first_date)first_date=date
+                if(last_date==""||date>last_date)last_date=date
+            }
+            if(first_date=="")first_date="-"
+            if(last_date=="")last_date="-"
+            average=(read_days>0?int((total+read_days/2)/read_days):0)
+            print total+0 "\t" read_days+0 "\t" first_date "\t" last_date "\t" average+0 "\t" month_total+0 "\t" recent7+0 "\t" recent30+0 > summary
+            for(i=0;i<30;i++){day=first_day+i;print civil(day) "\t" trend[day]+0 > daily}
+        }
+    ' "$DAY_BOOKS" || return 1
+    IFS="$(printf '\t')" read -r book_detail_total book_detail_read_days book_detail_first_date book_detail_last_date book_detail_active_average book_detail_month_total book_detail_7d_total book_detail_30d_total < "$BOOK_DETAIL_SUMMARY" || return 1
+    ensure_progress
+    book_detail_progress="$(progress_for_book "$book_detail_title" "$book_detail_id")"
+    case "$book_detail_progress" in ''|*[!0-9]*) book_detail_progress="";; esac
+    [ -z "$book_detail_progress" ] || [ "$book_detail_progress" -le 100 ] || book_detail_progress=100
+    printf '0\t%s\n' "$book_detail_title" > "$BOOK_DETAIL_TITLE"
+    lua "$TITLE_LAYOUT" "$BOOK_DETAIL_TITLE" 1040 36 0 48 > "$BOOK_DETAIL_TITLE_LAYOUT" || return 1
 }
 
 weekday_text() {
@@ -648,6 +706,72 @@ render_week_trend() {
     image "$SESSION_DIR/week-trend-summary.pgm" 70 "$WEEK_TREND_SUMMARY_TOP" 1132 "$WEEK_TREND_SUMMARY_H" && image "$SESSION_DIR/week-trend-chart.pgm" 70 "$WEEK_TREND_CHART_TOP" 1132 "$WEEK_TREND_CHART_H"
 }
 
+spec_book_detail_summary() {
+    a="$SESSION_DIR/book-detail-summary.pgm.new"; canvas book_summary 1132 "$BOOK_DETAIL_SUMMARY_H" "$a"
+    srect book_summary 20 112 1092 2 190
+    stext book_summary R 24 40 138 left 0 "累计阅读"
+    stext book_summary R 24 650 138 left 0 "阅读天数"
+    stext book_summary B 42 40 180 left 0 "$(summary_time_text "$book_detail_total")"
+    stext book_summary B 42 650 180 left 0 "${book_detail_read_days}天"
+    srect book_summary 20 250 1092 2 210
+    stext book_summary R 22 40 275 left 0 "首次阅读"
+    stext book_summary R 22 405 275 left 0 "最近阅读"
+    stext book_summary R 22 790 275 left 0 "活跃日均"
+    if [ "$book_detail_first_date" = - ]; then first_display="暂无"; else first_display="$book_detail_first_date"; fi
+    if [ "$book_detail_last_date" = - ]; then last_display="暂无"; else last_display="$book_detail_last_date"; fi
+    stext book_summary B 30 40 317 left 0 "$first_display"
+    stext book_summary B 30 405 317 left 0 "$last_display"
+    stext book_summary B 30 790 317 left 0 "$(summary_time_text "$book_detail_active_average")"
+    stext book_summary R 22 40 390 left 0 "本月阅读"
+    stext book_summary R 22 650 390 left 0 "阅读进度"
+    stext book_summary B 34 40 430 left 0 "$(summary_time_text "$book_detail_month_total")"
+    if [ -n "$book_detail_progress" ]; then progress_display="${book_detail_progress}%"; else progress_display="暂无进度"; fi
+    stext book_summary B 34 650 430 left 0 "$progress_display"
+    swrite book_summary
+}
+
+spec_book_detail_chart() {
+    b="$SESSION_DIR/book-detail-chart.pgm.new"; canvas book_chart 1132 "$BOOK_DETAIL_CHART_H" "$b"
+    stext book_chart B 34 20 18 left 0 "最近30天"
+    stext book_chart R 24 1090 24 right 0 "共 $(summary_time_text "$book_detail_30d_total")"
+    srect book_chart 20 72 1092 2 190
+    max_seconds="$(awk -F '\t' '$2>m{m=$2}END{print m+0}' "$BOOK_DETAIL_DAILY")"
+    scale_hours=$(((max_seconds*112+359999)/360000)); [ "$scale_hours" -ge 1 ] || scale_hours=1; scale=$((scale_hours*3600))
+    if [ "$scale_hours" -le 3 ]; then tick_hours=1; elif [ "$scale_hours" -le 8 ]; then tick_hours=2; elif [ "$scale_hours" -le 15 ]; then tick_hours=3; else tick_hours=5; fi
+    chart_base=790; chart_height=610; axis_text_left=7; axis_gap=24; plot_right=1114
+    set --; gl="$tick_hours"; while [ "$gl" -le "$scale_hours" ]; do set -- "$@" "${gl}h"; gl=$((gl+tick_hours)); done
+    [ "$#" -gt 0 ] || set -- "${scale_hours}h"
+    axis_label_w="$(lua "$RENDERER" "$RENDER_ASSETS" --measure R 20 "$@")" || return 1
+    case "$axis_label_w" in ''|*[!0-9]*) return 1;; esac
+    axis_text_right=$((axis_text_left+axis_label_w)); plot_left=$((axis_text_right+axis_gap)); plot_width=$((plot_right-plot_left))
+    srect book_chart "$plot_left" "$chart_base" "$plot_width" 3 20
+    gl="$tick_hours"; while [ "$gl" -le "$scale_hours" ]; do gy=$((chart_base-chart_height*gl/scale_hours)); srect book_chart "$plot_left" "$gy" "$plot_width" 2 205; stext book_chart R 20 "$axis_text_right" $((gy-24)) right 0 "${gl}h"; gl=$((gl+tick_hours)); done
+    pos=0; count=30; bar_w=$((plot_width/count-7)); [ "$bar_w" -gt 20 ] && bar_w=20; [ "$bar_w" -ge 8 ] || bar_w=8
+    while IFS="$(printf '\t')" read -r trend_date trend_seconds; do
+        center=$((plot_left+plot_width*(2*pos+1)/(2*count))); x=$((center-bar_w/2)); bh=$((trend_seconds*chart_height/scale)); [ "$trend_seconds" -gt 0 ] && [ "$bh" -lt 6 ] && bh=6
+        [ "$bh" -gt 0 ] && srect book_chart "$x" $((chart_base-bh)) "$bar_w" "$bh" 105
+        case "$pos" in 0|14|29) md="${trend_date#*-}"; trend_m="${md%%-*}"; trend_d="${md##*-}"; stext book_chart B 20 "$center" 815 center 0 "${trend_m}/${trend_d}";; esac
+        pos=$((pos+1))
+    done < "$BOOK_DETAIL_DAILY"
+    [ "$book_detail_30d_total" -gt 0 ] || stext book_chart R 30 566 390 center 0 "最近30天暂无阅读记录"
+    swrite book_chart
+}
+
+publish_book_detail() {
+    pgm_valid "$SESSION_DIR/book-detail-summary.pgm.new" 1132 "$BOOK_DETAIL_SUMMARY_H" && pgm_valid "$SESSION_DIR/book-detail-chart.pgm.new" 1132 "$BOOK_DETAIL_CHART_H" || return 1
+    mv "$SESSION_DIR/book-detail-summary.pgm.new" "$SESSION_DIR/book-detail-summary.pgm" && mv "$SESSION_DIR/book-detail-chart.pgm.new" "$SESSION_DIR/book-detail-chart.pgm" || return 1
+    image "$SESSION_DIR/book-detail-summary.pgm" 70 "$BOOK_DETAIL_SUMMARY_TOP" 1132 "$BOOK_DETAIL_SUMMARY_H" && image "$SESSION_DIR/book-detail-chart.pgm" 70 "$BOOK_DETAIL_CHART_TOP" 1132 "$BOOK_DETAIL_CHART_H" || return 1
+    while IFS="$(printf '\t')" read -r title_y title_line; do
+        [ -n "$title_line" ] || continue
+        ot 36 "$((BOOK_DETAIL_SUMMARY_TOP+18+title_y))" 90 90 BOLD "$title_line" || return 1
+    done < "$BOOK_DETAIL_TITLE_LAYOUT"
+}
+
+render_book_detail() {
+    : > "$SPEC"; spec_book_detail_summary; spec_book_detail_chart; run_renderer || return 1
+    publish_book_detail
+}
+
 publish_daily_detail() {
     pgm_valid "$SESSION_DIR/daily-detail.pgm.new" 1132 "$DETAIL_H" || return 1
     mv "$SESSION_DIR/daily-detail.pgm.new" "$SESSION_DIR/daily-detail.pgm" || return 1
@@ -753,7 +877,7 @@ render_books() {
 }
 
 draw_background() { image "$UI_DIR/${mode}.png" 0 0 1272 1696; }
-draw_dynamic() { case "$mode" in total) render_total;; daily) if [ "$1" = 2 ]; then render_detail_page; else render_daily "$1"; fi;; books) render_books;; day_detail) if [ "$1" = 2 ]; then render_day_detail_page; else render_day_detail; fi;; month_detail) render_month_detail;; week_trend) render_week_trend;; *) return 1;; esac; }
+draw_dynamic() { case "$mode" in total) render_total;; daily) if [ "$1" = 2 ]; then render_detail_page; else render_daily "$1"; fi;; books) render_books;; day_detail) if [ "$1" = 2 ]; then render_day_detail_page; else render_day_detail; fi;; month_detail) render_month_detail;; week_trend) render_week_trend;; book_detail) render_book_detail;; *) return 1;; esac; }
 
 draw_count=0; refresh_kind=none
 refresh_region() {
@@ -809,15 +933,29 @@ open_week_trend() {
     mode=week_trend; perform_draw week_trend_open 1 0 0 0 1272 1696
 }
 
+open_book_detail() {
+    open_row="$1"; case "$open_row" in 1|2|3|4|5) :;; *) return 1;; esac
+    prepare_book_view || return 1
+    selected_book="$(awk -v n="$open_row" 'NR==n{print;exit}' "$SESSION_DIR/book-view.tsv")"
+    [ -n "$selected_book" ] || return 2
+    IFS="$(printf '\t')" read -r selected_seconds selected_title selected_id selected_book_no <<EOF
+$selected_book
+EOF
+    [ -n "$selected_title" ] || return 2
+    get_book_detail "$selected_book_no" "$selected_title" "$selected_id" || return 1
+    book_detail_filter="$book_filter"; book_detail_page="$book_page"; mode=book_detail
+    perform_draw book_detail_open 1 0 0 0 1272 1696
+}
+
 detect_screen; find_touch_device
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
-    [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] && [ -f "$UI_DIR/month_detail.png" ] && [ -f "$UI_DIR/week_trend.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
+    [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] && [ -f "$UI_DIR/month_detail.png" ] && [ -f "$UI_DIR/week_trend.png" ] && [ -f "$UI_DIR/book_detail.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
-    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.7.2-测试版\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
+    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.7.3-测试版\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
 lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true; dashboard_active=1
 
-mode=daily; view_year="$(date +%Y)"; total_period=week; week_offset=0; book_filter=7d; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; today_date="$(date +%Y-%m-%d)"; selected_date="$today_date"; book_page=1; detail_page=1; detail_pages=1; day_detail_page=1; day_detail_pages=1; day_detail_source=daily; month_detail_source=daily
+mode=daily; view_year="$(date +%Y)"; total_period=week; week_offset=0; book_filter=7d; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; today_date="$(date +%Y-%m-%d)"; selected_date="$today_date"; book_page=1; detail_page=1; detail_pages=1; day_detail_page=1; day_detail_pages=1; day_detail_source=daily; month_detail_source=daily; book_detail_filter=7d; book_detail_page=1
 metric_begin first_open; build_cache || fallback_to_legacy; selected_date="$today_date"; draw_background || fallback_to_legacy; draw_dynamic 1 || fallback_to_legacy; refresh_region 0 0 1272 1696; metric_end optimized 0 1
 
 while :; do
@@ -839,6 +977,7 @@ while :; do
       month_detail_open) open_month_detail "$daily_y" "$daily_m" daily || fallback_to_legacy;;
       year_month_*) open_month="${action#year_month_}"; open_month_detail "$view_year" "$open_month" total || fallback_to_legacy;;
       month_detail_back) mode="$month_detail_source"; perform_draw month_detail_back 1 1 0 0 1272 1696;;
+      book_detail_back) book_filter="$book_detail_filter"; book_page="$book_detail_page"; mode=books; perform_draw book_detail_back 1 1 0 0 1272 1696;;
       month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 1308;;
       month_next) shift_month 1; perform_draw month_next 0 1 55 320 1162 1308;;
       day_detail_open) open_day_detail "$selected_date" daily || fallback_to_legacy;;
@@ -852,6 +991,7 @@ while :; do
       books_7d|books_month|books_year) new_filter="${action#books_}"; if [ "$book_filter" = "$new_filter" ]; then metric_begin book_filter_noop; metric_end none 0 0; else book_filter="$new_filter"; book_page=1; perform_draw book_filter_change 0 0 55 285 1162 1275; fi;;
       page_prev) if [ "$book_page" -gt 1 ]; then book_page=$((book_page-1)); perform_draw book_page_previous 0 0 70 345 1132 1215; else metric_begin page_previous_noop; metric_end none 0 0; fi;;
       page_next) pages="$(book_pages)"; if [ "$book_page" -lt "$pages" ]; then book_page=$((book_page+1)); perform_draw book_page_next 0 0 70 345 1132 1215; else metric_begin page_next_noop; metric_end none 0 0; fi;;
+      book_row_*) open_row="${action#book_row_}"; open_book_detail "$open_row"; open_result=$?; if [ "$open_result" -eq 1 ]; then fallback_to_legacy; elif [ "$open_result" -eq 2 ]; then metric_begin book_row_empty; metric_end none 0 0; fi;;
       *) metric_begin unknown_action; metric_end none 0 0;;
     esac
 done

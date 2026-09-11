@@ -43,9 +43,11 @@ for file in sorted(PKG.rglob('*')):
             stable_payload_changes.append(file.relative_to(ROOT).as_posix())
 assert stable_payload_changes==[
     'native-reading-time-package/Install-Native-Reading-Time-Optimized.sh',
+    'native-reading-time-package/reading-insights-cache.awk',
     'native-reading-time-package/reading-insights-touch-ui.lua',
     'native-reading-time-package/render-assets/dynamic-glyphs.pgm',
     'native-reading-time-package/render-assets/dynamic-glyphs.tsv',
+    'native-reading-time-package/ui-calendar/book_detail.png',
     'native-reading-time-package/ui-calendar/day_detail.png',
     'native-reading-time-package/ui-calendar/month_detail.png',
     'native-reading-time-package/ui-calendar/week_trend.png',
@@ -53,7 +55,7 @@ assert stable_payload_changes==[
 ]
 record('stable payload scope','Against v9.6.10, only the optimized viewer/touch map, secondary-page backgrounds/glyphs and versioned installer payload changed.')
 
-unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-cache.awk','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
+unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:
     key=f'native-reading-time-package/{rel}'
     assert hashlib.sha256((PKG/rel).read_bytes()).hexdigest()==STABLE_HASHES[key],rel
@@ -61,7 +63,7 @@ for folder in ('ui',):
     for file in (PKG/folder).iterdir():
         key=f'native-reading-time-package/{folder}/{file.name}'
         assert hashlib.sha256(file.read_bytes()).hexdigest()==STABLE_HASHES[key]
-record('preserved core','Daemon, Upstart, cache builder, progress query, legacy viewer/touch, primary UI/font byte-identical to v9.6.10.')
+record('preserved core','Daemon, Upstart, progress query, legacy viewer/touch, primary UI/font byte-identical to v9.6.10; the cache builder only appends identity columns to DAY_BOOKS.')
 
 viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
 old=STABLE_VIEWER.read_text(encoding='utf-8')
@@ -163,7 +165,8 @@ long_en="Harry Potter and the Philosopher's Stone (English Edition) "+'W'*150
 (session/'reading-time.tsv').write_text(fixture,encoding='utf-8')
 run_shell(setup+'build_cache\n')
 assert (session/'summary.tsv').read_text().strip()=='14760\t4'
-record('cache regression','Real unchanged AWK pipeline: repeated sessions and three books sum to 246 minutes over four days.')
+assert all(len(row.split('\t')) == 5 for row in (session/'day-books.tsv').read_text(encoding='utf-8').splitlines())
+record('cache regression','The single AWK pipeline still sums repeated sessions and three books to 246 minutes over four days, while DAY_BOOKS now carries id/book_no after its unchanged first three columns.')
 
 def render(name,mode,code):
     (session/'draw.tsv').write_text('',encoding='utf-8')
@@ -452,7 +455,7 @@ assert daily_block.count('canvas calendar ')==1 and daily_block.count('swrite ca
 assert daily_block.count('image "$SESSION_DIR/daily-calendar.pgm"')==1 and 'refresh_region' not in daily_block
 assert 'month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 1308;;' in viewer
 assert 'day_*) new_day=' in viewer and 'perform_draw date_select 0 0 55 460 1162 1168' in viewer
-record('heatmap isolation and refresh','Cache builder payload, daemon, database inputs, period-data calculations, books functions and refresh policy are byte-identical to v9.6.10. The calendar is composed offscreen once, published once, then refreshed once through the existing GC16 region path.')
+record('heatmap isolation and refresh','Daemon, database inputs, period-data calculations, books functions and refresh policy are byte-identical to v9.6.10; the DAY_BOOKS identity-column extension does not alter heatmap inputs. The calendar is composed offscreen once, published once, then refreshed once through the existing GC16 region path.')
 
 changes=[]
 for file in sorted(PKG.rglob('*')):

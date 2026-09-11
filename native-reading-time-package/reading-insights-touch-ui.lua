@@ -43,10 +43,11 @@ local function inside(px, py, left, top, right, bottom)
     return px >= left and px <= right and py >= top and py <= bottom
 end
 local function action_for_logical(px, py)
-    local secondary = mode == "day_detail" or mode == "month_detail" or mode == "week_trend"
+    local secondary = mode == "day_detail" or mode == "month_detail" or mode == "week_trend" or mode == "book_detail"
     if secondary and inside(px, py, 20, 20, 300, 155) then
         if mode == "day_detail" then return "day_detail_back" end
         if mode == "month_detail" then return "month_detail_back" end
+        if mode == "book_detail" then return "book_detail_back" end
         return "week_trend_back"
     end
     if not secondary and inside(px, py, 20, 20, 270, 155) then return "exit" end
@@ -107,6 +108,11 @@ local function action_for_logical(px, py)
         if inside(px, py, 70, 285, 424, 339) then return "books_7d" end
         if inside(px, py, 459, 285, 813, 339) then return "books_month" end
         if inside(px, py, 848, 285, 1202, 339) then return "books_year" end
+        if inside(px, py, 70, 345, 1202, 1425) then
+            local row = math.floor((py - 345) / 217) + 1
+            if row > 5 then row = 5 end
+            return "book_row_" .. row
+        end
         if inside(px, py, 55, 1465, 385, 1595) then return "page_prev" end
         if inside(px, py, 885, 1465, 1217, 1595) then return "page_next" end
     end

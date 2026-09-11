@@ -232,11 +232,11 @@ assert viewer.index("day_detail_back)") < viewer.index("day_*)")
 assert 'week_offset=0' not in next(line for line in viewer.splitlines() if line.strip().startswith("day_detail_back)"))
 passed("return state", "Opening from calendar preserves selected_date/month; opening from a historical week preserves week_offset. Back restores the recorded source mode without resetting either context.")
 
-for unchanged in ("native-reading-time-daemon.sh", "native-reading-time.conf", "reading-insights-cache.awk", "阅读记录.sh", "reading-insights-touch.lua"):
+for unchanged in ("native-reading-time-daemon.sh", "native-reading-time.conf", "阅读记录.sh", "reading-insights-touch.lua"):
     key = f"native-reading-time-package/{unchanged}"
     assert hashlib.sha256((PKG / unchanged).read_bytes()).hexdigest() == BASE_HASHES[key], unchanged
 assert "$DATA" not in viewer[viewer.index("get_day_detail()"):viewer.index("prepare_daily_view()")]
-passed("data/core isolation", "Day detail reads only DAYS and DAY_BOOKS session aggregates; daemon, data format, cache builder, fallback viewer and legacy touch reader remain byte-identical to v9.6.10.")
+passed("data/core isolation", "Day detail still reads only the first three DAY_BOOKS columns; daemon, persisted data format, fallback viewer and legacy touch reader remain byte-identical to v9.6.10.")
 
 result = {"result": "PASS", "check_count": len(checks), "checks": checks}
 (OUT / "day-detail-results.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")

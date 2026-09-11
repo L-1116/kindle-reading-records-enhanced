@@ -11,6 +11,7 @@ CHECKS = [
     ROOT / "tests/validate_stats_filters.py",
     ROOT / "tests/validate_day_detail.py",
     ROOT / "tests/validate_period_details.py",
+    ROOT / "tests/validate_book_detail.py",
     ROOT / "tests/validate_install.py",
     ROOT / "scripts/package_release.py",
 ]

@@ -56,17 +56,17 @@ assert not (SANDBOX/'service-calls.log').exists()
 shutil.copy2(PKG/'native-reading-time-daemon.sh',daemon)
 p=subprocess.run([sh,script.as_posix()],capture_output=True)
 assert p.returncode==0,(p.stdout,p.stderr,(state/'install.log').read_text(encoding='utf-8'))
-release=state/'releases/9.7.2-测试版'
+release=state/'releases/9.7.3-测试版'
 assert digest(viewer)==digest(PKG/'阅读记录-optimized.sh')
 assert digest(daemon)==digest(PKG/'native-reading-time-daemon.sh')
 assert digest(conf)==digest(PKG/'native-reading-time.conf')
 assert digest(data)==before[str(data)]
 assert digest(state/'reading-time.tsv.bak')==before[str(data)]
-assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.7.2-测试版'
+assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.7.3-测试版'
 assert digest(old_release/'preserved-marker')==before[str(old_release/'preserved-marker')]
 for f in ['reading-insights-touch-ui.lua','reading-insights-titles.lua','reading-insights-title-widths.lua','reading-insights-cache.awk','reading-insights-render.lua']:
     assert digest(release/'bin'/f)==digest(PKG/f),f
-for f in ['daily.png','books.png','total.png','day_detail.png','month_detail.png','week_trend.png']:
+for f in ['daily.png','books.png','total.png','day_detail.png','month_detail.png','week_trend.png','book_detail.png']:
     assert digest(release/'ui-calendar'/f)==digest(PKG/'ui-calendar'/f)
 for f in ['daily.png','books.png','total.png']:
     assert digest(state/'ui'/f)==digest(PKG/'ui'/f)
