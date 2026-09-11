@@ -7,7 +7,7 @@ root=Path(__file__).resolve().parents[1]
 out=root/'build/validation';out.mkdir(parents=True,exist_ok=True)
 dist=root/'dist';dist.mkdir(exist_ok=True)
 files=[root/'RUNME.sh',*sorted(p for p in (root/'native-reading-time-package').rglob('*') if p.is_file())]
-archive=dist/'Kindle安装包-v9.7.2-测试版.zip'
+archive=dist/'kindle-reading-records-v9.7.2-test.zip'
 with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
     for p in files:z.write(p,p.relative_to(root).as_posix())
 with zipfile.ZipFile(archive) as z:
