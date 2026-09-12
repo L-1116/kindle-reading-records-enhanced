@@ -1,8 +1,9 @@
 # Kindle Reading Records Enhanced
 
-适用于越狱 Kindle 的原生阅读时长统计插件增强版。当前稳定版本为
-`v9.7.1-day-detail`，可在设备上查看月历、阅读热力、周/年统计、书籍筛选和
-当天阅读详情。
+适用于越狱 Kindle 的原生阅读时长统计插件增强版。当前稳定安装版为
+[`v9.7.1-install-fix`](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.1-install-fix)，
+功能内容与 `v9.7.1-day-detail` 一致，并修复了全新用户无法安装的问题。可在设备上查看月历、
+阅读热力、周/年统计、书籍筛选和当天阅读详情。
 
 本项目基于 [Plutoill/kindle-reading-records](https://github.com/Plutoill/kindle-reading-records)
 的代码，经原作者授权后继续迭代。本仓库不是上游项目的官方版本；原始工作归
@@ -31,9 +32,16 @@ Plutoill，本仓库中的后续增强和维护由 L-1116 完成。
 
 ## 安装与回滚
 
-1. 从 [Releases](../../releases) 下载当前稳定版 `v9.7.1-day-detail` 安装包并解压。
+> **首次安装请务必选对文件：**请从
+> [`v9.7.1-install-fix` Release](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.1-install-fix)
+> 的 **Assets** 下载 **`Kindle-Reading-Records-v9.7.1-install-fix.zip`**。
+> **不要下载 GitHub 自动生成的 `Source code (zip)` 或 `Source code (tar.gz)`**，它们不是 Kindle 安装包。
+
+1. 下载并解压 [`Kindle-Reading-Records-v9.7.1-install-fix.zip`](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.1-install-fix/Kindle-Reading-Records-v9.7.1-install-fix.zip)。
 2. 将 `RUNME.sh` 和完整的 `native-reading-time-package/` 复制到 Kindle USB 根目录。
 3. 安全弹出并断开 USB，在 Kindle 搜索栏执行 `;log runme`。
+
+该安装包同时支持全新安装和旧版升级，脚本会自动判断安装路径。
 
 升级和回滚不会主动替换 `reading-time.tsv`。完整步骤和注意事项见
 [安装与回滚说明](docs/安装与回滚.md)。
