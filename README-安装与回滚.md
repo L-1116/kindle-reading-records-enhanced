@@ -2,6 +2,12 @@
 
 本版完整复制自 `v9.6.10-ui-layout-fix`，旧目录保持不变。本轮只修复月历选中边框，并新增可由月历与周视图共同进入的“当天阅读详情”二级页。阅读 daemon、计时规则、`reading-time.tsv` 格式、缓存聚合口径、热力阈值、周切换与一级页面布局均未改变。
 
+## v9.7.1-install-fix 安装修复
+
+这是基于 `v9.7.1-day-detail` 的纯安装流程热修复，功能版本标记仍为 `9.7.1-day-detail`。修复后的同一安装包同时支持全新安装和旧版升级；`RUNME.sh` 会根据实际 daemon 是否存在自动选择路径，用户无需手动运行包内的两个安装器。
+
+该热修复不改变 daemon、统计循环、界面、触摸、字体、后台服务或阅读数据格式，也不增加常驻进程、数据库或运行时依赖。
+
 ## 月历选中状态
 
 - `today_date` 只保存插件启动时的真实系统日期。
@@ -54,10 +60,25 @@ python package_release.py
 ## 安装
 
 1. 退出 Kindle 上的“阅读记录”，USB 连接电脑。
-2. 将本目录的 `RUNME.sh` 和完整 `native-reading-time-package` 复制到 Kindle USB 根目录；也可解压 `Kindle安装包-v9.7.1-day-detail.zip` 后复制这两项。
+2. 将本目录的 `RUNME.sh` 和完整 `native-reading-time-package` 复制到 Kindle USB 根目录；也可解压 `Kindle安装包-v9.7.1-install-fix.zip` 后复制这两项。解压后不应多出一层包装目录。
 3. 安全弹出 Kindle，在搜索栏执行 `;log runme`。
 
-安装器发布到 `/mnt/us/reading-time/releases/9.7.1-day-detail/`，保留阅读历史、备份和旧发布目录。
+脚本会自动判断安装路径：
+
+- 未找到 `/mnt/us/reading-time/bin/native-reading-time-daemon.sh` 时，先完成基础安装，确认 daemon 存在后再继续安装完整的 `9.7.1-day-detail`。已有 `reading-time/` 或 `reading-time.tsv` 但缺少 daemon 的半安装状态也走该路径，阅读历史会保留。
+- 已找到 daemon 时，直接走原有 Optimized 升级路径。对未知或被修改 daemon 的 `cmp` 一致性检查仍保持不变，检查失败时不会强制覆盖。
+
+安装器发布到 `/mnt/us/reading-time/releases/9.7.1-day-detail/`，保留阅读历史、已有备份和旧发布目录。
+
+### 故障排查
+
+执行 `;log runme` 后如果 Kindle 图书馆中没有出现“阅读记录”，请重新连接电脑并查看：
+
+```text
+/mnt/us/reading-time/install.log
+```
+
+日志会说明脚本判定为全新安装还是旧版升级，并标出失败的阶段。普通用户不需要、也不应手动运行两个内部安装器。
 
 ## 回滚到 v9.6.10-ui-layout-fix
 
