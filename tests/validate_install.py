@@ -46,13 +46,13 @@ raw_installer=(PKG/'Install-Native-Reading-Time-Optimized.sh').read_text(encodin
 def sandbox_installer(package: Path) -> str:
     result=raw_installer.replace('/mnt/us',us.as_posix()).replace('/etc/upstart',etc.as_posix())
     result=result.replace('/sbin/initctl','"'+initctl.as_posix()+'"').replace('/lib/ld-linux-armhf.so.3',fake_ld.as_posix())
+    result=result.replace('lipc-set-prop','"'+lipc.as_posix()+'"')
     return result.replace('PKG="'+us.as_posix()+'/native-reading-time-package"','PKG="'+package.as_posix()+'"')
 installer=sandbox_installer(PKG)
 prelude='''#!/bin/sh
 export PATH="'''+mockbin.as_posix()+''':/usr/bin:$PATH"
 id() { echo 0; }
 mntroot() { return 0; }
-lipc-set-prop() { "'''+lipc.as_posix()+'''" "$@"; }
 sleep() { return 0; }
 sync() { return 0; }
 '''
