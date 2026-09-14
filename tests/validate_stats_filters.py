@@ -69,12 +69,12 @@ record("protected core", "Daemon, Upstart config, legacy viewer/touch and daily 
 
 viewer = (PKG / "阅读记录-optimized.sh").read_text(encoding="utf-8")
 baseline_viewer = (BASE / "阅读记录-optimized.sh").read_text(encoding="utf-8")
-new_progress = viewer[viewer.index("ensure_progress()"):viewer.index("pgm_valid()")]
+new_progress = viewer[viewer.index("catalog_loaded=0"):viewer.index("pgm_valid()")]
 old_progress = baseline_viewer[baseline_viewer.index("ensure_progress()"):baseline_viewer.index("pgm_valid()")]
-assert "p_percentFinished" in new_progress and "p_cdeKey" in new_progress and "sqlite3 -readonly" in new_progress
+assert all(token in new_progress for token in ("p_percentFinished", "p_cdeKey", "p_thumbnail", "sqlite3 -readonly"))
 assert "UPDATE " not in new_progress and "INSERT " not in new_progress and "DELETE " not in new_progress
 assert "p_percentFinished" in old_progress and "sqlite3 -readonly" in old_progress
-record("progress safety", "Progress still uses one delayed read-only cc.db snapshot; reliable cdeKey/ASIN matching is tried first with exact-title fallback, with no location guessing or database writes.")
+record("progress safety", "Progress and thumbnails share one delayed read-only cc.db snapshot; reliable cdeKey matching is tried first with exact-title progress fallback, with no database writes or directory scan.")
 
 # Extract function definitions only; hardware startup and cleanup never run.
 definitions = viewer[: viewer.index("\ndetect_screen; find_touch_device")]
@@ -164,9 +164,9 @@ page_probe = run_shell(setup + '''book_filter=7d; book_page=1; prepare_book_view
 book_page=2; prepare_book_view; wc -l < "$SESSION_DIR/book-view.tsv"
 book_filter=month; book_page=1; prepare_book_view; wc -l < "$SESSION_DIR/book-view.tsv"
 ''').splitlines()
-assert page_probe == ["5", "1", "5"], page_probe
+assert page_probe == ["3", "3", "3"], page_probe
 assert 'book_filter="$new_filter"; book_page=1;' in viewer
-record("book pagination", "Filtering precedes five-item pagination: near-7-days yields pages of 5+1, month yields one page; changing range explicitly resets page to 1.")
+record("book pagination", "Filtering precedes three-item pagination: near-7-days yields two pages of three and month yields 3+2; changing range explicitly resets page to 1.")
 
 duration_output = run_shell(setup + '''for n in 45 60 125 576 750; do chart_time_text "$n"; echo; done''').splitlines()
 assert duration_output == ["45min", "1h", "2h5min", "9h36min", "12h30min"], duration_output
@@ -311,7 +311,7 @@ render("books-filters", "books", "progress_loaded=1; book_filter=7d; book_page=2
 books_spec = (OUT / "books-7d.spec.tsv").read_text(encoding="utf-8")
 assert "暂无进度" in books_spec and "42%" in books_spec and "88%" in books_spec
 assert "本周" not in books_spec and all(label in books_spec for label in ("近7日", "本月", "今年"))
-record("book rendering", "All three filters, a second page, cdeKey/title progress matches and ‘暂无进度’ render with the unchanged five-row layout.")
+record("book rendering", "All three filters, a second page, cdeKey/title progress matches and ‘暂无进度’ render with the new three-row cover layout.")
 
 # Opening punctuation must move with its following token.
 titles = [

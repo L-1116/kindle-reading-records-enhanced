@@ -186,8 +186,13 @@ assert trend[0].startswith("11/17\t600\t0") and trend[-3].split("\t")[1] == "0"
 assert trend[-1] == "summary\t3600\t0\t3600\t2040\t2"
 trend_spec = render("week-trend", "week_trend.png", f"today_date={today.isoformat()}; prepare_week_trend; render_week_trend")
 assert all(text in trend_spec for text in ("本周", "上周", "较上周", "+1小时0分钟", "8周平均", "最佳一周", "本周阅读", "每周阅读趋势"))
+summary_text = [line.split("\t") for line in trend_spec.splitlines() if line.startswith("text\ttrend_summary")]
+assert [int(row[4]) for row in summary_text] == [202, 202, 566, 566, 930, 930, 202, 202, 566, 566, 930, 930]
+assert [int(row[5]) for row in summary_text] == [80, 127, 80, 127, 80, 127, 250, 297, 250, 297, 250, 297]
+assert all(row[6] == "center" for row in summary_text)
 assert "9000" not in (SESSION / "period-daily.tsv").read_text(encoding="utf-8")
-assert any(line.startswith("rect\ttrend_chart") and line.endswith("\t20") for line in trend_spec.splitlines())
+chart_rects = [line.split("\t") for line in trend_spec.splitlines() if line.startswith("rect\ttrend_chart")]
+assert sum(row[-1] == "20" for row in chart_rects) == 1  # x-axis only; current-week outline removed
 all_week_rows = [((start + timedelta(weeks=index)).isoformat(), (index + 1) * 300, f"All {index}") for index in range(8)]
 write_fixture(all_week_rows)
 all_weeks = run_shell(setup + f'''today_date={today.isoformat()}
@@ -195,7 +200,13 @@ prepare_week_trend
 cat "$WEEK_TREND_VALUES"
 ''').splitlines()
 assert len(all_weeks) == 8 and all(int(line.split("\t")[1]) > 0 for line in all_weeks)
-passed("8-week trend", "Eight Monday-based buckets cross Nov/Dec/Jan, cover both all-populated and missing-week fixtures, exclude a future current-week row, report two active current-week days and render the current-week outline without division or infinity text.")
+long_spec = render("week-trend-long-values", "week_trend.png", '''
+week_current=11460; week_previous=58140; week_difference=-46680; week_average=11460; week_best=47820; week_current_days=1
+printf '8/1\t3600\t0\n8/8\t7200\t0\n8/15\t10800\t0\n8/22\t14400\t0\n8/29\t18000\t0\n9/5\t21600\t0\n9/12\t47820\t0\n9/19\t11460\t1\n' > "$WEEK_TREND_VALUES"
+render_week_trend
+''')
+assert all(value in long_spec for value in ("-12小时58分钟", "13小时17分钟", "3小时11分钟"))
+passed("8-week trend", "Eight Monday-based buckets cross Nov/Dec/Jan, exclude future rows, and render a vertically centered, equal-width 3×2 summary grid; the current-week bar has no extra outline, and long values remain single centered labels.")
 
 # Actual Lua hit testing keeps every entry distinct and secondary tabs hidden.
 touch = (PKG / "reading-insights-touch-ui.lua").read_text(encoding="utf-8")

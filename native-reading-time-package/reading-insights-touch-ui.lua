@@ -104,13 +104,26 @@ local function action_for_logical(px, py)
             if detail_page > 1 and inside(px, py, 390, pager_y, 529, pager_y+53) then return "day_detail_prev" end
             if detail_page < detail_pages and inside(px, py, 742, pager_y, 881, pager_y+53) then return "day_detail_next" end
         end
+    elseif mode == "book_detail" then
+        if inside(px, py, 300, 750, 510, 860) then return "book_month_prev" end
+        if inside(px, py, 760, 750, 970, 860) then return "book_month_next" end
+        local rows = math.floor((calendar_offset + calendar_days + 6) / 7)
+        local cell_h = math.floor(520 / rows)
+        if px >= 76 and px < 1196 and py >= 895 and py < 895 + rows*cell_h then
+            local col = math.floor((px - 76) / 160)
+            local row = math.floor((py - 895) / cell_h)
+            local day = row * 7 + col - calendar_offset + 1
+            if day >= 1 and day <= calendar_days then return "book_day_" .. day end
+            return "book_calendar_clear"
+        end
+        if inside(px, py, 55, 750, 1217, 1640) then return "book_calendar_clear" end
     elseif mode == "books" then
         if inside(px, py, 70, 285, 424, 339) then return "books_7d" end
         if inside(px, py, 459, 285, 813, 339) then return "books_month" end
         if inside(px, py, 848, 285, 1202, 339) then return "books_year" end
         if inside(px, py, 70, 345, 1202, 1425) then
-            local row = math.floor((py - 345) / 217) + 1
-            if row > 5 then row = 5 end
+            local row = math.floor((py - 345) / 360) + 1
+            if row > 3 then row = 3 end
             return "book_row_" .. row
         end
         if inside(px, py, 55, 1465, 385, 1595) then return "page_prev" end

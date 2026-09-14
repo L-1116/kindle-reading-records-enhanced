@@ -21,7 +21,7 @@ checks=[]
 def record(name,detail):
     checks.append({'check':name,'result':'PASS','detail':detail})
 def run_shell(code):
-    p=subprocess.run([SH,'-c','PYTHON_BIN=$(command -v python)\nexport PATH="/usr/bin:$PATH"\n'+code],capture_output=True,encoding='utf-8')
+    p=subprocess.run([SH,'-c','PYTHON_BIN=$(command -v python)\nexport PATH="/usr/bin:$PATH"\n'+code],capture_output=True,encoding='utf-8',errors='replace')
     assert p.returncode==0,(code,p.stdout,p.stderr)
     return p.stdout
 
@@ -43,6 +43,7 @@ for file in sorted(PKG.rglob('*')):
             stable_payload_changes.append(file.relative_to(ROOT).as_posix())
 assert stable_payload_changes==[
     'native-reading-time-package/Install-Native-Reading-Time-Optimized.sh',
+    'native-reading-time-package/launcher-icon.png',
     'native-reading-time-package/reading-insights-cache.awk',
     'native-reading-time-package/reading-insights-touch-ui.lua',
     'native-reading-time-package/render-assets/dynamic-glyphs.pgm',
@@ -53,7 +54,7 @@ assert stable_payload_changes==[
     'native-reading-time-package/ui-calendar/week_trend.png',
     'native-reading-time-package/阅读记录-optimized.sh',
 ]
-record('stable payload scope','Against v9.6.10, only the optimized viewer/touch map, secondary-page backgrounds/glyphs and versioned installer payload changed.')
+record('stable payload scope','Against v9.6.10, only the optimized viewer/touch map, launcher icon, secondary-page backgrounds/glyphs and versioned installer payload changed.')
 
 unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:
@@ -67,12 +68,12 @@ record('preserved core','Daemon, Upstart, progress query, legacy viewer/touch, p
 
 viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
 old=STABLE_VIEWER.read_text(encoding='utf-8')
-for start,end in [('ensure_progress()','pgm_valid()'),('detect_screen()','time_text()'),('refresh_region()','dashboard_active=0'),('book_pages()','render_books()')]:
+for start,end in [('detect_screen()','time_text()'),('refresh_region()','dashboard_active=0')]:
     assert viewer[viewer.index(start):viewer.index(end)]==old[old.index(start):old.index(end)]
 for name in ('page_prev)','page_next)'):
     assert next(x for x in viewer.splitlines() if x.strip().startswith(name))==next(x for x in old.splitlines() if x.strip().startswith(name))
 assert 'mode=daily; view_year=' in viewer
-record('interaction invariants','Default daily; original book paging branches, page count, progress query, geometry and refresh policy unchanged.')
+record('interaction invariants','Default daily, page navigation branches and refresh policy remain stable; v9.7.4 intentionally replaces book geometry and extends the catalog query with thumbnails.')
 
 # Extract definitions only: never run startup, hardware access, or EXIT cleanup.
 defs=viewer[:viewer.index('\ndetect_screen; find_touch_device')]
@@ -256,9 +257,9 @@ book_fixture=''.join(f'{sec}\t{title}\tb{i}\t{i}\n' for i,(sec,title) in enumera
 (session/'books-7d.tsv').write_text(book_fixture,encoding='utf-8')
 (session/'book-progress.tsv').write_text('13\t72-庆余年\n100\t'+long_cn+'\n30\t55-变身荒野女主播\n0\t67-球状闪电\n',encoding='utf-8')
 spec=render('books-long-titles','books','progress_loaded=1; book_filter=7d; book_page=1; render_books')
-assert '13%' in spec and '100%' in spec and '0%' in spec and '暂无进度' in spec
+assert '13%' in spec and '100%' in spec and '30%' in spec
 title_lines=(session/'book-titles.tsv').read_text(encoding='utf-8').splitlines()
-assert len(title_lines)<=10 and sum('…' in x for x in title_lines)==2
+assert len(title_lines)<=6 and sum('…' in x for x in title_lines)==1
 (session/'day-books.tsv').write_text(f'2026-09-05\t3600\t{long_cn}\n2026-09-05\t1800\t{long_en}\n2026-09-05\t60\t短书名\n',encoding='utf-8')
 (session/'days.tsv').write_text('2026-09-05\t5460\n',encoding='utf-8')
 render('daily-long-titles','daily','daily_y=2026; daily_m=9; selected_date=2026-09-05; render_daily 1')
@@ -448,20 +449,20 @@ record('weekly plot layout','Monday at 0, 35, 120 and 210 min uses one measured 
 # No cache/database/daemon/other-page logic changed. Calendar rendering remains
 # one offscreen canvas publication followed by the existing single region refresh.
 stable_viewer=STABLE_VIEWER.read_text(encoding='utf-8')
-for start,end in [('prepare_total_values()','spec_toggle_button()'),('active_books()','draw_background()'),('refresh_region()','dashboard_active=0')]:
+for start,end in [('prepare_total_values()','spec_toggle_button()'),('refresh_region()','dashboard_active=0')]:
     assert viewer[viewer.index(start):viewer.index(end)]==stable_viewer[stable_viewer.index(start):stable_viewer.index(end)]
 daily_block=viewer[viewer.index('render_daily()'):viewer.index('active_books()')]
 assert daily_block.count('canvas calendar ')==1 and daily_block.count('swrite calendar')==1
 assert daily_block.count('image "$SESSION_DIR/daily-calendar.pgm"')==1 and 'refresh_region' not in daily_block
 assert 'month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 1308;;' in viewer
 assert 'day_*) new_day=' in viewer and 'perform_draw date_select 0 0 55 460 1162 1168' in viewer
-record('heatmap isolation and refresh','Daemon, database inputs, period-data calculations, books functions and refresh policy are byte-identical to v9.6.10; the DAY_BOOKS identity-column extension does not alter heatmap inputs. The calendar is composed offscreen once, published once, then refreshed once through the existing GC16 region path.')
+record('heatmap isolation and refresh','Daemon, period-data calculations and refresh policy remain byte-identical to v9.6.10; the DAY_BOOKS identity-column extension and cover UI do not alter global heatmap inputs. The calendar is composed offscreen once, published once, then refreshed once through the existing GC16 region path.')
 
 changes=[]
 for file in sorted(PKG.rglob('*')):
     if file.is_file():
         rel=file.relative_to(ROOT).as_posix()
         if STABLE_HASHES.get(rel)!=hashlib.sha256(file.read_bytes()).hexdigest():changes.append(rel)
-result={'checks':checks,'modified_or_added_payload':changes,'limits':['No physical Kindle/FBInk runtime test performed. PNG previews approximate native FBInk text only; grayscale distinction and ghosting need on-device observation.','Date selection redraws the whole calendar+preview offscreen and performs one regional refresh, preserving the low-risk v9.6.10 interaction path.','The quick preview still paginates as before; the reusable full day-detail page is covered separately.','Books retain baseline sorting by cumulative seconds and five books per page.']}
+result={'checks':checks,'modified_or_added_payload':changes,'limits':['No physical Kindle/FBInk runtime test performed. PNG previews approximate native FBInk text only; grayscale distinction and ghosting need on-device observation.','Date selection redraws the whole calendar+preview offscreen and performs one regional refresh, preserving the low-risk v9.6.10 interaction path.','The quick preview still paginates as before; the reusable full day-detail page is covered separately.','Books retain baseline sorting by cumulative seconds and use three books per page.']}
 (OUT/'results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(result,ensure_ascii=True,indent=2))

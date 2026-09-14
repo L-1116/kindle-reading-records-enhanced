@@ -43,12 +43,14 @@ def build():
     # Keep the atlas small: new fixed headings are rasterized into their PNG
     # backgrounds.  Only the few new dynamic-label glyphs are added, and only
     # at the sizes where the compositor actually uses them.
-    size_scoped_chars=set('上份佳势回平每趋较返高累计首次活跃进度')
+    size_scoped_chars=set('上份佳势回平每趋较返高累计首次活跃进度封面历点击查看未·')
     chars.difference_update(size_scoped_chars)
     extra_chars_by_size={
-        22:set('首次活跃进度'),
-        24:set('上佳平较高累计进度'),
-        34:set('势每趋进度'),
+        22:set('首次活跃进度累计'),
+        24:set('上佳平较高累计进度封面点击查看'),
+        27:set('进度'),
+        28:set('未·'),
+        34:set('势每趋进度历'),
     }
     chars.update('周一二三四五六日月近本今年当前范围暂无满的书籍阅读日均详情星期总时长明细记录最多›‹')
     sizes=sorted(({int(row.split('\t')[1]) for row in old}-{19,25,38})|{28,44})

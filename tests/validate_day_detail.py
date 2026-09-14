@@ -68,7 +68,7 @@ def write_fixture(rows: list[tuple[str, int, str]]) -> None:
         "".join(f"{date}\t{seconds}\n" for date, seconds in sorted(totals.items())), encoding="utf-8"
     )
     (SESSION / "day-books.tsv").write_text(
-        "".join(f"{date}\t{seconds}\t{title}\n" for date, seconds, title in rows), encoding="utf-8"
+        "".join(f"{date}\t{seconds}\t{title}\tbook-{index}\t{index}\n" for index, (date, seconds, title) in enumerate(rows, 1)), encoding="utf-8"
     )
 
 
@@ -173,19 +173,20 @@ printf '%s|%s|%s|%s|%s|%s\n' "$day_detail_date" "$day_detail_weekday" "$day_deta
 cat "$DAY_DETAIL_ALL"
 '''
 ).splitlines()
-assert summary[0] == "2026-09-07|星期一|9660|6|4|2"
+assert summary[0] == "2026-09-07|星期一|9660|6|3|2"
 detail_rows = [line.split("\t") for line in summary[1:]]
 assert [int(row[0]) for row in detail_rows] == [4200, 2520, 1680, 600, 600, 60]
 assert [int(row[1]) for row in detail_rows] == [43, 26, 17, 6, 6, 1]
 assert [row[2] for row in detail_rows[3:5]] == ["Alpha", "Beta"]
+assert all(len(row) == 5 and row[3].startswith("book-") for row in detail_rows)
 spec = render("day-detail-multiple", "get_day_detail 2026-09-07; render_day_detail")
-assert all(text in spec for text in ("2026年9月7日", "星期一", "2小时41分钟", "6本", "最多  43%", "1 / 2"))
-assert len((SESSION / "day-detail-view.tsv").read_text(encoding="utf-8").splitlines()) == 4
+assert all(text in spec for text in ("2026年9月7日", "星期一", "2小时41分钟", "6本", "43%", "1 / 2"))
+assert len((SESSION / "day-detail-view.tsv").read_text(encoding="utf-8").splitlines()) == 3
 page_two = render("day-detail-page-2", "get_day_detail 2026-09-07; day_detail_page=2; render_day_detail")
 assert "2 / 2" in page_two
-assert len((SESSION / "day-detail-view.tsv").read_text(encoding="utf-8").splitlines()) == 2
+assert len((SESSION / "day-detail-view.tsv").read_text(encoding="utf-8").splitlines()) == 3
 assert len((SESSION / "day-detail-all.tsv").read_text(encoding="utf-8").splitlines()) == 6
-passed("day aggregation and pagination", "One get_day_detail call returns date/weekday/9660 seconds/6 books, sorts seconds descending with Alpha before Beta on a tie, calculates guarded integer percentages, and exposes all 6 books over 4+2 rows.")
+passed("day aggregation and pagination", "One get_day_detail call returns date/weekday/9660 seconds/6 books, preserves book_id/book_no for covers, sorts seconds descending with Alpha before Beta on a tie, calculates guarded percentages, and exposes all 6 books over 3+3 rows.")
 
 # Empty day is a valid destination and never divides by zero.
 write_fixture([])
@@ -226,9 +227,10 @@ printf '%s|%s|%s\n' "$mode" "$day_detail_source" "$week_offset"
 ).splitlines()
 assert state == ["day_detail|daily|2026-09-07|2026|9", "day_detail|total|-3"]
 assert 'day_detail_back) mode="$day_detail_source"' in viewer
-assert viewer.index("day_detail_prev)") < viewer.index("day_*)")
-assert viewer.index("day_detail_next)") < viewer.index("day_*)")
-assert viewer.index("day_detail_back)") < viewer.index("day_*)")
+day_route = viewer.index("      day_*)")
+assert viewer.index("day_detail_prev)") < day_route
+assert viewer.index("day_detail_next)") < day_route
+assert viewer.index("day_detail_back)") < day_route
 assert 'week_offset=0' not in next(line for line in viewer.splitlines() if line.strip().startswith("day_detail_back)"))
 passed("return state", "Opening from calendar preserves selected_date/month; opening from a historical week preserves week_offset. Back restores the recorded source mode without resetting either context.")
 
@@ -236,7 +238,7 @@ for unchanged in ("native-reading-time-daemon.sh", "native-reading-time.conf", "
     key = f"native-reading-time-package/{unchanged}"
     assert hashlib.sha256((PKG / unchanged).read_bytes()).hexdigest() == BASE_HASHES[key], unchanged
 assert "$DATA" not in viewer[viewer.index("get_day_detail()"):viewer.index("prepare_daily_view()")]
-passed("data/core isolation", "Day detail still reads only the first three DAY_BOOKS columns; daemon, persisted data format, fallback viewer and legacy touch reader remain byte-identical to v9.6.10.")
+passed("data/core isolation", "Day detail reads the launch-time DAY_BOOKS identity columns for covers without touching persisted data; daemon, TSV format, fallback viewer and legacy touch reader remain byte-identical to v9.6.10.")
 
 result = {"result": "PASS", "check_count": len(checks), "checks": checks}
 (OUT / "day-detail-results.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")

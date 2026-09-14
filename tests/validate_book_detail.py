@@ -122,14 +122,14 @@ today = date(2026, 1, 5)
 )
 (SESSION / "book-progress.tsv").write_text("42\t新标题\tid-a\n", encoding="utf-8")
 metrics = run_shell(setup + r'''get_book_detail 7 "新标题" id-a
-printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$book_detail_total" "$book_detail_read_days" "$book_detail_first_date" "$book_detail_last_date" "$book_detail_active_average" "$book_detail_month_total" "$book_detail_7d_total" "$book_detail_30d_total" "$book_detail_progress"
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$book_detail_total" "$book_detail_read_days" "$book_detail_first_date" "$book_detail_last_date" "$book_detail_active_average" "$book_detail_month_total" "$book_detail_7d_total" "$book_detail_progress"
 ''').strip()
-assert metrics == "7500\t5\t2025-11-01\t2026-01-05\t1500\t3900\t5700\t6900\t42"
+assert metrics == "7500\t5\t2025-11-01\t2026-01-05\t1500\t3900\t5700\t42"
 daily = [line.split("\t") for line in (SESSION / "book-detail-daily.tsv").read_text(encoding="utf-8").splitlines()]
-assert len(daily) == 30 and daily[0][0] == "2025-12-07" and daily[-1][0] == "2026-01-05"
-assert sum(int(row[1]) for row in daily) == 6900 and sum(int(row[1]) == 0 for row in daily) == 26
-assert daily[24] == ["2025-12-31", "1800"] and daily[25] == ["2026-01-01", "3600"]
-passed("book aggregation", "A single DAY_BOOKS scan returns correct lifetime/days/first/last/active-average/month/7-day/30-day values and exactly 30 natural days including zeros across month and year boundaries.")
+assert len(daily) == 31 and daily[0] == ["1", "3600"] and daily[-1][0] == "31"
+assert sum(int(row[1]) for row in daily) == 3900 and sum(int(row[1]) == 0 for row in daily) == 29
+assert daily[4] == ["5", "300"]
+passed("book aggregation", "The lazy detail boundary returns correct lifetime/days/first/last/active-average/month/7-day values, then builds one complete selected month with zero-filled per-book day buckets.")
 
 
 # Progress lookup remains the existing cdeKey-first helper and has a safe empty state.
@@ -140,17 +140,19 @@ assert "$3==id" in progress_body and "$2==t" in progress_body and "sqlite3" not 
 passed("progress reuse", "The existing ID-first/title-fallback progress result is reused; missing progress is empty and triggers the safe ‘暂无进度’ presentation without another SQLite path.")
 
 
-# Lua maps five full rows only; shell resolves row -> current filtered page.
+# Lua maps three cover rows; book detail adds month and date interactions.
 touch = (PKG / "reading-insights-touch-ui.lua").read_text(encoding="utf-8")
 touch = touch[: touch.index('\nnote(string.format("interactive watcher started')]
 touch = touch.replace('local f = assert(io.open(device, "rb"))', "local f = nil")
 touch = touch.replace('local log = io.open(log_path, "a")', "local log = nil") + "\nreturn action_for_logical"
 lua = LuaRuntime(); lua.globals().arg = lua.table_from({3: "books"}); hit = lua.execute(touch)
-assert [hit(636, 345 + row * 217 + 100) for row in range(5)] == [f"book_row_{row}" for row in range(1, 6)]
+assert [hit(636, 345 + row * 360 + 100) for row in range(3)] == [f"book_row_{row}" for row in range(1, 4)]
 assert hit(636, 1435) is None and hit(200, 300) == "books_7d" and hit(1100, 1520) == "page_next"
-lua = LuaRuntime(); lua.globals().arg = lua.table_from({3: "book_detail"}); detail_hit = lua.execute(touch)
-assert detail_hit(150, 90) == "book_detail_back" and detail_hit(600, 210) is None
-passed("touch rows", "All five visible book rows have full-width distinct actions; filter/pager targets remain intact, blank space is inert, and book detail exposes only its back control.")
+lua = LuaRuntime(); lua.globals().arg = lua.table_from({3: "book_detail", 4: 3, 5: 31}); detail_hit = lua.execute(touch)
+assert detail_hit(150, 90) == "book_detail_back"
+assert detail_hit(400, 805) == "book_month_prev" and detail_hit(850, 805) == "book_month_next"
+assert detail_hit(650, 950).startswith("book_day_") and detail_hit(600, 1550) == "book_calendar_clear"
+passed("touch rows", "All three visible book rows have distinct actions; book detail exposes back, month navigation, date selection and small-tip clearing targets.")
 
 
 def books_file(name: str, prefix: str) -> None:
@@ -167,16 +169,16 @@ books_file("books-year.tsv", "Year")
 (SESSION / "book-progress.tsv").unlink(missing_ok=True)
 routes = run_shell(setup + r'''
 perform_draw() { printf '%s:%s:%s:%s\n' "$1" "$mode" "$book_detail_title" "$book_detail_book_no"; }
-for route in '7d 1 3' 'month 2 2' 'year 2 5'; do
+for route in '7d 1 3' 'month 2 2' 'year 2 3'; do
     set -- $route; book_filter="$1"; book_page="$2"; open_book_detail "$3" || exit 1
     printf 'state:%s:%s:%s:%s\n' "$book_filter" "$book_page" "$book_detail_filter" "$book_detail_page"
 done
-book_filter=7d; book_page=3; open_book_detail 5; printf 'empty:%s\n' "$?"
+book_filter=7d; book_page=5; open_book_detail 3; printf 'empty:%s\n' "$?"
 ''').splitlines()
 assert routes == [
     "book_detail_open:book_detail:Seven 3:103", "state:7d:1:7d:1",
-    "book_detail_open:book_detail:Month 7:107", "state:month:2:month:2",
-    "book_detail_open:book_detail:Year 10:110", "state:year:2:year:2",
+    "book_detail_open:book_detail:Month 5:105", "state:month:2:month:2",
+    "book_detail_open:book_detail:Year 6:106", "state:year:2:year:2",
     "empty:2",
 ]
 assert 'book_detail_back) book_filter="$book_detail_filter"; book_page="$book_detail_page"; mode=books; perform_draw book_detail_back' in viewer
@@ -190,7 +192,8 @@ long_title = "很长的单书标题《跨年阅读记录》用于验证两行安
 (SESSION / "draw.tsv").write_text("", encoding="utf-8")
 run_shell(setup + f'get_book_detail 7 "{long_title}" id-a\nrender_book_detail\n')
 spec = (SESSION / "render-spec.tsv").read_text(encoding="utf-8")
-assert all(label in spec for label in ("累计阅读", "阅读天数", "首次阅读", "最近阅读", "活跃日均", "本月阅读", "阅读进度", "最近30天"))
+assert all(label in spec for label in ("累计阅读", "阅读天数", "首次阅读", "最近阅读", "本月阅读", "阅读进度", "阅读日历", "2026年1月"))
+assert "最近30天" not in spec and "活跃日均" not in spec
 title_lines = (SESSION / "book-detail-title-layout.tsv").read_text(encoding="utf-8").splitlines()
 assert 1 <= len(title_lines) <= 2 and title_lines[-1].endswith("…")
 page = Image.open(PKG / "ui-calendar/book_detail.png").convert("L")
@@ -206,29 +209,88 @@ for line in (SESSION / "draw.tsv").read_text(encoding="utf-8").splitlines():
         _, size, y, x, right, _style, text = fields
         font = ImageFont.truetype(str(PKG / "NotoSansCJKsc-Regular.otf"), int(size))
         assert font.getlength(text) <= 1272 - int(x) - int(right)
-        assert int(y) < 205 + 112
+        assert int(y) < 325
         draw.text((int(x), int(y)), text, font=font, fill=0)
 page.save(OUT / "book-detail.png")
 assert page.size == (1272, 1696) and (PKG / "ui-calendar/book_detail.png").stat().st_size > 0
-assert sum(1 for line in spec.splitlines() if line.startswith("rect\tbook_chart") and line.endswith("\t105")) == 1
-passed("render and long title", "The 1272×1696 secondary page renders all metrics and a 30-day chart through validated PGM tiles; arbitrary long Unicode titles are measured, limited to two lines, ellipsized, and kept above the metric divider.")
+assert any(line.startswith("rect\tbook_summary\t35\t145\t200\t300") for line in spec.splitlines())
+assert len([line for line in spec.splitlines() if line.startswith("rect\tbook_chart") and line.endswith("\t255")]) >= 29
+passed("render and long title", "The 1272×1696 page renders a fixed cover slot, six-item summary and one-month per-book heat calendar; long Unicode titles stay at two bold lines without invading the metrics.")
+
+
+# Persistent cover cache wins over a transiently empty catalog; stale paths
+# invalidate atomically and a valid read-only catalog result refreshes them.
+covers = SESSION / "covers"
+covers.mkdir(exist_ok=True)
+cached_cover = covers / "cached.jpg"
+db_cover = covers / "from-db.jpg"
+Image.new("L", (200, 300), 90).save(cached_cover)
+Image.new("L", (200, 300), 140).save(db_cover)
+cached_rel = cached_cover.relative_to(ROOT).as_posix()
+db_rel = db_cover.relative_to(ROOT).as_posix()
+cover_probe = run_shell(setup + f'''
+COVER_CACHE="$SESSION_DIR/book-cover-cache.tsv"; CATALOG="$SESSION_DIR/book-catalog.tsv"; catalog_loaded=1
+cover_path_allowed() {{ case "$1" in "$SESSION_DIR"/covers/*) [ -f "$1" ];; *) return 1;; esac; }}
+printf 'id-a\t{cached_rel}\nstale-id\t$SESSION_DIR/covers/missing.jpg\n' > "$COVER_CACHE"
+printf '0\tCatalog title\tdb-id\t{db_rel}\n' > "$CATALOG"
+resolveBookCover id-a
+resolveBookCover db-id
+resolveBookCover stale-id || printf 'default\n'
+renderBookCover id-a 10 20 190 285
+cat "$COVER_CACHE"
+''').splitlines()
+assert cover_probe[:3] == [cached_rel, db_rel, "default"], cover_probe
+assert any(line == f"id-a\t{cached_rel}" for line in cover_probe)
+assert any(line == f"db-id\t{db_rel}" for line in cover_probe)
+assert not any(line.startswith("stale-id\t") for line in cover_probe)
+draw_lines = (SESSION / "draw.tsv").read_text(encoding="utf-8").splitlines()
+assert any(line == f"image\t{cached_rel}\t10\t20\t190\t285" for line in draw_lines)
+resolver = viewer[viewer.index("resolveBookCover()") : viewer.index("render_cover_placeholder()")]
+assert "cover_cache_lookup" in resolver and "ensure_catalog" in resolver and "p_thumbnail" not in resolver
+assert all(word not in resolver for word in ("find ", "find\t", "ls ", "rglob", "documents/"))
+assert viewer.count('renderBookCover "') == 3
+passed("cover resolver and cache", "One shared resolver serves all three pages: valid last-known-good cache first, one-session catalog snapshot on miss, stale-path removal, exact EBOK candidate, then fixed 2:3 placeholder—without directory or ebook scans.")
+
+
+# The per-book month calendar consumes raw seconds through the exact global
+# heat functions and supports a compact selected-day hint.
+heat_seconds = [0, 1, 1800, 3600, 7200, 10800, 14400]
+(SESSION / "day-books.tsv").write_text(
+    "".join(f"2026-09-{day:02}\t{seconds}\tHeat Book\theat-id\t9\n" for day, seconds in enumerate(heat_seconds, 1)),
+    encoding="utf-8",
+)
+(SESSION / "calendar.tsv").write_text(f"{jdn(date(2026, 9, 14))}\n", encoding="utf-8")
+(SESSION / "book-progress.tsv").write_text("55\tHeat Book\theat-id\n", encoding="utf-8")
+run_shell(setup + 'get_book_detail 9 "Heat Book" heat-id\nbook_calendar_selected_date=2026-09-07\n: > "$SPEC"; spec_book_detail_chart; run_renderer\n')
+calendar_image = Image.open(SESSION / "book-detail-chart.pgm.new").convert("L")
+expected_grays = [255, 235, 210, 180, 145, 105, 70]
+offset = date(2026, 9, 1).weekday(); rows = (offset + 30 + 6) // 7; cell_h = 520 // rows
+for day, gray in enumerate(expected_grays, 1):
+    index = offset + day - 1; col, row = index % 7, index // 7
+    assert calendar_image.getpixel((6 + col * 160 + 80, 130 + row * cell_h + 50)) == gray
+calendar_spec = (SESSION / "render-spec.tsv").read_text(encoding="utf-8")
+assert "2026年9月7日 · 阅读 4小时0分钟" in calendar_spec
+assert all(name in viewer[viewer.index("spec_book_detail_chart()") : viewer.index("publish_book_detail()")]
+           for name in ("calendar_heat_level", "calendar_heat_gray"))
+passed("book calendar heat and hint", "A full September uses the global 0/30m/1h/2h/3h/4h gray thresholds exactly; selecting day 7 adds only a small 4-hour hint and keeps the calendar on the same page.")
 
 
 # Lightweight boundary, protected files, versions and install packaging hooks.
 book_body = viewer[viewer.index("get_book_detail()") : viewer.index("weekday_text()")]
-assert '"$DATA"' not in book_body and book_body.count('"$DAY_BOOKS"') == 1 and "sort " not in book_body
+assert '"$DATA"' not in book_body and book_body.count('"$DAY_BOOKS"') == 2 and "sort " not in book_body
 startup = viewer[viewer.index("metric_begin first_open") : viewer.index("\n\nwhile :; do")]
 assert "get_book_detail" not in startup and "render_book_detail" not in startup
 assert hashlib.sha256((PKG / "native-reading-time-daemon.sh").read_bytes()).hexdigest() == BASE_HASHES["native-reading-time-package/native-reading-time-daemon.sh"]
 assert "reading-time.tsv" not in (PKG / "reading-insights-cache.awk").read_text(encoding="utf-8")
 installer = (PKG / "Install-Native-Reading-Time-Optimized.sh").read_text(encoding="utf-8")
-assert "9.7.3-测试版" in installer and "book_detail.png" in installer
-assert "9.7.3-测试版" in viewer and "book_detail.png" in viewer
+assert "9.7.4" in installer and "book_detail.png" in installer
+assert "9.7.4" in viewer and "book_detail.png" in viewer
+assert viewer.splitlines()[:4] == ["#!/bin/sh", "# Name: 阅读记录", "# Author: Kindle Reading Records Enhanced", "# Icon: /mnt/us/reading-time/assets/launcher-icon.png"]
 for lua_file in PKG.glob("*.lua"):
     LuaRuntime().execute("assert(loadstring(...))", lua_file.read_text(encoding="utf-8"))
 for shell_file in [ROOT / "RUNME.sh", *PKG.glob("*.sh")]:
     subprocess.run([SH, "-n", str(shell_file)], check=True, capture_output=True)
-passed("performance and release guardrails", "Book detail is absent from startup, performs one unsorted DAY_BOOKS scan and never names DATA; daemon bytes and persisted format stay protected, release/resource checks are v9.7.3, and shipped shell/Lua syntax passes.")
+passed("performance and release guardrails", "Book detail is absent from startup, uses only small unsorted DAY_BOOKS scans and never names DATA; daemon bytes and persisted format stay protected, release/resource checks are v9.7.4, and shipped shell/Lua syntax passes.")
 
 
 result = {"result": "PASS", "check_count": len(checks), "checks": checks}
