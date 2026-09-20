@@ -6,16 +6,32 @@ import json, hashlib
 ROOT=Path(__file__).resolve().parents[1]
 PKG=ROOT/'native-reading-time-package'
 FONT=PKG/'NotoSansCJKsc-Regular.otf'
+CARD_RADIUS=24
+CARD_STROKE=3
+CARD_INK=20
+
+def draw_standard_card(draw, box):
+    """Draw the one card outline shared by every large dashboard panel."""
+    draw.rounded_rectangle(box,radius=CARD_RADIUS,outline=CARD_INK,width=CARD_STROKE)
 
 def build():
     # The three primary backgrounds were copied byte-for-byte from v9.6.10.
+    # Books is the exception: its legacy five-row panel is cleared and rebuilt
+    # with the exact same card helper as the known-good secondary-page panels.
+    # Dynamic book content is later composited strictly inside this outline.
+    books=Image.open(PKG/'ui-calendar/books.png').convert('L')
+    books_draw=ImageDraw.Draw(books)
+    books_draw.rectangle((50,340,1222,1434),fill=255)
+    draw_standard_card(books_draw,(55,345,1217,1430))
+    books.save(PKG/'ui-calendar/books.png')
+
     # Secondary-page shells keep the same monochrome language and card rhythm.
     detail=Image.new('L',(1272,1696),255)
     draw=ImageDraw.Draw(detail)
     draw.rounded_rectangle((22,22,1250,1674),radius=30,outline=20,width=3)
     draw.rounded_rectangle((55,54,266,145),radius=22,outline=20,width=3)
-    draw.rounded_rectangle((55,190,1217,520),radius=24,outline=20,width=3)
-    draw.rounded_rectangle((55,560,1217,1640),radius=24,outline=20,width=3)
+    draw_standard_card(draw,(55,190,1217,520))
+    draw_standard_card(draw,(55,560,1217,1640))
     font_back=ImageFont.truetype(str(FONT),38)
     font_title=ImageFont.truetype(str(FONT),48)
     draw.text((160,99),'返回',font=font_back,fill=0,anchor='mm',stroke_width=1,stroke_fill=0)
@@ -27,8 +43,8 @@ def build():
         page_draw=ImageDraw.Draw(page)
         page_draw.rounded_rectangle((22,22,1250,1674),radius=30,outline=20,width=3)
         page_draw.rounded_rectangle((55,54,266,145),radius=22,outline=20,width=3)
-        page_draw.rounded_rectangle(first_card,radius=24,outline=20,width=3)
-        page_draw.rounded_rectangle(second_card,radius=24,outline=20,width=3)
+        draw_standard_card(page_draw,first_card)
+        draw_standard_card(page_draw,second_card)
         page_draw.text((160,99),'返回',font=font_back,fill=0,anchor='mm',stroke_width=1,stroke_fill=0)
         page_draw.text((636,99),title,font=font_title,fill=0,anchor='mm',stroke_width=1,stroke_fill=0)
         page.save(PKG/'ui-calendar'/filename)
@@ -43,7 +59,7 @@ def build():
     # Keep the atlas small: new fixed headings are rasterized into their PNG
     # backgrounds.  Only the few new dynamic-label glyphs are added, and only
     # at the sizes where the compositor actually uses them.
-    size_scoped_chars=set('上份佳势回平每趋较返高累计首次活跃进度封面历点击查看未·')
+    size_scoped_chars=set('上份佳势回平每趋较返高累计首次活跃进度封面点击查看未·')
     chars.difference_update(size_scoped_chars)
     extra_chars_by_size={
         22:set('首次活跃进度累计'),
@@ -52,7 +68,7 @@ def build():
         28:set('未·'),
         34:set('势每趋进度历'),
     }
-    chars.update('周一二三四五六日月近本今年当前范围暂无满的书籍阅读日均详情星期总时长明细记录最多›‹')
+    chars.update('周一二三四五六日月近本今年全部历史按当前范围暂无满的书籍阅读日均详情星期总时长明细记录最多›‹')
     sizes=sorted(({int(row.split('\t')[1]) for row in old}-{19,25,38})|{28,44})
     records=[]
     for size in sizes:

@@ -73,7 +73,7 @@ assert p.returncode==0,(p.stdout,p.stderr)
 assert route_calls.read_text().splitlines()==['base','optimized']
 p=subprocess.run([sh,route_script.as_posix()],capture_output=True)
 assert p.returncode==0 and route_calls.read_text().splitlines()==['base','optimized','optimized']
-assert 'continuing to optimized 9.7.4 installation' in (route_state/'install.log').read_text(encoding='utf-8')
+assert 'continuing to optimized 9.7.5 test installation' in (route_state/'install.log').read_text(encoding='utf-8')
 # Missing launcher art is rejected by the pre-activation payload gate.
 missing_pkg=SANDBOX/'missing-icon-package'
 shutil.copytree(PKG,missing_pkg,ignore=shutil.ignore_patterns('launcher-icon.png'))
@@ -102,19 +102,19 @@ failed_script.write_text(prelude+failed_installer,encoding='utf-8',newline='\n')
 p=subprocess.run([sh,failed_script.as_posix()],capture_output=True)
 assert p.returncode==1,(p.stdout,p.stderr)
 assert digest(viewer)==before[str(viewer)] and not (assets/'launcher-icon.png').exists()
-assert not (state/'releases/9.7.4/assets/launcher-icon.png').exists()
+assert not (state/'releases/9.7.5-test/assets/launcher-icon.png').exists()
 scanner_log=SANDBOX/'scanner-calls.log'
 assert scanner_log.exists(),((state/'install.log').read_text(encoding='utf-8'),(SANDBOX/'lipc-calls.log').read_text() if (SANDBOX/'lipc-calls.log').exists() else 'no lipc calls')
 assert digest(data)==before[str(data)] and 'scanner-restored' in scanner_log.read_text()
 p=subprocess.run([sh,script.as_posix()],capture_output=True)
 assert p.returncode==0,(p.stdout,p.stderr,(state/'install.log').read_text(encoding='utf-8'))
-release=state/'releases/9.7.4'
+release=state/'releases/9.7.5-test'
 assert digest(viewer)==digest(PKG/'阅读记录-optimized.sh')
 assert digest(daemon)==digest(PKG/'native-reading-time-daemon.sh')
 assert digest(conf)==digest(PKG/'native-reading-time.conf')
 assert digest(data)==before[str(data)]
 assert digest(state/'reading-time.tsv.bak')==before[str(data)]
-assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.7.4'
+assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.7.5-test'
 assert digest(old_release/'preserved-marker')==before[str(old_release/'preserved-marker')]
 icon=assets/'launcher-icon.png'
 assert digest(icon)==digest(PKG/'launcher-icon.png')
@@ -125,7 +125,7 @@ assert viewer.read_text(encoding='utf-8').splitlines()[:4]==[
 ]
 assert 'scanner-ready' in (SANDBOX/'scanner-calls.log').read_text()
 assert raw_installer.index('atomic_file "$STAGE/release/assets/launcher-icon.png" "$LAUNCHER_ICON" 644') < raw_installer.index('atomic_file "$STAGE/viewer" "$VIEWER" 755') < raw_installer.index('com.lab126.scanner doFullScan 1',raw_installer.index('atomic_file "$STAGE/viewer" "$VIEWER" 755'))
-for f in ['reading-insights-touch-ui.lua','reading-insights-titles.lua','reading-insights-title-widths.lua','reading-insights-cache.awk','reading-insights-render.lua']:
+for f in ['reading-insights-touch-ui.lua','reading-insights-titles.lua','reading-insights-title-widths.lua','reading-insights-cache.awk','reading-insights-cover.lua','reading-insights-render.lua']:
     assert digest(release/'bin'/f)==digest(PKG/f),f
 for f in ['daily.png','books.png','total.png','day_detail.png','month_detail.png','week_trend.png','book_detail.png']:
     assert digest(release/'ui-calendar'/f)==digest(PKG/'ui-calendar'/f)

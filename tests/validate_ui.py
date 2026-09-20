@@ -45,16 +45,19 @@ assert stable_payload_changes==[
     'native-reading-time-package/Install-Native-Reading-Time-Optimized.sh',
     'native-reading-time-package/launcher-icon.png',
     'native-reading-time-package/reading-insights-cache.awk',
+    'native-reading-time-package/reading-insights-cover.lua',
     'native-reading-time-package/reading-insights-touch-ui.lua',
     'native-reading-time-package/render-assets/dynamic-glyphs.pgm',
     'native-reading-time-package/render-assets/dynamic-glyphs.tsv',
     'native-reading-time-package/ui-calendar/book_detail.png',
+    'native-reading-time-package/ui-calendar/books.png',
     'native-reading-time-package/ui-calendar/day_detail.png',
     'native-reading-time-package/ui-calendar/month_detail.png',
+    'native-reading-time-package/ui-calendar/total.png',
     'native-reading-time-package/ui-calendar/week_trend.png',
     'native-reading-time-package/阅读记录-optimized.sh',
 ]
-record('stable payload scope','Against v9.6.10, only the optimized viewer/touch map, launcher icon, secondary-page backgrounds/glyphs and versioned installer payload changed.')
+record('stable payload scope','Against v9.6.10, changes stay within the optimized viewer/touch map, cover helper, launcher cover, total-page navigation shell, secondary-page backgrounds/glyphs and versioned installer payload.')
 
 unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:
@@ -64,7 +67,7 @@ for folder in ('ui',):
     for file in (PKG/folder).iterdir():
         key=f'native-reading-time-package/{folder}/{file.name}'
         assert hashlib.sha256(file.read_bytes()).hexdigest()==STABLE_HASHES[key]
-record('preserved core','Daemon, Upstart, progress query, legacy viewer/touch, primary UI/font byte-identical to v9.6.10; the cache builder only appends identity columns to DAY_BOOKS.')
+record('preserved core','Daemon, Upstart, legacy viewer/touch, legacy ui/ assets and font remain byte-identical to v9.6.10; cache changes are limited to identity/range aggregation and exclude future-dated rows from the new all-time summary.')
 
 viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
 old=STABLE_VIEWER.read_text(encoding='utf-8')
@@ -73,7 +76,7 @@ for start,end in [('detect_screen()','time_text()'),('refresh_region()','dashboa
 for name in ('page_prev)','page_next)'):
     assert next(x for x in viewer.splitlines() if x.strip().startswith(name))==next(x for x in old.splitlines() if x.strip().startswith(name))
 assert 'mode=daily; view_year=' in viewer
-record('interaction invariants','Default daily, page navigation branches and refresh policy remain stable; v9.7.4 intentionally replaces book geometry and extends the catalog query with thumbnails.')
+record('interaction invariants','Default daily, page navigation branches and refresh policy remain stable; v9.7.5-test extends only filters, local cover fallback and release metadata.')
 
 # Extract definitions only: never run startup, hardware access, or EXIT cleanup.
 defs=viewer[:viewer.index('\ndetect_screen; find_touch_device')]
@@ -446,17 +449,17 @@ for case,monday_minutes in week_cases:
 assert len({tuple(layout[3]) for layout in week_layouts})==1
 record('weekly plot layout','Monday at 0, 35, 120 and 210 min uses one measured Y-axis gutter plus a 28 px safety gap; all seven centers are evenly derived from one plot area, labels share those centers, value text is plot-bounded, and Sunday retains right-side clearance.')
 
-# No cache/database/daemon/other-page logic changed. Calendar rendering remains
-# one offscreen canvas publication followed by the existing single region refresh.
+# Calendar rendering remains one offscreen canvas publication followed by the
+# existing single region refresh; total-period code is covered by its own suite.
 stable_viewer=STABLE_VIEWER.read_text(encoding='utf-8')
-for start,end in [('prepare_total_values()','spec_toggle_button()'),('refresh_region()','dashboard_active=0')]:
+for start,end in [('refresh_region()','dashboard_active=0')]:
     assert viewer[viewer.index(start):viewer.index(end)]==stable_viewer[stable_viewer.index(start):stable_viewer.index(end)]
 daily_block=viewer[viewer.index('render_daily()'):viewer.index('active_books()')]
 assert daily_block.count('canvas calendar ')==1 and daily_block.count('swrite calendar')==1
 assert daily_block.count('image "$SESSION_DIR/daily-calendar.pgm"')==1 and 'refresh_region' not in daily_block
 assert 'month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 1308;;' in viewer
 assert 'day_*) new_day=' in viewer and 'perform_draw date_select 0 0 55 460 1162 1168' in viewer
-record('heatmap isolation and refresh','Daemon, period-data calculations and refresh policy remain byte-identical to v9.6.10; the DAY_BOOKS identity-column extension and cover UI do not alter global heatmap inputs. The calendar is composed offscreen once, published once, then refreshed once through the existing GC16 region path.')
+record('heatmap isolation and refresh','Daemon, calendar calculations and refresh policy remain byte-identical to v9.6.10; all-time aggregation and cover fallback do not alter heatmap inputs. The calendar is composed offscreen once, published once, then refreshed once through the existing GC16 region path.')
 
 changes=[]
 for file in sorted(PKG.rglob('*')):

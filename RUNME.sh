@@ -27,7 +27,7 @@ if [ ! -f "$DAEMON" ]; then
         fail "base installation failed with exit code $status; optimized installation not started"
     fi
     [ -f "$DAEMON" ] || fail "base installation completed without installing daemon; optimized installation not started"
-    log "base installation completed; continuing to optimized 9.7.4 installation"
+    log "base installation completed; continuing to optimized 9.7.5 test installation"
 else
     log "existing installation detected; using optimized upgrade path"
 fi

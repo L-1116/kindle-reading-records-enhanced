@@ -1,6 +1,6 @@
 """Additional real-renderer tests, executed by validate_ui.py with its harness."""
-import re
-from PIL import ImageOps
+import io, re
+from PIL import Image, ImageChops, ImageDraw, ImageOps
 
 for y,m,day in [(2026,9,1),(2026,3,1),(2027,2,1),(2026,10,31)]:
     p=render(f'grid-{y}-{m}','daily',f'daily_y={y}; daily_m={m}; selected_date={y:04}-{m:02}-{day:02}; detail_page=1; render_daily 1')
@@ -18,9 +18,77 @@ for y,m in [(2026,9),(2026,10),(2027,1),(2028,12)]:
     assert abs(450+(box[0]+box[2])/2-636)<=0.5,(y,m,box)
 for y in [2026,2027,2030]:
     render(f'year-{y}','total',f'view_year={y}; render_total')
-    box=ImageOps.invert(Image.open(session/'total-year.pgm')).getbbox()
-    assert abs(456+(box[0]+box[2])/2-636)<=0.5,(y,box)
+    period=Image.open(io.BytesIO((session/'total-period.pgm').read_bytes()))
+    # Restrict the ink measurement to the title's center lane; week/year also
+    # contain navigation controls at the ends of this same tile.
+    box=ImageOps.invert(period.crop((112,0,564,84))).getbbox()
+    period.close()
+    assert abs(300+112+(box[0]+box[2])/2-636)<=0.5,(y,box)
 record('true horizontal centering','Rasterized ink bounds for Sep/Oct/Jan/Dec and three year titles center at logical x=636 within half a pixel.')
+
+# Card geometry regressions from Kindle testing. Check the final composite and
+# the same integer scaling path used for FBInk, not only local spec coordinates.
+daily_spec=render('daily-border-insets','daily','daily_y=2026; daily_m=9; selected_date=2026-09-05; detail_page=1; render_daily 1')
+calendar_separator=next(l.split('\t') for l in daily_spec.splitlines()
+                        if l.startswith('rect\tcalendar\t') and l.split('\t')[3]=='662')
+assert calendar_separator[2:7]==['40','662','1042','2','190']
+books_spec=render('books-border-insets','books','progress_loaded=1; book_filter=7d; book_page=1; render_books')
+book_separators=[l.split('\t') for l in books_spec.splitlines()
+                 if l.startswith('rect\tbooks\t') and l.split('\t')[3] in ('342','702')]
+assert len(book_separators)==2 and all(row[2:7]==['40',row[3],'1042','2','190'] for row in book_separators)
+assert 'image "$SESSION_DIR/books-content.pgm" "$BOOK_CONTENT_X" "$BOOK_CONTENT_Y" "$BOOK_CONTENT_W" "$BOOK_CONTENT_H"' in viewer
+
+# The shipped books shell contains one standard rounded card and no legacy
+# five-row separators. Its dynamic opaque tile cannot touch any frame pixel.
+books_bg=Image.open(PKG/'ui-calendar/books.png').convert('L')
+expected_books_panel=Image.new('L',books_bg.size,255)
+ImageDraw.Draw(expected_books_panel).rounded_rectangle((55,345,1217,1430),radius=24,outline=20,width=3)
+panel_box=(50,340,1223,1435)
+assert ImageChops.difference(books_bg.crop(panel_box),expected_books_panel.crop(panel_box)).getbbox() is None
+builder=(ROOT/'scripts/build_ui.py').read_text(encoding='utf-8')
+assert builder.count('draw_standard_card(books_draw,(55,345,1217,1430))')==1
+assert 'books_draw.line' not in builder
+
+daily_composite=Image.open(OUT/'daily-border-insets.png').convert('L')
+books_composite=Image.open(OUT/'books-border-insets.png').convert('L')
+assert all(daily_composite.getpixel((x,1122))==190 for x in range(115,1157))
+assert all(daily_composite.getpixel((x,1122))==255 for x in range(57,115))
+assert all(daily_composite.getpixel((x,1122))==255 for x in range(1157,1215))
+for y in (707,1067):
+    assert all(books_composite.getpixel((x,y))==190 for x in range(115,1157))
+    assert all(books_composite.getpixel((x,y))==255 for x in range(58,115))
+    assert all(books_composite.getpixel((x,y))==255 for x in range(1157,1214))
+for box in ((50,343,1223,365),(50,1410,1223,1435),(50,343,75,1435),(1197,343,1223,1435)):
+    assert ImageChops.difference(books_composite.crop(box),books_bg.crop(box)).getbbox() is None
+
+def scaled_source_x(screen_w,screen_h,tile_x,tile_w,source_x):
+    if screen_w*1696<=screen_h*1272: num,den=screen_w,1272
+    else: num,den=screen_h,1696
+    view_w=1272*num//den; origin=(screen_w-view_w)//2
+    dest_x=origin+tile_x*num//den; dest_w=max(1,tile_w*num//den)
+    return dest_x+source_x*dest_w//tile_w
+
+for screen_w,screen_h in ((600,800),(900,1200),(1072,1448),(1236,1648),(1264,1685)):
+    frame_left=scaled_source_x(screen_w,screen_h,0,1272,58)
+    frame_right=scaled_source_x(screen_w,screen_h,0,1272,1214)
+    for tile_x,tile_w in ((75,1122),):
+        separator_left=scaled_source_x(screen_w,screen_h,tile_x,tile_w,40)
+        separator_right=scaled_source_x(screen_w,screen_h,tile_x,tile_w,1082)
+        assert separator_left-frame_left>=20,(screen_w,screen_h,separator_left,frame_left)
+        assert frame_right-separator_right>=20,(screen_w,screen_h,frame_right,separator_right)
+
+total_bg=Image.open(PKG/'ui-calendar/total.png').convert('L')
+assert total_bg.crop((296,640,415,731)).getextrema()==(255,255)
+assert total_bg.crop((860,640,979,731)).getextrema()==(255,255)
+for x in range(73,1199): assert total_bg.getpixel((x,625))<100
+all_spec=render('total-all-panel','total','total_period=all; render_total')
+week_spec=render('total-week-panel','total','total_period=week; week_offset=0; render_total')
+assert not any(l.startswith('round\tperiod\t') for l in all_spec.splitlines())
+assert len([l for l in week_spec.splitlines() if l.startswith('round\tperiod\t')])==4
+assert 'rect 625 300 140 125 WHITE' not in viewer and 'rect 625 840 160 125 WHITE' not in viewer
+total_actions=viewer[viewer.index('      total_week)'):viewer.index('      month_prev)')]
+assert 'draw_background' not in total_actions
+record('continuous card borders','Final calendar/books composites keep separators 60 logical px inside the card frame and at least 20 physical px away on every supported test viewport; the books raster stays wholly inside one shared-helper rounded frame, with no legacy row lines or border repaint. Total/all-history panel guards also pass.')
 
 # Trace actual renderer glyph placement without changing its production file.
 samples=[('R',27,'1时33分'),('R',27,'阅读 3小时18分钟'),('B',70,'4小时54分钟'),('B',32,'日均 1小时14分钟'),('R',20,'300分'),('R',24,'14% 暂无进度'),('B',44,'2026年10月')]
@@ -52,7 +120,7 @@ record('common font baseline','Actual Lua glyph placements in all seven mixed-st
 # Font-size hierarchy, shared right edge and dynamic headroom in real specs.
 spec=render('books-polished','books','progress_loaded=1; book_page=1; render_books')
 progress_fields=[l.split('\t') for l in spec.splitlines() if l.startswith('text\tbooks\t') and (l.endswith('暂无进度') or re.search(r'\d+%$',l))]
-assert progress_fields and {tuple(f[4:5]+f[6:7]) for f in progress_fields}=={('1090','right')}
+assert progress_fields and {tuple(f[4:5]+f[6:7]) for f in progress_fields}=={('1088','right')}
 for maximum in [0,5,61,73,100,120,246,294,300,999,6000]:
     (session/'days.tsv').write_text(f'2026-09-01\t{maximum*60}\n')
     p=render(f'chart-{maximum}','total','view_year=2026; render_total; printf "%s %s\\n" "$scale" "$tick_hours" > "$SESSION_DIR/chart-scale.tsv"')
@@ -67,7 +135,7 @@ for maximum in [0,5,61,73,100,120,246,294,300,999,6000]:
         assert ceiling==360
         labels=[l.split('\t')[-1] for l in p.splitlines() if l.startswith('text\tchart\tR\t20')]
         assert labels==['1h','2h','3h','4h','5h','6h']
-record('progress column and chart headroom','Known/unknown progress share x=1090/right; 11 current integer-hour annual chart scales and nice tick steps tested. 294min gives a 6h ceiling with 1h ticks.')
+record('progress column and chart headroom','Known/unknown progress retain the same global right edge after the safe content-tile inset; 11 current integer-hour annual chart scales and nice tick steps tested. 294min gives a 6h ceiling with 1h ticks.')
 
 # Titles must preserve Latin words at either line boundary, including ellipsis.
 title_cases=["Harry Potter and the Philosopher's Stone (English Edition)",

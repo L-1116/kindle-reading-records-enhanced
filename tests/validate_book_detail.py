@@ -247,9 +247,9 @@ draw_lines = (SESSION / "draw.tsv").read_text(encoding="utf-8").splitlines()
 assert any(line == f"image\t{cached_rel}\t10\t20\t190\t285" for line in draw_lines)
 resolver = viewer[viewer.index("resolveBookCover()") : viewer.index("render_cover_placeholder()")]
 assert "cover_cache_lookup" in resolver and "ensure_catalog" in resolver and "p_thumbnail" not in resolver
-assert all(word not in resolver for word in ("find ", "find\t", "ls ", "rglob", "documents/"))
+assert all(word not in resolver for word in ("find ", "find\t", "ls ", "rglob"))
 assert viewer.count('renderBookCover "') == 3
-passed("cover resolver and cache", "One shared resolver serves all three pages: valid last-known-good cache first, one-session catalog snapshot on miss, stale-path removal, exact EBOK candidate, then fixed 2:3 placeholder—without directory or ebook scans.")
+passed("cover resolver and cache", "One shared resolver serves all three pages: valid last-known-good cache first, one-session catalog thumbnail, exact EBOK candidate, then cached local-file extraction and fixed 2:3 fallback—without directory scans.")
 
 
 # The per-book month calendar consumes raw seconds through the exact global
@@ -283,14 +283,14 @@ assert "get_book_detail" not in startup and "render_book_detail" not in startup
 assert hashlib.sha256((PKG / "native-reading-time-daemon.sh").read_bytes()).hexdigest() == BASE_HASHES["native-reading-time-package/native-reading-time-daemon.sh"]
 assert "reading-time.tsv" not in (PKG / "reading-insights-cache.awk").read_text(encoding="utf-8")
 installer = (PKG / "Install-Native-Reading-Time-Optimized.sh").read_text(encoding="utf-8")
-assert "9.7.4" in installer and "book_detail.png" in installer
-assert "9.7.4" in viewer and "book_detail.png" in viewer
+assert "9.7.5-test" in installer and "book_detail.png" in installer and "reading-insights-cover.lua" in installer
+assert "9.7.5-test" in viewer and "book_detail.png" in viewer
 assert viewer.splitlines()[:4] == ["#!/bin/sh", "# Name: 阅读记录", "# Author: Kindle Reading Records Enhanced", "# Icon: /mnt/us/reading-time/assets/launcher-icon.png"]
 for lua_file in PKG.glob("*.lua"):
     LuaRuntime().execute("assert(loadstring(...))", lua_file.read_text(encoding="utf-8"))
 for shell_file in [ROOT / "RUNME.sh", *PKG.glob("*.sh")]:
     subprocess.run([SH, "-n", str(shell_file)], check=True, capture_output=True)
-passed("performance and release guardrails", "Book detail is absent from startup, uses only small unsorted DAY_BOOKS scans and never names DATA; daemon bytes and persisted format stay protected, release/resource checks are v9.7.4, and shipped shell/Lua syntax passes.")
+passed("performance and release guardrails", "Book detail is absent from startup, uses only small unsorted DAY_BOOKS scans and never names DATA; daemon bytes and persisted format stay protected, release/resource checks are v9.7.5-test, and shipped shell/Lua syntax passes.")
 
 
 result = {"result": "PASS", "check_count": len(checks), "checks": checks}

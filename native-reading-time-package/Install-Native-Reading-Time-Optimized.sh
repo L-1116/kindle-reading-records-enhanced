@@ -10,9 +10,9 @@ DAEMON="$BASE/bin/native-reading-time-daemon.sh"
 VIEWER="/mnt/us/documents/阅读记录.sh"
 ASSET_DIR="$BASE/assets"
 LAUNCHER_ICON="$ASSET_DIR/launcher-icon.png"
-RELEASE="$BASE/releases/9.7.4"
+RELEASE="$BASE/releases/9.7.5-test"
 RELEASE_ICON="$RELEASE/assets/launcher-icon.png"
-STAGE="$BASE/.install-9.7.4.$$"
+STAGE="$BASE/.install-9.7.5-test.$$"
 ROOT_RW=0; ACTIVATED=0; SERVICE_WAS_RUNNING=0; ROLLBACK_DONE=0
 
 mkdir -p "$BASE" || exit 1
@@ -25,7 +25,7 @@ root_rw() {
     if mntroot rw >/dev/null 2>&1 || /usr/sbin/mntroot rw >/dev/null 2>&1 || /sbin/mntroot rw >/dev/null 2>&1; then ROOT_RW=1; return 0; fi
     return 1
 }
-cleanup_stage() { case "$STAGE" in /mnt/us/reading-time/.install-9.7.4.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
+cleanup_stage() { case "$STAGE" in /mnt/us/reading-time/.install-9.7.5-test.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
 
 rollback() {
     [ "$ROLLBACK_DONE" -eq 0 ] || return; ROLLBACK_DONE=1
@@ -52,7 +52,7 @@ atomic_file() { src="$1"; dst="$2"; mode="$3"; tmp="${dst}.new.$$"; cp "$src" "$
 [ "$(id -u)" -eq 0 ] || fail "not running as root; use ;log runme"
 [ -x /sbin/initctl ] || fail "Upstart not found"; [ -f /lib/ld-linux-armhf.so.3 ] || fail "not a kindlehf device"
 command -v cmp >/dev/null 2>&1 || fail "cmp unavailable"
-for f in native-reading-time-daemon.sh native-reading-time.conf 阅读记录.sh 阅读记录-optimized.sh reading-insights-touch.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt launcher-icon.png; do [ -f "$PKG/$f" ] || fail "missing payload: $f"; done
+for f in native-reading-time-daemon.sh native-reading-time.conf 阅读记录.sh 阅读记录-optimized.sh reading-insights-touch.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-cover.lua reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt launcher-icon.png; do [ -f "$PKG/$f" ] || fail "missing payload: $f"; done
 for f in total.png daily.png books.png day-1.png day-31.png; do [ -f "$PKG/ui/$f" ] || fail "missing UI asset: $f"; done
 for f in total.png daily.png books.png day_detail.png month_detail.png week_trend.png book_detail.png; do [ -f "$PKG/ui-calendar/$f" ] || fail "missing calendar UI: $f"; done
 [ -f "$PKG/render-assets/dynamic-glyphs.pgm" ] && [ -f "$PKG/render-assets/dynamic-glyphs.tsv" ] || fail "missing optimized render assets"
@@ -62,7 +62,7 @@ echo "$(date): payload daemon matches installed 9.6.3 byte-for-byte"
 
 rm -rf "$STAGE"; mkdir -p "$STAGE/release/bin" "$STAGE/release/ui" "$STAGE/release/ui-calendar" "$STAGE/release/render-assets" "$STAGE/release/assets" "$STAGE/rollback" || fail "cannot create staging directory"
 cp "$PKG/阅读记录-optimized.sh" "$STAGE/viewer" && cp "$PKG/native-reading-time-daemon.sh" "$STAGE/daemon" && cp "$PKG/native-reading-time.conf" "$STAGE/conf" || fail "cannot stage programs"
-cp "$PKG/阅读记录.sh" "$STAGE/release/bin/reading-records-v9.6.3.sh" && cp "$PKG/reading-insights-touch.lua" "$STAGE/release/bin/" && cp "$PKG/reading-insights-render.lua" "$STAGE/release/bin/" && cp "$PKG/reading-insights-cache.awk" "$STAGE/release/bin/" || fail "cannot stage dashboard helpers"
+cp "$PKG/阅读记录.sh" "$STAGE/release/bin/reading-records-v9.6.3.sh" && cp "$PKG/reading-insights-touch.lua" "$STAGE/release/bin/" && cp "$PKG/reading-insights-render.lua" "$STAGE/release/bin/" && cp "$PKG/reading-insights-cache.awk" "$STAGE/release/bin/" && cp "$PKG/reading-insights-cover.lua" "$STAGE/release/bin/" || fail "cannot stage dashboard helpers"
 cp "$PKG"/ui-calendar/*.png "$STAGE/release/ui-calendar/" || fail "cannot stage calendar UI"
 for f in reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do cp "$PKG/$f" "$STAGE/release/bin/$f" || fail "cannot stage calendar helper"; done
 cp "$PKG"/ui/*.png "$STAGE/release/ui/" && cp "$PKG"/render-assets/* "$STAGE/release/render-assets/" || fail "cannot stage render assets"
@@ -94,6 +94,7 @@ atomic_file "$STAGE/release/bin/reading-records-v9.6.3.sh" "$RELEASE/bin/reading
 atomic_file "$STAGE/release/bin/reading-insights-touch.lua" "$RELEASE/bin/reading-insights-touch.lua" 644 || fail "cannot install touch reader"
 atomic_file "$STAGE/release/bin/reading-insights-render.lua" "$RELEASE/bin/reading-insights-render.lua" 644 || fail "cannot install renderer"
 atomic_file "$STAGE/release/bin/reading-insights-cache.awk" "$RELEASE/bin/reading-insights-cache.awk" 644 || fail "cannot install cache builder"
+atomic_file "$STAGE/release/bin/reading-insights-cover.lua" "$RELEASE/bin/reading-insights-cover.lua" 644 || fail "cannot install cover helper"
 for f in "$STAGE/release/ui/"*.png; do atomic_file "$f" "$BASE/ui/${f##*/}" 644 || fail "cannot install legacy UI assets"; done
 atomic_file "$STAGE/release/bin/reading-insights-touch.lua" "$BASE/bin/reading-insights-touch.lua" 644 || fail "cannot install legacy touch reader"
 atomic_file "$STAGE/font" "$BASE/fonts/NotoSansCJKsc-Regular.otf" 644 || fail "cannot install CJK font"
@@ -109,8 +110,8 @@ lipc-set-prop com.lab126.scanner doFullScan 1 >/dev/null 2>&1 || lipc-set-prop c
 /sbin/initctl start "$JOB" >/dev/null 2>&1 || true; sleep 2
 /sbin/initctl status "$JOB" 2>/dev/null | grep -q 'start/running' || fail "tracker service did not start"
 cmp -s "$DAEMON" "$PKG/native-reading-time-daemon.sh" || fail "installed daemon differs from validated payload"
-printf '9.7.4\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
+printf '9.7.5-test\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
 
 ACTIVATED=0; cleanup_stage; trap - INT TERM HUP; root_ro; sync
-echo "$(date): 9.7.4 installed and running, daemon_cmp=identical"
-toast "Reading records 9.7.4 installed"; exit 0
+echo "$(date): 9.7.5 test installed and running, daemon_cmp=identical"
+toast "Reading records 9.7.5 test installed"; exit 0

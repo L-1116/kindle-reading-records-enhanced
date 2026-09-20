@@ -35,12 +35,14 @@ NR > 1 {
     if (!(book_no in title) || (!usable(title[book_no], id) && usable(raw_title, id))) {
         title[book_no] = raw_title
     }
-    book_seconds[book_no] += seconds
+    if (date <= today) book_seconds[book_no] += seconds
     day_seconds[date] += seconds
     month_seconds[substr(date, 1, 7)] += seconds
     day_book_seconds[date SUBSEP book_no] += seconds
-    total += seconds
-    if (seconds > 0) read_date[date] = 1
+    if (date <= today) {
+        total += seconds
+        if (seconds > 0) read_date[date] = 1
+    }
 }
 
 END {
@@ -54,7 +56,7 @@ END {
         name = title[book_no]
         id = book_id[book_no]
         if (!usable(name, id)) name = id
-        print book_seconds[book_no] + 0 "\t" name "\t" id "\t" book_no > books
+        if (book_seconds[book_no] > 0) print book_seconds[book_no] + 0 "\t" name "\t" id "\t" book_no > books
     }
     for (entry in day_book_seconds) {
         split(entry, part, SUBSEP)

@@ -8,13 +8,15 @@ out=root/'build/validation';out.mkdir(parents=True,exist_ok=True)
 dist=root/'dist';dist.mkdir(exist_ok=True)
 files=[root/'RUNME.sh',*sorted(p for p in (root/'native-reading-time-package').rglob('*') if p.is_file())]
 assert root/'native-reading-time-package/launcher-icon.png' in files
-archive=dist/'kindle-reading-records-v9.7.4.zip'
+assert root/'native-reading-time-package/reading-insights-cover.lua' in files
+archive=dist/'kindle-reading-records-v9.7.5-test.zip'
 with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
     for p in files:z.write(p,p.relative_to(root).as_posix())
 with zipfile.ZipFile(archive) as z:
     assert z.testzip() is None
     assert len(z.namelist())==len(files)
     assert 'native-reading-time-package/launcher-icon.png' in z.namelist()
+    assert 'native-reading-time-package/reading-insights-cover.lua' in z.namelist()
     for p in files:assert z.read(p.relative_to(root).as_posix())==p.read_bytes()
 manifest={p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
 (out/'release-sha256.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')

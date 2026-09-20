@@ -58,10 +58,11 @@ local function action_for_logical(px, py)
     end
 
     if mode == "total" then
-        if inside(px, py, 65, 638, 160, 692) then return "total_week" end
-        if inside(px, py, 180, 638, 275, 692) then return "total_year" end
-        if inside(px, py, 280, 625, 440, 750) then return "total_prev" end
-        if inside(px, py, 840, 625, 1000, 750) then return "total_next" end
+        if inside(px, py, 65, 638, 135, 692) then return "total_week" end
+        if inside(px, py, 145, 638, 215, 692) then return "total_year" end
+        if inside(px, py, 225, 638, 295, 692) then return "total_all" end
+        if total_period ~= "all" and inside(px, py, 300, 625, 440, 750) then return "total_prev" end
+        if total_period ~= "all" and inside(px, py, 840, 625, 1000, 750) then return "total_next" end
         if total_period == "week" and inside(px, py, 85, 380, 1187, 560) then return "week_trend_open" end
         if total_period == "year" and inside(px, py, 75, 760, 1197, 1450) then
             local month = math.floor((px - 75) * 12 / 1123) + 1
@@ -118,9 +119,10 @@ local function action_for_logical(px, py)
         end
         if inside(px, py, 55, 750, 1217, 1640) then return "book_calendar_clear" end
     elseif mode == "books" then
-        if inside(px, py, 70, 285, 424, 339) then return "books_7d" end
-        if inside(px, py, 459, 285, 813, 339) then return "books_month" end
-        if inside(px, py, 848, 285, 1202, 339) then return "books_year" end
+        if inside(px, py, 70, 285, 333, 339) then return "books_7d" end
+        if inside(px, py, 360, 285, 623, 339) then return "books_month" end
+        if inside(px, py, 650, 285, 913, 339) then return "books_year" end
+        if inside(px, py, 940, 285, 1202, 339) then return "books_all" end
         if inside(px, py, 70, 345, 1202, 1425) then
             local row = math.floor((py - 345) / 360) + 1
             if row > 3 then row = 3 end

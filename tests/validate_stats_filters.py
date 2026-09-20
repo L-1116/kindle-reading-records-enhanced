@@ -141,6 +141,7 @@ def rows(name: str) -> list[list[str]]:
 
 
 expected_visible = {
+    "books.tsv": [45000, 7500, 7200, 3600, 2700, 2700, 1200, 900, 600, 600, 300],
     "books-7d.tsv": [45000, 7500, 2700, 1200, 600, 300],
     "books-month.tsv": [45000, 7500, 2700, 1200, 300],
     "books-year.tsv": [45000, 7500, 3600, 2700, 2700, 1200, 900, 600, 600, 300],
@@ -197,9 +198,12 @@ record("weekly grouping", "The current, one-day, empty, cross-month and Dec/Jan 
 
 year_current = run_shell(setup + 'total_period=year; view_year=2026; prepare_total_values; prepare_period_summary; echo "$total $read_days $average $period_title"').strip()
 year_previous = run_shell(setup + 'total_period=year; view_year=2025; prepare_total_values; prepare_period_summary; echo "$total $read_days $average $period_title"').strip()
+all_history = run_shell(setup + 'total_period=all; prepare_total_values; prepare_period_summary; echo "$total $read_days $average $period_title"').strip()
 assert year_current == "65399 11 5940 2026年", year_current
 assert year_previous == "7200 1 7200 2025年", year_previous
-record("period summaries", "Weekly totals/day counts/averages follow the selected Monday–Sunday range; annual values follow 2026 versus 2025 and exclude current-year future-dated rows.")
+assert all_history == "72599 12 6060 全部历史", all_history
+assert [r[0] for r in rows("total-values.tsv")] == ["2025年", "2026年"]
+record("period summaries", "Weekly and annual values retain their boundaries; all history reads the launch summary, excludes future-dated rows and aggregates the small DAYS cache by year.")
 
 # Regression for the on-device stale-summary report. The data, title and summary
 # are recalculated from the same selected period across repeated week/year moves.
@@ -224,6 +228,7 @@ assert week_sequence == [
 ], week_sequence
 mode_sequence = run_shell(setup + '''total_period=week; week_offset=0; prepare_total_values; prepare_period_summary; echo "week:$total:$read_days:$average"
 total_period=year; view_year=2026; prepare_total_values; prepare_period_summary; echo "year2026:$total:$read_days:$average"
+total_period=all; prepare_total_values; prepare_period_summary; echo "all:$total:$read_days:$average"
 total_period=week; prepare_total_values; prepare_period_summary; echo "week:$total:$read_days:$average"
 total_period=year; view_year=2025; prepare_total_values; prepare_period_summary; echo "year2025:$total:$read_days:$average"
 view_year=2026; prepare_total_values; prepare_period_summary; echo "year2026:$total:$read_days:$average"
@@ -231,24 +236,25 @@ view_year=2026; prepare_total_values; prepare_period_summary; echo "year2026:$to
 assert mode_sequence == [
     "week:36600:5:7320",
     "year2026:40200:6:6720",
+    "all:72599:12:6060",
     "week:36600:5:7320",
     "year2025:7200:1:7200",
     "year2026:40200:6:6720",
 ], mode_sequence
 run_shell(setup + "TEST_TODAY=2026-09-06; build_cache")
-record("period state sequences", "Current week → empty prior week → populated older week → current week, week ↔ year, and 2026 → 2025 → 2026 all recalculate title/chart data and summary from the selected period; the 10h10m/5-day fixture averages 2h2m.")
+record("period state sequences", "Current week → empty prior week → populated older week → current week, week → year → all → week, and 2026 → 2025 → 2026 all recalculate title/chart data and summary from the selected period; the 10h10m/5-day fixture averages 2h2m.")
 
 # render_total already redraws all four tiles. Every total-page state change must
 # also refresh the summary tile on the physical e-ink display.
-for operation in ("total_to_week", "total_to_year", "week_previous", "year_previous", "week_next", "year_next"):
+for operation in ("total_to_week", "total_to_year", "total_to_all", "week_previous", "year_previous", "week_next", "year_next"):
     assert f"perform_draw {operation} 0 0 55 380 1162 1070" in viewer, operation
 assert "55 625 1162 845" not in viewer[viewer.index("      total_week)"):viewer.index("      month_prev)")]
 refresh_left, refresh_top, refresh_width, refresh_height = 55, 380, 1162, 1070
-for left, top, width, height in ((85, 380, 1102, 180), (65, 638, 210, 58), (456, 650, 360, 70), (75, 760, 1122, 690)):
+for left, top, width, height in ((85, 380, 1102, 180), (65, 638, 230, 58), (300, 644, 676, 84), (75, 760, 1122, 690)):
     assert refresh_left <= left and refresh_top <= top
     assert refresh_left + refresh_width >= left + width
     assert refresh_top + refresh_height >= top + height
-record("total partial refresh", "Week/year arrows and week/year mode switches retain one partial GC16_FAST update, now covering summary, toggle, period title and chart instead of starting below the summary.")
+record("total partial refresh", "Week/year arrows and all range switches retain one partial GC16_FAST update covering summary, toggle, mode-aware period card and chart; all mode has no arrow tile or touch target.")
 
 (SESSION / "book-progress.tsv").write_text("88\tDifferent catalog title\ta\n42\tSecond ranked title\tb\n", encoding="utf-8")
 
@@ -305,13 +311,13 @@ assert not any(line.split("\t")[8] == "0min" for line in week_spec.splitlines() 
 assert all(f"{month}月" in year_spec for month in range(1, 13)) and "2026年" in year_spec
 record("chart rendering", "Seven-day weekly and 12-month annual charts render through the shipped Lua compositor; adaptive integer-hour ticks, h/min labels, zero periods and a >10h day pass.")
 
-for filter_name in ("7d", "month", "year"):
+for filter_name in ("7d", "month", "year", "all"):
     render(f"books-{filter_name}", "books", f"progress_loaded=1; book_filter={filter_name}; book_page=1; render_books")
 render("books-filters", "books", "progress_loaded=1; book_filter=7d; book_page=2; render_books")
 books_spec = (OUT / "books-7d.spec.tsv").read_text(encoding="utf-8")
 assert "暂无进度" in books_spec and "42%" in books_spec and "88%" in books_spec
-assert "本周" not in books_spec and all(label in books_spec for label in ("近7日", "本月", "今年"))
-record("book rendering", "All three filters, a second page, cdeKey/title progress matches and ‘暂无进度’ render with the new three-row cover layout.")
+assert "本周" not in books_spec and all(label in books_spec for label in ("近7日", "本月", "今年", "全部"))
+record("book rendering", "All four filters, a second page, cdeKey/title progress matches and ‘暂无进度’ render with the three-row cover layout.")
 
 # Opening punctuation must move with its following token.
 titles = [
@@ -333,10 +339,12 @@ touch_source = touch_source[: touch_source.index('\nnote(string.format("interact
 touch_source = touch_source.replace('local f = assert(io.open(device, "rb"))', "local f = nil")
 touch_source = touch_source.replace('local log = io.open(log_path, "a")', "local log = nil") + "\nreturn action_for_logical"
 lua = LuaRuntime(); lua.globals().arg = lua.table_from({3: "total", 13: "week"}); total_touch = lua.execute(touch_source)
-assert [total_touch(x, 665) for x in (100, 220, 350, 920)] == ["total_week", "total_year", "total_prev", "total_next"]
+assert [total_touch(x, 665) for x in (100, 180, 260, 350, 920)] == ["total_week", "total_year", "total_all", "total_prev", "total_next"]
+lua = LuaRuntime(); lua.globals().arg = lua.table_from({3: "total", 13: "all"}); all_touch = lua.execute(touch_source)
+assert [all_touch(x, 665) for x in (260, 350, 920)] == ["total_all", None, None]
 lua = LuaRuntime(); lua.globals().arg = lua.table_from({3: "books", 14: "7d"}); books_touch = lua.execute(touch_source)
-assert [books_touch(x, 310) for x in (100, 600, 1000)] == ["books_7d", "books_month", "books_year"]
-record("touch controls", "The shipped Lua hit map returns both total-period controls, both navigation arrows and all three book-range controls at logical coordinates.")
+assert [books_touch(x, 310) for x in (100, 500, 800, 1050)] == ["books_7d", "books_month", "books_year", "books_all"]
+record("touch controls", "The hit map returns week/year/all, suppresses arrows in all-time mode, and exposes all four book-range controls.")
 
 # Rendering paths use only the launch cache, never the original TSV.
 render_total_section = viewer[viewer.index("prepare_week_view()"):viewer.index("prepare_daily_view()")]
