@@ -36,7 +36,7 @@ def run_shell(code: str) -> str:
 
 viewer = (PKG / "阅读记录-optimized.sh").read_text(encoding="utf-8")
 definitions = viewer[: viewer.index("\ndetect_screen; find_touch_device")]
-definitions = definitions.replace('exec >> "$LOG" 2>&1', "")
+definitions = definitions.replace('if [ "${READING_LAUNCHER_CAPTURE:-0}" != 1 ]; then exec >> "$LOG" 2>&1; fi', "")
 definitions = definitions.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"', "")
 (OUT / "functions-book-detail.sh").write_text(definitions, encoding="utf-8", newline="\n")
 (OUT / "lua_runner_book_detail.py").write_text(

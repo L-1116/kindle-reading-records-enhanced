@@ -8,7 +8,7 @@
 BASE="/mnt/us/reading-time"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
-FBINK="/var/local/kmc/bin/fbink"
+FBINK="${READING_FBINK:-/var/local/kmc/bin/fbink}"
 RELEASE="$BASE/releases/9.7.5-test"
 UI_DIR="$RELEASE/ui-calendar"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch-ui.lua"
@@ -54,7 +54,7 @@ CALENDAR_CONTENT_X=75
 BOOK_CONTENT_X=75; BOOK_CONTENT_Y=365; BOOK_CONTENT_W=1122; BOOK_CONTENT_H=1045
 BOOK_CONTENT_SHIFT_X=-2; BOOK_CONTENT_SHIFT_Y=-17; BOOK_TITLE_TOP=378
 
-exec >> "$LOG" 2>&1
+if [ "${READING_LAUNCHER_CAPTURE:-0}" != 1 ]; then exec >> "$LOG" 2>&1; fi
 echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"
 
 fail() { echo "$(date): ERROR: $1"; lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; exit 1; }

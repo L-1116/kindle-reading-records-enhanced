@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extension>
+  <information>
+    <name>阅读记录</name>
+    <version>9.7.5-test</version>
+    <author>Kindle Reading Records Enhanced</author>
+    <id>reading-records-installer</id>
+  </information>
+  <menus>
+    <menu type="json" dynamic="true">menu.json</menu>
+  </menus>
+</extension>

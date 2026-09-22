@@ -13,7 +13,10 @@ CHECKS = [
     ROOT / "tests/validate_period_details.py",
     ROOT / "tests/validate_book_detail.py",
     ROOT / "tests/validate_cover_fallbacks.py",
+    ROOT / "tests/validate_compat.py",
     ROOT / "tests/validate_install.py",
+    ROOT / "tests/validate_uninstall.py",
+    ROOT / "scripts/audit_native.py",
     ROOT / "scripts/package_release.py",
 ]
 

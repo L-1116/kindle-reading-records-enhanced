@@ -10,8 +10,9 @@
 的代码，经原作者授权后继续迭代。本仓库不是上游项目的官方版本；原始工作归
 Plutoill，本仓库中的后续增强和维护由 L-1116 完成。
 
-> 这不是 Amazon 官方项目。安装前请确认 Kindle 已越狱，并能运行
-> `;log runme`。操作前建议备份 `/mnt/us/reading-time/`。
+> 这不是 Amazon 官方项目。安装前请确认 Kindle 已越狱，并至少具备
+> SH Integration、KUAL 或 `;log runme` 中的一种可用入口。操作前建议备份
+> `/mnt/us/reading-time/`。
 
 ## 功能
 
@@ -27,7 +28,15 @@ Plutoill，本仓库中的后续增强和维护由 L-1116 完成。
 
 ## 当前开发测试版
 
-`9.7.5 测试版` 在 9.7.4 上只增加三项：EPUB/MOBI 本体封面按需提取（PDF 仍只复用 Kindle 缩略图）、阅读书籍与累计时长的“全部”范围，以及 600×960 的 5:8 竖版启动器封面。封面成功和失败结果均缓存；全部统计只读取启动时生成的小型会话缓存，不重复扫描 `reading-time.tsv`。此版本尚待 Kindle 实机验证，不作为正式稳定版发布说明。
+### 9.7.5-test.1 公开测试
+
+[`v9.7.5-test.1`](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-test.1) 是 **Pre-release / 公开测试版**，不是正式稳定版。本轮邀请 firmware 5.18.x 和 5.19.x 用户参与，重点验证：
+
+- firmware 5.18 compatibility；
+- firmware 5.19 regression；
+- 新 installer / uninstaller，以及卸载保留历史、重新安装恢复历史的完整流程。
+
+5.17.x 尚不是本轮正式支持目标。测试原因、安装步骤、8 步测试流程、diagnostic 位置和反馈模板见 [完整公开测试说明](docs/releases/v9.7.5-test.1.md)。
 
 ## 界面预览
 
@@ -36,6 +45,22 @@ Plutoill，本仓库中的后续增强和维护由 L-1116 完成。
 | ![每日时长](docs/images/daily.png) | ![阅读书籍](docs/images/books.png) | ![当天详情](docs/images/day-detail.png) |
 
 ## 安装与回滚
+
+9.7.5 测试包解压到 Kindle USB 根目录后，安装可从三种入口任选其一：
+
+1. 首选：在书库打开 `阅读记录安装`（`documents/reading-records-install.sh`，需要 SH Integration）。
+2. 备用：KUAL → 阅读记录 → 安装 / 升级。
+3. 兼容旧教程：搜索栏执行 `;log runme`。
+
+三个入口都只调用 `native-reading-time-package/install.sh`。升级保留阅读历史、用户配置与封面缓存；失败诊断写入 `documents/reading-records-diagnostic.txt`，并尽力同时生成 `阅读记录诊断.txt`。5.18 兼容设计和真机清单见 [firmware 5.18 兼容审计](docs/5.18-compatibility.md)。
+
+### 独立安全卸载
+
+在书库打开 `阅读记录卸载`（实际 ASCII 文件名为 `documents/reading-records-uninstall.sh`）。它与“阅读记录安装”是两个独立 Scriptlet；KUAL 中的“卸载程序（保留数据）”也调用同一个 `native-reading-time-package/uninstall.sh` 核心，不包含另一套删除逻辑。
+
+默认卸载会停止 `native-reading-time` 服务，删除阅读记录的 Upstart job、书库启动图标、版本程序、KUAL 扩展、可重建缓存、运行状态和程序日志。它会保留 `reading-time.tsv`、`reading-time.tsv.bak`、`阅读时长统计.txt`、用户配置与所有未被 manifest 明确认定为程序文件的内容；不会修改 jailbreak、Universal Hotfix、MKK、KUAL 本体、MRPI、SH Integration、`;log` 环境或 Amazon 系统服务。
+
+卸载完成后，卸载 Scriptlet 会安全自删并触发最小书库扫描；`reading-records-install.sh`、`RUNME.sh` 与 `native-reading-time-package/` 保留。再次点击“阅读记录安装”即可重装，现有历史继续由未改动的 `reading-time.tsv` 读取。卸载结果及失败诊断分别写入 `documents/reading-records-uninstall-result.txt` 和 `documents/reading-records-uninstall-diagnostic.txt`。
 
 > **安装请务必选对文件：**请从
 > [`v9.7.4` Release](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.4)
@@ -63,7 +88,7 @@ python scripts/validate_all.py
 ```
 
 验证结果写入 `build/validation/`，安装包写入 `dist/`，两者均不提交到 Git。
-`RUNME.sh` 与 `native-reading-time-package/` 始终保持可直接打包的设备目录结构。
+`RUNME.sh`、`documents/`、`extensions/` 与 `native-reading-time-package/` 始终保持可直接解压到 Kindle USB 根目录的结构。
 
 ## 版本历史
 

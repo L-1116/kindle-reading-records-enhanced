@@ -42,22 +42,33 @@ for file in sorted(PKG.rglob('*')):
         if STABLE_HASHES.get(rel)!=hashlib.sha256(file.read_bytes()).hexdigest():
             stable_payload_changes.append(file.relative_to(ROOT).as_posix())
 assert stable_payload_changes==[
+    'native-reading-time-package/compat/detect_env.sh',
+    'native-reading-time-package/diagnostics.sh',
+    'native-reading-time-package/install-manifest.txt',
     'native-reading-time-package/Install-Native-Reading-Time-Optimized.sh',
+    'native-reading-time-package/install.sh',
+    'native-reading-time-package/launch.sh',
     'native-reading-time-package/launcher-icon.png',
     'native-reading-time-package/reading-insights-cache.awk',
     'native-reading-time-package/reading-insights-cover.lua',
     'native-reading-time-package/reading-insights-touch-ui.lua',
     'native-reading-time-package/render-assets/dynamic-glyphs.pgm',
     'native-reading-time-package/render-assets/dynamic-glyphs.tsv',
+    'native-reading-time-package/resources/kual/reading-records-installer/bin/action.sh',
+    'native-reading-time-package/resources/kual/reading-records-installer/config.xml',
+    'native-reading-time-package/resources/kual/reading-records-installer/menu.json',
+    'native-reading-time-package/resources/reading-records-uninstall.sh',
     'native-reading-time-package/ui-calendar/book_detail.png',
     'native-reading-time-package/ui-calendar/books.png',
     'native-reading-time-package/ui-calendar/day_detail.png',
     'native-reading-time-package/ui-calendar/month_detail.png',
     'native-reading-time-package/ui-calendar/total.png',
     'native-reading-time-package/ui-calendar/week_trend.png',
+    'native-reading-time-package/uninstall.sh',
+    'native-reading-time-package/阅读记录-entry.sh',
     'native-reading-time-package/阅读记录-optimized.sh',
 ]
-record('stable payload scope','Against v9.6.10, changes stay within the optimized viewer/touch map, cover helper, launcher cover, total-page navigation shell, secondary-page backgrounds/glyphs and versioned installer payload.')
+record('stable payload scope','Against v9.6.10, statistics/daemon/data paths stay stable; additions are the 5.18 compatibility detector, unified launcher/diagnostics/installer/uninstaller entries, install manifest and the existing 9.7.5 UI/cover payload.')
 
 unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:
@@ -80,7 +91,7 @@ record('interaction invariants','Default daily, page navigation branches and ref
 
 # Extract definitions only: never run startup, hardware access, or EXIT cleanup.
 defs=viewer[:viewer.index('\ndetect_screen; find_touch_device')]
-defs=defs.replace('exec >> "$LOG" 2>&1','').replace('\ntrap cleanup EXIT INT TERM HUP\n','\n')
+defs=defs.replace('if [ "${READING_LAUNCHER_CAPTURE:-0}" != 1 ]; then exec >> "$LOG" 2>&1; fi','').replace('\ntrap cleanup EXIT INT TERM HUP\n','\n')
 defs=defs.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"','')
 (OUT/'functions.sh').write_text(defs,encoding='utf-8',newline='\n')
 calendar_key=hashlib.sha256(viewer[viewer.index('days_in_month()'):viewer.index('shift_month()')].encode()).hexdigest()

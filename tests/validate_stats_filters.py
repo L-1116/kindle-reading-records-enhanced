@@ -78,7 +78,7 @@ record("progress safety", "Progress and thumbnails share one delayed read-only c
 
 # Extract function definitions only; hardware startup and cleanup never run.
 definitions = viewer[: viewer.index("\ndetect_screen; find_touch_device")]
-definitions = definitions.replace('exec >> "$LOG" 2>&1', "")
+definitions = definitions.replace('if [ "${READING_LAUNCHER_CAPTURE:-0}" != 1 ]; then exec >> "$LOG" 2>&1; fi', "")
 definitions = definitions.replace('\ntrap cleanup EXIT INT TERM HUP\n', "\n")
 definitions = definitions.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"', "")
 definitions = definitions.replace('$(date +%Y-%m-%d)', '${TEST_TODAY:-$(date +%Y-%m-%d)}')

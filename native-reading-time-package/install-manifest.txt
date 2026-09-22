@@ -1,0 +1,53 @@
+# Kindle Reading Records 9.7.5-test install manifest
+# Format: CLASS|ROOT|RELATIVE_PATH|PURPOSE
+# ROOT is one of BASE, DOCS, MNT_US, UPSTART or TMP. Paths are never eval'ed.
+
+# Program files and application-owned directories.
+SCRIPTLET_FILE|DOCS|阅读记录.sh|library launcher
+SYSTEM_FILE|UPSTART|native-reading-time.conf|Upstart service job
+PROGRAM_TREE|BASE|bin|executables and helpers
+PROGRAM_TREE|BASE|compat|firmware compatibility files
+PROGRAM_TREE|BASE|releases|versioned application releases
+PROGRAM_TREE|BASE|ui|legacy UI assets
+PROGRAM_TREE|BASE|fonts|bundled application fonts
+PROGRAM_TREE|BASE|assets|launcher assets
+PROGRAM_FILE|BASE|VERSION|installed version marker
+MANIFEST_FILE|BASE|install-manifest.txt|installed removal manifest
+KUAL_TREE|MNT_US|extensions/reading-records-installer|Reading Records KUAL extension
+
+# Runtime state, logs and caches that can be regenerated safely.
+RUNTIME_FILE|BASE|state|daemon runtime state
+RUNTIME_FILE|BASE|page-turn-probe.pid|legacy runtime PID
+RUNTIME_FILE|BASE|reading-insights.pid|legacy runtime PID
+RUNTIME_FILE|BASE|reading-insights.lock|legacy runtime lock
+CACHE_FILE|BASE|book-cover-cache.tsv|cover lookup cache
+CACHE_FILE|BASE|book-cover-misses.tsv|cover miss cache
+CACHE_TREE|BASE|book-covers|extracted cover cache
+CACHE_FILE|BASE|book-progress.tsv|derived progress cache
+CACHE_FILE|BASE|book-progress.tsv.new|derived progress cache staging
+CACHE_FILE|BASE|cc-progress-viewer.db|temporary progress database copy
+CACHE_FILE|BASE|display-layout.txt|derived display layout
+CACHE_FILE|BASE|state.tmp|daemon state staging
+CACHE_FILE|BASE|阅读时长统计.txt.tmp|report staging
+LOG_FILE|BASE|service.log|tracker log
+LOG_FILE|BASE|install.log|installer log
+LOG_FILE|BASE|upstart.log|service startup log
+LOG_FILE|BASE|dashboard-launch.log|dashboard log
+LOG_FILE|BASE|dashboard-touch.log|touch log
+LOG_FILE|BASE|last-launch-status.txt|last launcher status
+LOG_FILE|BASE|last-launch.stdout|last launcher stdout
+LOG_FILE|BASE|last-launch.stderr|last launcher stderr
+TEMP_PATTERN|BASE|.install-9.7.5-test.*|interrupted installer staging
+TEMP_PATTERN|BASE|reading-time.tsv.bak.new.*|interrupted backup staging
+TEMP_PATTERN|BASE|book-cover-cache.tsv.new.*|cover cache staging
+TEMP_PATTERN|BASE|book-cover-misses.tsv.new.*|cover miss staging
+TEMP_PATTERN|TMP|native-reading-dashboard.*|dashboard session cache
+LOG_FILE|DOCS|reading-records-launch-error.txt|launcher error
+LOG_FILE|DOCS|reading-records-install-result.txt|Scriptlet installer result
+LOG_FILE|DOCS|reading-records-kual-error.txt|KUAL routing error
+
+# Persistent user data. The safe uninstaller documents and always keeps these.
+PERSISTENT_FILE|BASE|reading-time.tsv|reading history
+PERSISTENT_FILE|BASE|reading-time.tsv.bak|reading history backup
+PERSISTENT_FILE|BASE|阅读时长统计.txt|human-readable reading history report
+PERSISTENT_FILE|BASE|user.conf|user configuration, when present
