@@ -36,7 +36,7 @@ Plutoill，本仓库中的后续增强和维护由 L-1116 完成。
 - firmware 5.19 regression；
 - 新 installer / uninstaller，以及卸载保留历史、重新安装恢复历史的完整流程。
 
-5.17.x 尚不是本轮正式支持目标。测试原因、安装步骤、8 步测试流程、diagnostic 位置和反馈模板见 [完整公开测试说明](docs/releases/v9.7.5-test.1.md)。
+5.17.x 尚不是本轮正式支持目标。测试原因、安装步骤、8 步测试流程、diagnostic 位置和反馈模板见 [完整公开测试说明](docs/releases/v9.7.5-test.1.md)。发现问题可优先在发布本插件的小红书笔记评论区留言或私信作者，也可以提交 GitHub Issue。
 
 ## 界面预览
 
