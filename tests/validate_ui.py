@@ -36,7 +36,7 @@ for file in PKG.glob('*.lua'):
 record('syntax','All shipped .sh files: sh -n and dash -n; Lua files: Lua 5.1 loadstring; UTF-8 without BOM, LF.')
 
 stable_payload_changes=[]
-for file in sorted(PKG.rglob('*')):
+for file in sorted(PKG.rglob('*'), key=lambda path: path.relative_to(ROOT).as_posix().casefold()):
     if file.is_file():
         rel=file.relative_to(ROOT).as_posix()
         if STABLE_HASHES.get(rel)!=hashlib.sha256(file.read_bytes()).hexdigest():
