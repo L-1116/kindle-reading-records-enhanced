@@ -21,12 +21,15 @@ kual=us/'extensions/reading-records-installer'
 conf=etc/'native-reading-time.conf'
 data=state/'reading-time.tsv'
 data.write_text('date\tbook_id\tseconds\ttitle\n2026-09-05\tb1\t14760\tKeep reading history\n',encoding='utf-8')
+old_cover_dir=state/'book-covers'; old_cover_dir.mkdir()
+old_cover=old_cover_dir/'upgrade-preserved.jpg'; old_cover.write_bytes(b'old-cover-cache')
+old_cover_map=state/'book-cover-cache.tsv'; old_cover_map.write_text(f'b1\t{old_cover.as_posix()}\n',encoding='utf-8')
 shutil.copy2(BASELINE/'阅读记录-optimized.sh',viewer)
 shutil.copy2(ROOT/'documents/reading-records-install.sh',install_entry)
 shutil.copy2(PKG/'native-reading-time.conf',conf)
 old_release=state/'releases/9.6.10-ui-layout-fix'; old_release.mkdir(parents=True)
 (old_release/'preserved-marker').write_text('old release stays available')
-before={str(p):digest(p) for p in (viewer,conf,data,old_release/'preserved-marker')}
+before={str(p):digest(p) for p in (viewer,conf,data,old_release/'preserved-marker',old_cover,old_cover_map)}
 fake_ld=SANDBOX/'ld-linux-armhf.so.3'; fake_ld.write_bytes(b'test')
 initctl=mockbin/'initctl'
 initctl.write_text('''#!/bin/sh
@@ -131,6 +134,7 @@ assert digest(kual/'menu.json')==digest(PKG/'resources/kual/reading-records-inst
 assert digest(daemon)==digest(PKG/'native-reading-time-daemon.sh')
 assert digest(conf)==digest(PKG/'native-reading-time.conf')
 assert digest(data)==before[str(data)]
+assert digest(old_cover)==before[str(old_cover)] and digest(old_cover_map)==before[str(old_cover_map)]
 assert digest(state/'reading-time.tsv.bak')==before[str(data)]
 assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.7.5-test'
 assert digest(old_release/'preserved-marker')==before[str(old_release/'preserved-marker')]
@@ -145,6 +149,9 @@ assert 'scanner-ready' in (SANDBOX/'scanner-calls.log').read_text()
 assert raw_installer.index('atomic_file "$STAGE/release/assets/launcher-icon.png" "$LAUNCHER_ICON" 644') < raw_installer.index('atomic_file "$STAGE/viewer" "$VIEWER" 755') < raw_installer.index('com.lab126.scanner doFullScan 1',raw_installer.index('atomic_file "$STAGE/viewer" "$VIEWER" 755'))
 for f in ['reading-insights-touch-ui.lua','reading-insights-titles.lua','reading-insights-title-widths.lua','reading-insights-cache.awk','reading-insights-cover.lua','reading-insights-render.lua']:
     assert digest(release/'bin'/f)==digest(PKG/f),f
+assert (state/'book-covers').is_dir()
+optimized_installer=(PKG/'Install-Native-Reading-Time-Optimized.sh').read_text(encoding='utf-8')
+assert 'chmod 700 "$COVER_CACHE_DIR"' in optimized_installer and 'cover sanity helper=ok' in optimized_installer
 for f in ['daily.png','books.png','total.png','day_detail.png','month_detail.png','week_trend.png','book_detail.png']:
     assert digest(release/'ui-calendar'/f)==digest(PKG/'ui-calendar'/f)
 for f in ['daily.png','books.png','total.png']:
@@ -190,6 +197,7 @@ p=subprocess.run([sh,script.as_posix()],capture_output=True)
 assert p.returncode==0,(p.stdout,p.stderr,(state/'install.log').read_text(errors='replace'))
 assert data.read_bytes()==history_before and (state/'reading-time.tsv.bak').read_bytes()==backup_before
 assert digest(state/'bin/uninstall.sh')==digest(PKG/'uninstall.sh') and viewer.exists()
+assert (state/'book-covers').is_dir() and not any((state/'book-covers').iterdir())
 assert digest(uninstall_entry)==digest(PKG/'resources/reading-records-uninstall.sh')
 assert digest(kual/'bin/action.sh')==digest(PKG/'resources/kual/reading-records-installer/bin/action.sh')
 assert install_entry.exists()

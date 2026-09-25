@@ -25,7 +25,7 @@ canonical_pairs={
     root/'extensions/reading-records-installer/menu.json': root/'native-reading-time-package/resources/kual/reading-records-installer/menu.json',
 }
 for deployed,canonical in canonical_pairs.items():assert deployed.read_bytes()==canonical.read_bytes()
-archive=dist/'kindle-reading-records-v9.7.5-test.zip'
+archive=dist/'kindle-reading-records-v9.7.5-compat-v2.zip'
 with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
     for p in files:z.write(p,p.relative_to(root).as_posix())
 with zipfile.ZipFile(archive) as z:
@@ -44,6 +44,8 @@ with zipfile.ZipFile(archive) as z:
     for p in files:assert z.read(p.relative_to(root).as_posix())==p.read_bytes()
 manifest={p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
 (out/'release-sha256.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest()
+(dist/'SHA256SUMS.txt').write_text(f'{archive_sha256.upper()}  {archive.name}\n',encoding='ascii')
 for name in ['daily-final','day-detail-multiple','day-detail-page-2','books-filters','total-week','month-detail','week-trend','book-detail']:
     im=Image.open(out/f'{name}.png')
     im.resize((636,848)).save(out/f'{name}-preview.png')
@@ -51,6 +53,6 @@ sheet=Image.new('L',(1272,1696),255)
 for i,name in enumerate(['book-detail','month-detail','daily-final','total-week']):
     sheet.paste(Image.open(out/f'{name}-preview.png'),((i%2)*636,(i//2)*848))
 sheet.save(out/'layout-contact-sheet.png')
-result={'result':'PASS','archive_files':len(files),'archive_bytes':archive.stat().st_size,'sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'checks':['Every ZIP entry matches its source byte-for-byte.']}
+result={'result':'PASS','archive_files':len(files),'archive_bytes':archive.stat().st_size,'sha256':archive_sha256,'checks':['Every ZIP entry matches its source byte-for-byte.','SHA256SUMS.txt matches the generated archive.']}
 (out/'package-results.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
 print(json.dumps(result,indent=2))

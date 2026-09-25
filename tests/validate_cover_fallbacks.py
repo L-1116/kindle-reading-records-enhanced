@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 import json
 from pathlib import Path
+import re
+import sqlite3
 import struct
 import subprocess
 import sys
@@ -126,12 +129,56 @@ assert "*.epub|*.EPUB" in viewer and "*.mobi|*.MOBI" in viewer and "*.pdf|*.PDF)
 assert "cover_miss_known" in viewer and "COVER_CACHE_DIR" in viewer
 assert all(name not in viewer for name in ("pdftoppm", "mutool", "poppler", "mupdf"))
 
+# Firmware schemas that powered v9.7.4 may not expose the optional p_location
+# field added to the v9.7.5 catalog query.  Exercise the exact shipped SQL:
+# the rich query may fail, but the thumbnail-compatible query must still return
+# the p_thumbnail row needed by a clean install with no persistent cache.
+catalog_block = viewer[viewer.index("ensure_catalog()") : viewer.index("ensure_progress()")]
+catalog_queries = re.findall(r'"(SELECT -1,.*?)" > "\$CATALOG\.new"', catalog_block)
+assert len(catalog_queries) == 2, catalog_queries
+location_query, thumbnail_query = catalog_queries
+assert "p_location" in location_query and "p_mimeType" not in location_query
+assert "p_location" not in thumbnail_query and "p_thumbnail" in thumbnail_query
+with tempfile.TemporaryDirectory(prefix="cover-schema-", dir=OUT) as schema_tmp:
+    schema_db = Path(schema_tmp) / "cc-old-schema.db"
+    with closing(sqlite3.connect(schema_db)) as connection:
+        connection.execute(
+            "CREATE TABLE Entries (p_titles_0_nominal TEXT, p_cdeKey TEXT, "
+            "p_thumbnail TEXT, p_lastAccess INTEGER, p_percentFinished REAL)"
+        )
+        connection.execute(
+            "INSERT INTO Entries VALUES (?, ?, ?, ?, ?)",
+            ("Clean install book", "clean-id", "/mnt/us/system/thumbnails/clean.jpg", 1, 25),
+        )
+        try:
+            connection.execute(location_query).fetchall()
+        except sqlite3.OperationalError as error:
+            assert "p_location" in str(error)
+        else:
+            raise AssertionError("old-schema fixture unexpectedly accepted p_location")
+        fallback_rows = connection.execute(thumbnail_query).fetchall()
+        assert fallback_rows == [
+            (-1, "Clean install book", "clean-id", "/mnt/us/system/thumbnails/clean.jpg", "", "")
+        ]
+        connection.execute("ALTER TABLE Entries ADD COLUMN p_location TEXT")
+        connection.execute("UPDATE Entries SET p_location='/mnt/us/documents/clean.epub'")
+        rich_rows = connection.execute(location_query).fetchall()
+        assert rich_rows[0][4] == "/mnt/us/documents/clean.epub"
+
+installer = (PKG / "Install-Native-Reading-Time-Optimized.sh").read_text(encoding="utf-8")
+assert 'mkdir -p ' in installer and '"$COVER_CACHE_DIR"' in installer
+assert 'chmod 700 "$COVER_CACHE_DIR"' in installer
+assert 'cover helper is not readable after installation' in installer
+assert 'COVER_DEBUG="${READING_COVER_DEBUG:-0}"' in viewer and "cover-debug.enabled" in viewer
+
 result = {
     "result": "PASS",
     "checks": [
         "EPUB3 cover-image takes priority over EPUB2 metadata fallback and percent-decoded paths remain archive-safe.",
         "MOBI EXTH record 201 selects the formal embedded cover without loading the whole ebook or adding a library.",
         "Malformed MOBI exits cleanly; PDF has no bundled renderer and falls back after Kindle thumbnail lookup.",
+        "A cc.db without optional p_location rejects the rich query but succeeds through the shipped thumbnail-compatible fallback.",
+        "The installer creates a private writable cover cache and verifies the installed helper; cover tracing remains opt-in.",
         "Launcher art is a 600x960 (5:8) portrait RGB PNG with nontrivial grayscale contrast.",
     ],
 }

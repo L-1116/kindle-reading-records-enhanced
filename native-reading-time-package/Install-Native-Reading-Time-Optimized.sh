@@ -24,6 +24,7 @@ LAUNCHER_ICON="$ASSET_DIR/launcher-icon.png"
 RELEASE="$BASE/releases/9.7.5-test"
 RELEASE_ICON="$RELEASE/assets/launcher-icon.png"
 RELEASE_APP="$RELEASE/bin/reading-records.sh"
+COVER_CACHE_DIR="$BASE/book-covers"
 STAGE="$BASE/.install-9.7.5-test.$$"
 ROOT_RW=0; ACTIVATED=0; SERVICE_WAS_RUNNING=0; ROLLBACK_DONE=0
 
@@ -122,7 +123,8 @@ if [ -f "$DATA" ]; then
     if [ ! -e "$DATA.bak" ]; then cp "$DATA" "$DATA.bak.new.$$" || fail "cannot create reading history backup"; mv "$DATA.bak.new.$$" "$DATA.bak" || fail "cannot publish reading history backup"; echo "$(date): created reading-time.tsv.bak"
     else echo "$(date): preserved existing reading-time.tsv.bak"; fi
 fi
-mkdir -p "$BASE/bin" "$BASE/compat" "$BASE/ui" "$BASE/fonts" "$ASSET_DIR" "$RELEASE/bin" "$RELEASE/ui" "$RELEASE/ui-calendar" "$RELEASE/render-assets" "$RELEASE/assets" "$DOCS" "$KUAL_DIR/bin" || fail "cannot create installation directories"
+mkdir -p "$BASE/bin" "$BASE/compat" "$BASE/ui" "$BASE/fonts" "$ASSET_DIR" "$COVER_CACHE_DIR" "$RELEASE/bin" "$RELEASE/ui" "$RELEASE/ui-calendar" "$RELEASE/render-assets" "$RELEASE/assets" "$DOCS" "$KUAL_DIR/bin" || fail "cannot create installation directories"
+chmod 700 "$COVER_CACHE_DIR" || fail "cannot set cover cache directory permissions"
 for f in "$STAGE/release/ui-calendar/"*.png; do atomic_file "$f" "$RELEASE/ui-calendar/${f##*/}" 644 || fail "cannot install calendar UI"; done
 for f in reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do atomic_file "$STAGE/release/bin/$f" "$RELEASE/bin/$f" 644 || fail "cannot install calendar helper"; done
 for f in "$STAGE/release/ui/"*.png; do atomic_file "$f" "$RELEASE/ui/${f##*/}" 644 || fail "cannot install optimized UI"; done
@@ -134,6 +136,9 @@ atomic_file "$STAGE/release/bin/reading-insights-touch.lua" "$RELEASE/bin/readin
 atomic_file "$STAGE/release/bin/reading-insights-render.lua" "$RELEASE/bin/reading-insights-render.lua" 644 || fail "cannot install renderer"
 atomic_file "$STAGE/release/bin/reading-insights-cache.awk" "$RELEASE/bin/reading-insights-cache.awk" 644 || fail "cannot install cache builder"
 atomic_file "$STAGE/release/bin/reading-insights-cover.lua" "$RELEASE/bin/reading-insights-cover.lua" 644 || fail "cannot install cover helper"
+[ -r "$RELEASE/bin/reading-insights-cover.lua" ] || fail "cover helper is not readable after installation"
+[ -d "$COVER_CACHE_DIR" ] && [ -w "$COVER_CACHE_DIR" ] || fail "cover cache directory is not writable after installation"
+echo "$(date): cover sanity helper=ok cache_dir=ok cache_mode=700"
 for f in "$STAGE/release/ui/"*.png; do atomic_file "$f" "$BASE/ui/${f##*/}" 644 || fail "cannot install legacy UI assets"; done
 atomic_file "$STAGE/release/bin/reading-insights-touch.lua" "$BASE/bin/reading-insights-touch.lua" 644 || fail "cannot install legacy touch reader"
 atomic_file "$STAGE/font" "$BASE/fonts/NotoSansCJKsc-Regular.otf" 644 || fail "cannot install CJK font"

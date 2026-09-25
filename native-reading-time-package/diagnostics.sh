@@ -71,6 +71,7 @@ mkdir -p "$DOCS" 2>/dev/null || exit 1
     permission_status "$BASE"
     permission_status "$BASE/bin/launch.sh"
     permission_status "$BASE/releases/9.7.5-test/bin/reading-records.sh"
+    permission_status "$BASE/releases/9.7.5-test/bin/reading-insights-cover.lua"
     permission_status "$BASE/reading-time.tsv"
     permission_status "$BASE/book-covers"
     permission_status "$DOCS/阅读记录.sh"
@@ -105,6 +106,12 @@ mkdir -p "$DOCS" 2>/dev/null || exit 1
     if [ -r "$BASE/last-launch.stdout" ]; then tail -n 80 "$BASE/last-launch.stdout"; else echo "unavailable"; fi
     echo "-- stderr (last 80 lines) --"
     if [ -r "$BASE/last-launch.stderr" ]; then tail -n 80 "$BASE/last-launch.stderr"; else echo "unavailable"; fi
+    echo
+    echo "[Cover]"
+    printf 'debug=%s\n' "$([ -e "$BASE/cover-debug.enabled" ] && echo enabled || echo disabled)"
+    permission_status "$BASE/book-cover-cache.tsv"
+    permission_status "$BASE/book-cover-misses.tsv"
+    if [ -r "$BASE/cover-debug.log" ]; then tail -n 120 "$BASE/cover-debug.log"; else echo "cover debug log unavailable"; fi
 } > "$REPORT_TMP" 2>&1 || { rm -f "$REPORT_TMP"; exit 1; }
 
 chmod 600 "$REPORT_TMP" 2>/dev/null || true

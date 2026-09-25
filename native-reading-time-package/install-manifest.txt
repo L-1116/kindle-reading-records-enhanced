@@ -34,6 +34,7 @@ LOG_FILE|BASE|install.log|installer log
 LOG_FILE|BASE|upstart.log|service startup log
 LOG_FILE|BASE|dashboard-launch.log|dashboard log
 LOG_FILE|BASE|dashboard-touch.log|touch log
+LOG_FILE|BASE|cover-debug.log|optional cover diagnostic log
 LOG_FILE|BASE|last-launch-status.txt|last launcher status
 LOG_FILE|BASE|last-launch.stdout|last launcher stdout
 LOG_FILE|BASE|last-launch.stderr|last launcher stderr
@@ -51,3 +52,4 @@ PERSISTENT_FILE|BASE|reading-time.tsv|reading history
 PERSISTENT_FILE|BASE|reading-time.tsv.bak|reading history backup
 PERSISTENT_FILE|BASE|阅读时长统计.txt|human-readable reading history report
 PERSISTENT_FILE|BASE|user.conf|user configuration, when present
+PERSISTENT_FILE|BASE|cover-debug.enabled|user-controlled cover diagnostic switch

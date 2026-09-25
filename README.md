@@ -28,9 +28,13 @@ Plutoill，本仓库中的后续增强和维护由 L-1116 完成。
 
 ## 当前开发测试版
 
-### 9.7.5-test.1 公开测试
+### 9.7.5兼容版-V2 公开测试
 
-[`v9.7.5-test.1`](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-test.1) 是 **Pre-release / 公开测试版**，不是正式稳定版。本轮邀请 firmware 5.18.x 和 5.19.x 用户参与，重点验证：
+[`9.7.5兼容版-V2`](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-compat-v2) 改善了部分设备全新安装后无法显示书籍封面的问题。安装包仍为公开测试版；请下载 Release Assets 中的 `kindle-reading-records-v9.7.5-compat-v2.zip`。已有阅读记录和封面缓存会保留。
+
+### 9.7.5兼容版-V1 公开测试
+
+[`9.7.5兼容版-V1`](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-test.1) 是 **Pre-release / 公开测试版**，不是正式稳定版。本轮邀请 firmware 5.18.x 和 5.19.x 用户参与，重点验证：
 
 - firmware 5.18 compatibility；
 - firmware 5.19 regression；

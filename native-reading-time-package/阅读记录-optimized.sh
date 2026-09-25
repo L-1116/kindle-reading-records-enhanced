@@ -22,6 +22,8 @@ CC_DB="/var/local/cc.db"
 COVER_CACHE="$BASE/book-cover-cache.tsv"
 COVER_MISS_CACHE="$BASE/book-cover-misses.tsv"
 COVER_CACHE_DIR="$BASE/book-covers"
+COVER_LOG="$BASE/cover-debug.log"
+COVER_DEBUG="${READING_COVER_DEBUG:-0}"
 SESSION_DIR="/tmp/native-reading-dashboard.$$"
 SUMMARY="$SESSION_DIR/summary.tsv"; MONTHS="$SESSION_DIR/months.tsv"; WEEKS="$SESSION_DIR/weeks.tsv"
 DAYS="$SESSION_DIR/days.tsv"; DAY_BOOKS="$SESSION_DIR/day-books.tsv"; CALENDAR="$SESSION_DIR/calendar.tsv"
@@ -56,6 +58,18 @@ BOOK_CONTENT_SHIFT_X=-2; BOOK_CONTENT_SHIFT_Y=-17; BOOK_TITLE_TOP=378
 
 if [ "${READING_LAUNCHER_CAPTURE:-0}" != 1 ]; then exec >> "$LOG" 2>&1; fi
 echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"
+[ -e "$BASE/cover-debug.enabled" ] && COVER_DEBUG=1
+case "$COVER_DEBUG" in 1) :;; *) COVER_DEBUG=0;; esac
+
+cover_log() {
+    [ "$COVER_DEBUG" -eq 1 ] || return 0
+    printf '%s [cover] %s\n' "$(date)" "$*" >> "$COVER_LOG" 2>/dev/null || true
+}
+
+cover_lua() {
+    if [ "$COVER_DEBUG" -eq 1 ]; then lua "$COVER_HELPER" "$@" 2>> "$COVER_LOG"
+    else lua "$COVER_HELPER" "$@" 2>/dev/null; fi
+}
 
 fail() { echo "$(date): ERROR: $1"; lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; exit 1; }
 
@@ -179,17 +193,32 @@ build_cache() {
 catalog_loaded=0; progress_loaded=0
 ensure_catalog() {
     [ "$catalog_loaded" -eq 0 ] || return 0
-    catalog_loaded=1; rm -f "$PROGRESS_DB" "$CATALOG" "$CATALOG.new" "$PROGRESS.new"
+    catalog_loaded=1; rm -f "$PROGRESS_DB" "$CATALOG" "$CATALOG.new" "$CATALOG.error" "$PROGRESS.new"
     [ "${progress_loaded:-0}" -eq 1 ] || rm -f "$PROGRESS"
     if command -v sqlite3 >/dev/null 2>&1 && [ -r "$CC_DB" ] && cp "$CC_DB" "$PROGRESS_DB" 2>/dev/null; then
         if [ "${progress_loaded:-0}" -ne 1 ]; then
             sqlite3 -readonly -separator "$(printf '\t')" "$PROGRESS_DB" "SELECT CAST(p_percentFinished + 0.5 AS INTEGER),replace(replace(COALESCE(p_titles_0_nominal,''),char(9),' '),char(10),' '),replace(replace(COALESCE(p_cdeKey,''),char(9),' '),char(10),' ') FROM Entries WHERE p_percentFinished>=0 AND p_percentFinished<=100 AND (p_titles_0_nominal IS NOT NULL OR p_cdeKey IS NOT NULL) ORDER BY p_lastAccess DESC;" > "$PROGRESS.new" 2>/dev/null || true
             [ -s "$PROGRESS.new" ] && mv "$PROGRESS.new" "$PROGRESS"
         fi
-        sqlite3 -readonly -separator "$(printf '\t')" "$PROGRESS_DB" "SELECT -1,replace(replace(COALESCE(p_titles_0_nominal,''),char(9),' '),char(10),' '),replace(replace(COALESCE(p_cdeKey,''),char(9),' '),char(10),' '),replace(replace(COALESCE(p_thumbnail,''),char(9),' '),char(10),' '),replace(replace(COALESCE(p_location,''),char(9),' '),char(10),' '),replace(replace(COALESCE(p_mimeType,''),char(9),' '),char(10),' ') FROM Entries WHERE p_cdeKey IS NOT NULL OR p_location IS NOT NULL ORDER BY p_lastAccess DESC;" > "$CATALOG.new" 2>/dev/null || true
+        # p_location is not present in every Kindle cc.db schema.  Keep the
+        # richer query optional, then fall back to the v9.7.4 thumbnail-only
+        # columns so a missing optional field cannot discard valid covers.
+        if sqlite3 -readonly -separator "$(printf '\t')" "$PROGRESS_DB" "SELECT -1,replace(replace(COALESCE(p_titles_0_nominal,''),char(9),' '),char(10),' '),replace(replace(COALESCE(p_cdeKey,''),char(9),' '),char(10),' '),replace(replace(COALESCE(p_thumbnail,''),char(9),' '),char(10),' '),replace(replace(COALESCE(p_location,''),char(9),' '),char(10),' '),'' FROM Entries WHERE p_cdeKey IS NOT NULL OR p_location IS NOT NULL ORDER BY p_lastAccess DESC;" > "$CATALOG.new" 2> "$CATALOG.error" && [ -s "$CATALOG.new" ]; then
+            [ "$COVER_DEBUG" -eq 1 ] && cover_log "output: catalog=location rows=$(wc -l < "$CATALOG.new" 2>/dev/null)"
+        else
+            [ "$COVER_DEBUG" -eq 1 ] && cover_log "error: location catalog query failed: $(tr '\n' ' ' < "$CATALOG.error" 2>/dev/null)"
+            rm -f "$CATALOG.new"
+            if sqlite3 -readonly -separator "$(printf '\t')" "$PROGRESS_DB" "SELECT -1,replace(replace(COALESCE(p_titles_0_nominal,''),char(9),' '),char(10),' '),replace(replace(COALESCE(p_cdeKey,''),char(9),' '),char(10),' '),replace(replace(COALESCE(p_thumbnail,''),char(9),' '),char(10),' '),'','' FROM Entries WHERE p_cdeKey IS NOT NULL ORDER BY p_lastAccess DESC;" > "$CATALOG.new" 2>> "$CATALOG.error" && [ -s "$CATALOG.new" ]; then
+                [ "$COVER_DEBUG" -eq 1 ] && cover_log "output: catalog=thumbnail-compatible rows=$(wc -l < "$CATALOG.new" 2>/dev/null)"
+            else
+                [ "$COVER_DEBUG" -eq 1 ] && cover_log "error: thumbnail-compatible catalog query failed: $(tr '\n' ' ' < "$CATALOG.error" 2>/dev/null)"
+            fi
+        fi
         [ -s "$CATALOG.new" ] && mv "$CATALOG.new" "$CATALOG"
+    else
+        [ "$COVER_DEBUG" -eq 1 ] && cover_log "error: catalog unavailable sqlite3=$(command -v sqlite3 2>/dev/null || echo missing) cc_db_readable=$([ -r "$CC_DB" ] && echo yes || echo no)"
     fi
-    rm -f "$PROGRESS_DB" "$CATALOG.new" "$PROGRESS.new"
+    rm -f "$PROGRESS_DB" "$CATALOG.new" "$CATALOG.error" "$PROGRESS.new"
 }
 
 ensure_progress() { [ "${progress_loaded:-0}" -eq 1 ] && return 0; ensure_catalog; progress_loaded=1; }
@@ -275,12 +304,12 @@ extract_epub_cover() {
     command -v unzip >/dev/null 2>&1 && [ -r "$COVER_HELPER" ] || return 1
     epub_container="$SESSION_DIR/epub-container.xml"; epub_opf="$SESSION_DIR/epub-package.opf"; epub_candidates="$SESSION_DIR/epub-candidates.txt"
     unzip -p "$epub_source" META-INF/container.xml > "$epub_container" 2>/dev/null || return 1
-    epub_opf_path="$(lua "$COVER_HELPER" epub-container "$epub_container" 2>/dev/null)"; [ -n "$epub_opf_path" ] || return 1
+    epub_opf_path="$(cover_lua epub-container "$epub_container")"; [ -n "$epub_opf_path" ] || return 1
     unzip -p "$epub_source" "$epub_opf_path" > "$epub_opf" 2>/dev/null || return 1
-    lua "$COVER_HELPER" epub-opf "$epub_opf_path" "$epub_opf" > "$epub_candidates" 2>/dev/null || return 1
+    cover_lua epub-opf "$epub_opf_path" "$epub_opf" > "$epub_candidates" || return 1
     while IFS= read -r epub_candidate; do
         [ -n "$epub_candidate" ] || continue
-        if unzip -p "$epub_source" "$epub_candidate" > "$epub_target" 2>/dev/null && [ -s "$epub_target" ] && lua "$COVER_HELPER" image-extension "$epub_target" >/dev/null 2>&1; then return 0; fi
+        if unzip -p "$epub_source" "$epub_candidate" > "$epub_target" 2>/dev/null && [ -s "$epub_target" ] && cover_lua image-extension "$epub_target" >/dev/null; then return 0; fi
         rm -f "$epub_target"
     done < "$epub_candidates"
     return 1
@@ -290,7 +319,7 @@ extract_embedded_cover() {
     embedded_source="$1"; embedded_target="$2"
     case "$embedded_source" in
         *.epub|*.EPUB) extract_epub_cover "$embedded_source" "$embedded_target";;
-        *.mobi|*.MOBI) [ -r "$COVER_HELPER" ] && lua "$COVER_HELPER" mobi "$embedded_source" "$embedded_target" >/dev/null 2>&1;;
+        *.mobi|*.MOBI) [ -r "$COVER_HELPER" ] && cover_lua mobi "$embedded_source" "$embedded_target" >/dev/null;;
         *.pdf|*.PDF) return 1;;
         *) return 1;;
     esac
@@ -298,20 +327,27 @@ extract_embedded_cover() {
 
 cache_embedded_cover() {
     embedded_key="$1"; embedded_source="$2"; embedded_sig="$(cover_source_signature "$embedded_source")"
-    cover_miss_known "$embedded_key" "$embedded_sig" && return 1
-    mkdir -p "$COVER_CACHE_DIR" 2>/dev/null || return 1
+    if [ "$COVER_DEBUG" -eq 1 ]; then
+        cover_log "book path: $embedded_source"
+        cover_log "extractor exists: $([ -f "$COVER_HELPER" ] && echo yes || echo no)"
+        cover_log "extractor executable: source-not-required readable=$([ -r "$COVER_HELPER" ] && echo yes || echo no) lua=$(command -v lua 2>/dev/null || echo missing)"
+    fi
+    if cover_miss_known "$embedded_key" "$embedded_sig"; then cover_log "error: prior extraction miss has same source signature"; return 1; fi
+    mkdir -p "$COVER_CACHE_DIR" 2>/dev/null || { cover_log "error: cannot create cache directory: $COVER_CACHE_DIR"; return 1; }
     embedded_token="$(printf '%s\n' "$embedded_key|$embedded_sig" | cksum | awk '{print $1}')"
     case "$embedded_token" in ''|*[!0-9]*) return 1;; esac
     embedded_tmp="$COVER_CACHE_DIR/.cover-${embedded_token}.$$"
     if ! extract_embedded_cover "$embedded_source" "$embedded_tmp" || [ ! -s "$embedded_tmp" ]; then
+        cover_log "error: cover extraction failed output=$embedded_tmp"
         rm -f "$embedded_tmp"; cover_miss_remember "$embedded_key" "$embedded_sig" || true; return 1
     fi
     embedded_size="$(stat -c '%s' "$embedded_tmp" 2>/dev/null)"; case "$embedded_size" in ''|*[!0-9]*) embedded_size=0;; esac
     if [ "$embedded_size" -le 0 ] || [ "$embedded_size" -gt 8388608 ]; then rm -f "$embedded_tmp"; cover_miss_remember "$embedded_key" "$embedded_sig" || true; return 1; fi
-    embedded_ext="$(lua "$COVER_HELPER" image-extension "$embedded_tmp" 2>/dev/null)" || { rm -f "$embedded_tmp"; cover_miss_remember "$embedded_key" "$embedded_sig" || true; return 1; }
+    embedded_ext="$(cover_lua image-extension "$embedded_tmp")" || { cover_log "error: extracted output is not a supported image"; rm -f "$embedded_tmp"; cover_miss_remember "$embedded_key" "$embedded_sig" || true; return 1; }
     embedded_final="$COVER_CACHE_DIR/cover-${embedded_token}.${embedded_ext}"
     chmod 600 "$embedded_tmp" 2>/dev/null || true; mv "$embedded_tmp" "$embedded_final" || return 1
     cover_miss_forget "$embedded_key" || true; cover_cache_remember "$embedded_key" "$embedded_final" || true
+    cover_log "output: $embedded_final"
     printf '%s\n' "$embedded_final"
 }
 
@@ -320,8 +356,11 @@ cache_embedded_cover() {
 # disk. PDF intentionally stops after Kindle's own thumbnail/cache path.
 resolveBookCover() {
     resolve_id="$1"; resolve_title="$2"; resolve_key="$(cover_identity_key "$resolve_id" "$resolve_title")"
+    cover_log "book id: $resolve_id"
     [ -n "$resolve_key" ] || return 1
     resolve_path="$(cover_cache_lookup "$resolve_key")"
+    cover_log "cache path: ${resolve_path:-none}"
+    [ "$COVER_DEBUG" -eq 1 ] && cover_log "cache exists: $([ -n "$resolve_path" ] && cover_path_allowed "$resolve_path" && echo yes || echo no)"
     if [ -n "$resolve_path" ]; then
         if cover_path_allowed "$resolve_path"; then printf '%s\n' "$resolve_path"; return 0; fi
         cover_cache_forget "$resolve_key" || true
@@ -330,6 +369,7 @@ resolveBookCover() {
     resolve_row="$(catalog_row_for_book "$resolve_id" "$resolve_title")"
     if [ -n "$resolve_row" ]; then
         resolve_path="$(printf '%s\n' "$resolve_row" | awk -F '\t' '{print $4}')"
+        cover_log "expected source: ${resolve_path:-none}"
         if [ -n "$resolve_path" ] && cover_path_allowed "$resolve_path"; then
             cover_cache_remember "$resolve_key" "$resolve_path" || true
             printf '%s\n' "$resolve_path"; return 0
@@ -337,12 +377,13 @@ resolveBookCover() {
     fi
     case "$resolve_id" in *[!A-Za-z0-9_-]*|'') :;; *)
         resolve_path="/mnt/us/system/thumbnails/thumbnail_${resolve_id}_EBOK_portrait.jpg"
+        cover_log "expected source: $resolve_path"
         if cover_path_allowed "$resolve_path"; then cover_cache_remember "$resolve_key" "$resolve_path" || true; printf '%s\n' "$resolve_path"; return 0; fi
     esac
     resolve_source="$(printf '%s\n' "$resolve_row" | awk -F '\t' '{print $5}')"
     case "$resolve_source" in file://*) resolve_source="${resolve_source#file://}";; esac
     if ! book_path_allowed "$resolve_source" && [ -n "$resolve_title" ]; then resolve_source="/mnt/us/documents/$resolve_title"; fi
-    book_path_allowed "$resolve_source" || return 1
+    book_path_allowed "$resolve_source" || { cover_log "error: no readable thumbnail or supported book source"; return 1; }
     cache_embedded_cover "$resolve_key" "$resolve_source"
 }
 
@@ -350,7 +391,7 @@ renderBookCover() {
     render_id="$1"
     if [ "$#" -eq 5 ]; then render_title=""; shift 1; else render_title="$2"; shift 2; fi
     render_cover_path="$(resolveBookCover "$render_id" "$render_title")" || return 0
-    image "$render_cover_path" "$1" "$2" "$3" "$4" || { cover_cache_forget "$(cover_identity_key "$render_id" "$render_title")" || true; return 0; }
+    image "$render_cover_path" "$1" "$2" "$3" "$4" || { cover_log "error: UI could not display cache path: $render_cover_path"; cover_cache_forget "$(cover_identity_key "$render_id" "$render_title")" || true; return 0; }
     return 0
 }
 
