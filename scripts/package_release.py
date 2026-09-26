@@ -1,58 +1,108 @@
-"""Package the deployable Kindle tree, then verify every archived byte."""
-from pathlib import Path
-import hashlib,json,zipfile
-from PIL import Image
+"""Build and byte-verify the self-contained Compatibility V3 release ZIP."""
 
-root=Path(__file__).resolve().parents[1]
-out=root/'build/validation';out.mkdir(parents=True,exist_ok=True)
-dist=root/'dist';dist.mkdir(exist_ok=True)
-files=[
-    root/'RUNME.sh',
-    root/'README.txt',
-    root/'documents/reading-records-install.sh',
-    root/'documents/reading-records-uninstall.sh',
-    *sorted(p for p in (root/'extensions/reading-records-installer').rglob('*') if p.is_file()),
-    *sorted(p for p in (root/'native-reading-time-package').rglob('*') if p.is_file()),
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+import zipfile
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DIST = ROOT / "dist"
+VALIDATION = ROOT / "build/validation"
+VERSION = "v9.7.5-compat-v3"
+ARCHIVE = DIST / f"kindle-reading-records-{VERSION}.zip"
+RESOLVER = "native-reading-time-package/阅读记录-optimized.sh"
+MANIFEST = "PACKAGE-MANIFEST.json"
+FILES = [
+    ROOT / "RUNME.sh",
+    ROOT / "README.txt",
+    ROOT / "documents/reading-records-install.sh",
+    ROOT / "documents/reading-records-uninstall.sh",
+    *sorted(p for p in (ROOT / "extensions/reading-records-installer").rglob("*") if p.is_file()),
+    *sorted(p for p in (ROOT / "native-reading-time-package").rglob("*") if p.is_file()),
 ]
-assert root/'native-reading-time-package/launcher-icon.png' in files
-assert root/'native-reading-time-package/reading-insights-cover.lua' in files
-assert root/'native-reading-time-package/compat/detect_env.sh' in files
-assert root/'extensions/reading-records-installer/menu.json' in files
-canonical_pairs={
-    root/'documents/reading-records-uninstall.sh': root/'native-reading-time-package/resources/reading-records-uninstall.sh',
-    root/'extensions/reading-records-installer/bin/action.sh': root/'native-reading-time-package/resources/kual/reading-records-installer/bin/action.sh',
-    root/'extensions/reading-records-installer/config.xml': root/'native-reading-time-package/resources/kual/reading-records-installer/config.xml',
-    root/'extensions/reading-records-installer/menu.json': root/'native-reading-time-package/resources/kual/reading-records-installer/menu.json',
+CANONICAL_PAIRS = {
+    "documents/reading-records-uninstall.sh": "native-reading-time-package/resources/reading-records-uninstall.sh",
+    "extensions/reading-records-installer/bin/action.sh": "native-reading-time-package/resources/kual/reading-records-installer/bin/action.sh",
+    "extensions/reading-records-installer/config.xml": "native-reading-time-package/resources/kual/reading-records-installer/config.xml",
+    "extensions/reading-records-installer/menu.json": "native-reading-time-package/resources/kual/reading-records-installer/menu.json",
 }
-for deployed,canonical in canonical_pairs.items():assert deployed.read_bytes()==canonical.read_bytes()
-archive=dist/'kindle-reading-records-v9.7.5-compat-v2.zip'
-with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
-    for p in files:z.write(p,p.relative_to(root).as_posix())
-with zipfile.ZipFile(archive) as z:
-    assert z.testzip() is None
-    assert len(z.namelist())==len(files)
-    assert 'native-reading-time-package/launcher-icon.png' in z.namelist()
-    assert 'native-reading-time-package/reading-insights-cover.lua' in z.namelist()
-    assert 'documents/reading-records-install.sh' in z.namelist()
-    assert 'documents/reading-records-uninstall.sh' in z.namelist()
-    assert 'native-reading-time-package/uninstall.sh' in z.namelist()
-    assert 'native-reading-time-package/install-manifest.txt' in z.namelist()
-    assert 'README.txt' in z.namelist()
-    assert 'extensions/reading-records-installer/menu.json' in z.namelist()
-    assert 'native-reading-time-package/resources/reading-records-uninstall.sh' in z.namelist()
-    assert 'native-reading-time-package/resources/kual/reading-records-installer/menu.json' in z.namelist()
-    for p in files:assert z.read(p.relative_to(root).as_posix())==p.read_bytes()
-manifest={p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
-(out/'release-sha256.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
-archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest()
-(dist/'SHA256SUMS.txt').write_text(f'{archive_sha256.upper()}  {archive.name}\n',encoding='ascii')
-for name in ['daily-final','day-detail-multiple','day-detail-page-2','books-filters','total-week','month-detail','week-trend','book-detail']:
-    im=Image.open(out/f'{name}.png')
-    im.resize((636,848)).save(out/f'{name}-preview.png')
-sheet=Image.new('L',(1272,1696),255)
-for i,name in enumerate(['book-detail','month-detail','daily-final','total-week']):
-    sheet.paste(Image.open(out/f'{name}-preview.png'),((i%2)*636,(i//2)*848))
-sheet.save(out/'layout-contact-sheet.png')
-result={'result':'PASS','archive_files':len(files),'archive_bytes':archive.stat().st_size,'sha256':archive_sha256,'checks':['Every ZIP entry matches its source byte-for-byte.','SHA256SUMS.txt matches the generated archive.']}
-(out/'package-results.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
-print(json.dumps(result,indent=2))
+REQUIRED = {
+    RESOLVER,
+    "native-reading-time-package/cleanup-manifest.txt",
+    "native-reading-time-package/uninstall.sh",
+    "native-reading-time-package/reading-insights-cover.lua",
+    "native-reading-time-package/launcher-icon.png",
+    "documents/reading-records-install.sh",
+    "documents/reading-records-uninstall.sh",
+}
+
+
+def sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def main() -> None:
+    for deployed, canonical in CANONICAL_PAIRS.items():
+        assert (ROOT / deployed).read_bytes() == (ROOT / canonical).read_bytes(), deployed
+    sources = {path.relative_to(ROOT).as_posix(): path for path in FILES}
+    assert REQUIRED <= sources.keys(), sorted(REQUIRED - sources.keys())
+    assert len(sources) == len(FILES)
+
+    payload = []
+    for name, path in sorted(sources.items()):
+        raw = path.read_bytes()
+        payload.append({
+            "path": name,
+            "size": len(raw),
+            "sha256": sha256(raw),
+            "executable": name.endswith(".sh"),
+        })
+    manifest_bytes = (json.dumps({"format": 1, "files": payload}, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+
+    DIST.mkdir(exist_ok=True)
+    VALIDATION.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(ARCHIVE, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as package:
+        for item in payload + [{"path": MANIFEST, "executable": False}]:
+            name = item["path"]
+            raw = manifest_bytes if name == MANIFEST else sources[name].read_bytes()
+            entry = zipfile.ZipInfo(name, date_time=(2026, 9, 26, 0, 0, 0))
+            entry.create_system = 3
+            entry.external_attr = ((0o100755 if item["executable"] else 0o100644) << 16)
+            package.writestr(entry, raw, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+
+    with zipfile.ZipFile(ARCHIVE) as package:
+        assert package.testzip() is None
+        assert set(package.namelist()) == set(sources) | {MANIFEST}
+        assert package.read(MANIFEST) == manifest_bytes
+        for item in payload:
+            name = item["path"]
+            raw = package.read(name)
+            assert raw == sources[name].read_bytes(), name
+            assert len(raw) == item["size"] and sha256(raw) == item["sha256"], name
+            assert ((package.getinfo(name).external_attr >> 16) & 0o777) == (0o755 if item["executable"] else 0o644), name
+        packaged_resolver = package.read(RESOLVER)
+    source_resolver = sources[RESOLVER].read_bytes()
+    assert packaged_resolver == source_resolver
+    assert "# Name: 安装文件清理" in sources["documents/reading-records-uninstall.sh"].read_text(encoding="utf-8")
+
+    archive_hash = sha256(ARCHIVE.read_bytes())
+    (DIST / "SHA256SUMS.txt").write_text(f"{archive_hash}  {ARCHIVE.name}\n", encoding="ascii")
+    (DIST / f"kindle-reading-records-{VERSION}.manifest.json").write_bytes(manifest_bytes)
+    result = {
+        "result": "PASS",
+        "archive": str(ARCHIVE),
+        "archive_files": len(payload) + 1,
+        "archive_sha256": archive_hash,
+        "source_resolver_sha256": sha256(source_resolver),
+        "packaged_resolver_sha256": sha256(packaged_resolver),
+        "source_equals_package": source_resolver == packaged_resolver,
+    }
+    (VALIDATION / "package-results.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

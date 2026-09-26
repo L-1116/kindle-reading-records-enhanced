@@ -71,6 +71,12 @@ mkdir -p "$DOCS" 2>/dev/null || exit 1
     permission_status "$BASE"
     permission_status "$BASE/bin/launch.sh"
     permission_status "$BASE/releases/9.7.5-test/bin/reading-records.sh"
+    if command -v cksum >/dev/null 2>&1; then
+        diagnostic_resolver="$BASE/releases/9.7.5-test/bin/reading-records.sh"
+        if [ -r "$diagnostic_resolver" ]; then
+            printf 'installed resolver checksum=%s\n' "$(cksum < "$diagnostic_resolver")"
+        fi
+    fi
     permission_status "$BASE/releases/9.7.5-test/bin/reading-insights-cover.lua"
     permission_status "$BASE/reading-time.tsv"
     permission_status "$BASE/book-covers"

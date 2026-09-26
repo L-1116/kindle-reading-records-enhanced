@@ -1,4 +1,6 @@
-# Kindle Reading Records 9.7.5-test install manifest
+# Kindle Reading Records 9.7.5-test legacy inventory.
+# Cleanup never executes deletion passes from this file; it uses only the
+# exact paths documented in cleanup-manifest.txt and embedded in its core.
 # Format: CLASS|ROOT|RELATIVE_PATH|PURPOSE
 # ROOT is one of BASE, DOCS, MNT_US, UPSTART or TMP. Paths are never eval'ed.
 
@@ -47,7 +49,7 @@ LOG_FILE|DOCS|reading-records-launch-error.txt|launcher error
 LOG_FILE|DOCS|reading-records-install-result.txt|Scriptlet installer result
 LOG_FILE|DOCS|reading-records-kual-error.txt|KUAL routing error
 
-# Persistent user data. The safe uninstaller documents and always keeps these.
+# Persistent user data. The cleanup action always keeps these and all caches.
 PERSISTENT_FILE|BASE|reading-time.tsv|reading history
 PERSISTENT_FILE|BASE|reading-time.tsv.bak|reading history backup
 PERSISTENT_FILE|BASE|阅读时长统计.txt|human-readable reading history report

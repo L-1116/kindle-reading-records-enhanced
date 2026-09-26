@@ -39,14 +39,15 @@ ET.parse(ROOT / "extensions/reading-records-installer/config.xml")
 ET.parse(PKG / "resources/kual/reading-records-installer/config.xml")
 kual_menu = json.loads((ROOT / "extensions/reading-records-installer/menu.json").read_text(encoding="utf-8"))
 kual_actions = kual_menu["items"][0]["items"]
-assert [item["params"] for item in kual_actions] == ["install", "repair", "diagnostics", "uninstall-keep-data"]
+assert [item["params"] for item in kual_actions] == ["install", "repair", "diagnostics", "cleanup"]
+assert kual_actions[-1]["name"] == "安装文件清理"
 assert len({item["action"] for item in kual_actions}) == 1
 assert "/native-reading-time-package/install.sh" in (ROOT / "RUNME.sh").read_text(encoding="utf-8")
 assert "/native-reading-time-package" in (ROOT / "documents/reading-records-install.sh").read_text(encoding="utf-8")
 install_entry = (ROOT / "documents/reading-records-install.sh").read_text(encoding="utf-8")
 uninstall_entry = (ROOT / "documents/reading-records-uninstall.sh").read_text(encoding="utf-8")
 assert "# Name: 阅读记录安装" in install_entry
-assert "# Name: 阅读记录卸载" in uninstall_entry
+assert "# Name: 安装文件清理" in uninstall_entry
 assert "uninstall.sh" in uninstall_entry and "install.sh" not in uninstall_entry.replace("uninstall.sh", "")
 canonical_pairs = {
     ROOT / "documents/reading-records-uninstall.sh": PKG / "resources/reading-records-uninstall.sh",

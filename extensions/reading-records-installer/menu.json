@@ -7,7 +7,7 @@
         {"name": "安装 / 升级", "action": "/mnt/us/extensions/reading-records-installer/bin/action.sh", "params": "install", "exitmenu": false},
         {"name": "修复启动器", "action": "/mnt/us/extensions/reading-records-installer/bin/action.sh", "params": "repair", "exitmenu": false},
         {"name": "生成诊断", "action": "/mnt/us/extensions/reading-records-installer/bin/action.sh", "params": "diagnostics", "exitmenu": false},
-        {"name": "卸载程序（保留数据）", "action": "/mnt/us/extensions/reading-records-installer/bin/action.sh", "params": "uninstall-keep-data", "exitmenu": false}
+        {"name": "安装文件清理", "action": "/mnt/us/extensions/reading-records-installer/bin/action.sh", "params": "cleanup", "exitmenu": false}
       ]
     }
   ]

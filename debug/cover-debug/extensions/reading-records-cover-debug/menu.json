@@ -1,0 +1,5 @@
+{
+  "items": [
+    {"name": "阅读记录：生成封面调试日志", "action": "/mnt/us/extensions/reading-records-cover-debug/bin/action.sh", "exitmenu": false}
+  ]
+}

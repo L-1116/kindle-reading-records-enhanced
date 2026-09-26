@@ -79,7 +79,7 @@ atomic_file() { src="$1"; dst="$2"; mode="$3"; tmp="${dst}.new.$$"; cp "$src" "$
 [ "$(id -u)" -eq 0 ] || fail "not running as root; use ;log runme"
 [ -x /sbin/initctl ] || fail "Upstart not found"; [ -f /lib/ld-linux-armhf.so.3 ] || fail "not a kindlehf device"
 command -v cmp >/dev/null 2>&1 || fail "cmp unavailable"
-for f in native-reading-time-daemon.sh native-reading-time.conf 阅读记录.sh 阅读记录-entry.sh 阅读记录-optimized.sh launch.sh diagnostics.sh uninstall.sh install-manifest.txt compat/detect_env.sh reading-insights-touch.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-cover.lua reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt launcher-icon.png; do [ -f "$PKG/$f" ] || fail "missing payload: $f"; done
+for f in native-reading-time-daemon.sh native-reading-time.conf 阅读记录.sh 阅读记录-entry.sh 阅读记录-optimized.sh launch.sh diagnostics.sh uninstall.sh install-manifest.txt cleanup-manifest.txt compat/detect_env.sh reading-insights-touch.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-cover.lua reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt launcher-icon.png; do [ -f "$PKG/$f" ] || fail "missing payload: $f"; done
 for f in resources/reading-records-uninstall.sh resources/kual/reading-records-installer/bin/action.sh resources/kual/reading-records-installer/config.xml resources/kual/reading-records-installer/menu.json; do [ -f "$PKG/$f" ] || fail "missing lifecycle resource: $f"; done
 for f in total.png daily.png books.png day-1.png day-31.png; do [ -f "$PKG/ui/$f" ] || fail "missing UI asset: $f"; done
 for f in total.png daily.png books.png day_detail.png month_detail.png week_trend.png book_detail.png; do [ -f "$PKG/ui-calendar/$f" ] || fail "missing calendar UI: $f"; done
@@ -90,6 +90,7 @@ echo "$(date): payload daemon matches installed 9.6.3 byte-for-byte"
 
 rm -rf "$STAGE"; mkdir -p "$STAGE/release/bin" "$STAGE/release/ui" "$STAGE/release/ui-calendar" "$STAGE/release/render-assets" "$STAGE/release/assets" "$STAGE/compat" "$STAGE/kual/bin" "$STAGE/rollback" || fail "cannot create staging directory"
 cp "$PKG/阅读记录-entry.sh" "$STAGE/viewer" && cp "$PKG/阅读记录-optimized.sh" "$STAGE/release/bin/reading-records.sh" && cp "$PKG/launch.sh" "$STAGE/launch" && cp "$PKG/diagnostics.sh" "$STAGE/diagnostics" && cp "$PKG/uninstall.sh" "$STAGE/uninstaller" && cp "$PKG/install-manifest.txt" "$STAGE/install-manifest.txt" && cp "$PKG/compat/detect_env.sh" "$STAGE/compat/detect_env.sh" && cp "$PKG/native-reading-time-daemon.sh" "$STAGE/daemon" && cp "$PKG/native-reading-time.conf" "$STAGE/conf" || fail "cannot stage programs"
+cmp -s "$PKG/阅读记录-optimized.sh" "$STAGE/release/bin/reading-records.sh" || fail "staged resolver differs from payload"
 cp "$PKG/resources/reading-records-uninstall.sh" "$STAGE/uninstall-entry" && cp "$PKG/resources/kual/reading-records-installer/bin/action.sh" "$STAGE/kual/bin/action.sh" && cp "$PKG/resources/kual/reading-records-installer/config.xml" "$STAGE/kual/config.xml" && cp "$PKG/resources/kual/reading-records-installer/menu.json" "$STAGE/kual/menu.json" || fail "cannot stage lifecycle entries"
 cp "$PKG/阅读记录.sh" "$STAGE/release/bin/reading-records-v9.6.3.sh" && cp "$PKG/reading-insights-touch.lua" "$STAGE/release/bin/" && cp "$PKG/reading-insights-render.lua" "$STAGE/release/bin/" && cp "$PKG/reading-insights-cache.awk" "$STAGE/release/bin/" && cp "$PKG/reading-insights-cover.lua" "$STAGE/release/bin/" || fail "cannot stage dashboard helpers"
 cp "$PKG"/ui-calendar/*.png "$STAGE/release/ui-calendar/" || fail "cannot stage calendar UI"
@@ -131,6 +132,11 @@ for f in "$STAGE/release/ui/"*.png; do atomic_file "$f" "$RELEASE/ui/${f##*/}" 6
 for f in "$STAGE/release/render-assets/"*; do atomic_file "$f" "$RELEASE/render-assets/${f##*/}" 644 || fail "cannot install render assets"; done
 atomic_file "$STAGE/release/assets/launcher-icon.png" "$RELEASE_ICON" 644 || fail "cannot install release launcher icon"
 atomic_file "$STAGE/release/bin/reading-records.sh" "$RELEASE_APP" 755 || fail "cannot install UI entry"
+cmp -s "$PKG/阅读记录-optimized.sh" "$RELEASE_APP" || fail "installed resolver differs from payload"
+if command -v cksum >/dev/null 2>&1; then
+    echo "$(date): source resolver path=$PKG/阅读记录-optimized.sh checksum=$(cksum < "$PKG/阅读记录-optimized.sh")"
+    echo "$(date): installed resolver path=$RELEASE_APP checksum=$(cksum < "$RELEASE_APP")"
+fi
 atomic_file "$STAGE/release/bin/reading-records-v9.6.3.sh" "$RELEASE/bin/reading-records-v9.6.3.sh" 755 || fail "cannot install legacy fallback"
 atomic_file "$STAGE/release/bin/reading-insights-touch.lua" "$RELEASE/bin/reading-insights-touch.lua" 644 || fail "cannot install touch reader"
 atomic_file "$STAGE/release/bin/reading-insights-render.lua" "$RELEASE/bin/reading-insights-render.lua" 644 || fail "cannot install renderer"
@@ -138,6 +144,9 @@ atomic_file "$STAGE/release/bin/reading-insights-cache.awk" "$RELEASE/bin/readin
 atomic_file "$STAGE/release/bin/reading-insights-cover.lua" "$RELEASE/bin/reading-insights-cover.lua" 644 || fail "cannot install cover helper"
 [ -r "$RELEASE/bin/reading-insights-cover.lua" ] || fail "cover helper is not readable after installation"
 [ -d "$COVER_CACHE_DIR" ] && [ -w "$COVER_CACHE_DIR" ] || fail "cover cache directory is not writable after installation"
+cover_write_probe="$COVER_CACHE_DIR/.install-write-test.$$"
+: > "$cover_write_probe" || fail "cover cache write probe failed"
+rm -f "$cover_write_probe" || fail "cover cache write probe cleanup failed"
 echo "$(date): cover sanity helper=ok cache_dir=ok cache_mode=700"
 for f in "$STAGE/release/ui/"*.png; do atomic_file "$f" "$BASE/ui/${f##*/}" 644 || fail "cannot install legacy UI assets"; done
 atomic_file "$STAGE/release/bin/reading-insights-touch.lua" "$BASE/bin/reading-insights-touch.lua" 644 || fail "cannot install legacy touch reader"
@@ -163,6 +172,16 @@ lipc-set-prop com.lab126.scanner doFullScan 1 >/dev/null 2>&1 || lipc-set-prop c
 /sbin/initctl start "$JOB" >/dev/null 2>&1 || true; sleep 2
 /sbin/initctl status "$JOB" 2>/dev/null | grep -q 'start/running' || fail "tracker service did not start"
 cmp -s "$DAEMON" "$PKG/native-reading-time-daemon.sh" || fail "installed daemon differs from validated payload"
+[ -r "$DATA" ] || fail "reading history is missing or unreadable after service start"
+[ -x "$RELEASE_APP" ] && cmp -s "$RELEASE_APP" "$PKG/阅读记录-optimized.sh" || fail "active resolver is missing, non-executable, or differs from payload"
+[ -x "$LAUNCHER" ] && cmp -s "$LAUNCHER" "$PKG/launch.sh" || fail "active launcher is missing, non-executable, or differs from payload"
+[ -x "$VIEWER" ] && cmp -s "$VIEWER" "$PKG/阅读记录-entry.sh" || fail "library entry is missing, non-executable, or differs from payload"
+grep -Fqx 'RELEASE="$BASE/releases/9.7.5-test"' "$LAUNCHER" && grep -Fqx 'MAIN="$RELEASE/bin/reading-records.sh"' "$LAUNCHER" || fail "launcher does not target the active release resolver"
+for required_helper in reading-insights-cover.lua reading-insights-cache.awk reading-insights-render.lua reading-insights-touch-ui.lua; do
+    [ -r "$RELEASE/bin/$required_helper" ] || fail "installed helper is missing or unreadable: $required_helper"
+done
+[ -d "$COVER_CACHE_DIR" ] && [ -w "$COVER_CACHE_DIR" ] || fail "cover cache is not writable after service start"
+echo "$(date): final sanity resolver=ok launcher=ok entry=ok helpers=ok history=ok cover_cache=ok"
 printf '9.7.5-test\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
 
 ACTIVATED=0; cleanup_stage; trap - INT TERM HUP; root_ro; sync

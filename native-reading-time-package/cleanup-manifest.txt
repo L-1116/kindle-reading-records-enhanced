@@ -1,0 +1,30 @@
+# One-shot Reading Records cleanup allowlist. No user data or active release is listed.
+# Format: PHASE|TYPE|ROOT|RELATIVE_PATH|ORIGIN|WHY
+# ROOT: BASE=/mnt/us/reading-time, DOCS=/mnt/us/documents, MNT_US=/mnt/us.
+# The cleanup core carries the same exact-path list so it remains safe after
+# native-reading-time-package/ has been removed.
+REPORT|FILE|DOCS|reading-records-install-result.txt|Compatibility V1-V3|Scriptlet installation result
+REPORT|FILE|DOCS|reading-records-cover-debug-result.txt|Cover Debug V1-V3|cover replay result
+REPORT|FILE|DOCS|reading-records-uninstall-result.txt|Compatibility V1-V3|old uninstaller result
+REPORT|FILE|DOCS|reading-records-uninstall-diagnostic.txt|Compatibility V1-V3|old uninstaller diagnostic
+REPORT|FILE|DOCS|reading-records-kual-error.txt|Compatibility V1-V3|installer KUAL error
+REPORT|FILE|DOCS|reading-records-diagnostic.txt|Compatibility V1-V3|external diagnostic report
+REPORT|FILE|DOCS|阅读记录诊断.txt|Compatibility V1-V3|external diagnostic report
+REPORT|FILE|DOCS|reading-records-launch-error.txt|Compatibility V1-V3|stale launcher error report
+REPORT|FILE|BASE|cover-debug.log|Cover Debug V1-V3|temporary cover replay log
+DEBUG|FILE|DOCS|阅读记录封面诊断.sh|Cover Debug V1-V3|visible debug Scriptlet
+DEBUG|FILE|MNT_US|cover-debug.sh|Cover Debug V1-V3|one-shot debug runner
+DEBUG|FILE|MNT_US|COVER-DEBUG-README.txt|Cover Debug V1-V3|debug kit instructions
+DEBUG|FILE|MNT_US|COVER-V3-TEST-README.txt|Compatibility V3 test|test-only instructions
+DEBUG|FILE|MNT_US|debug/cover-v3-test-README.txt|Compatibility V3 development|manually copied test instructions
+DEBUG|TREE|MNT_US|debug/cover-debug|Cover Debug development|manually copied debug kit
+DEBUG|RMDIR|MNT_US|debug|Cover Debug development|remove only if empty
+ENTRY|TREE|MNT_US|extensions/reading-records-cover-debug|Cover Debug V1-V3|debug KUAL extension
+ENTRY|FILE|DOCS|reading-records-install.sh|Compatibility V1-V3|visible install Scriptlet
+ENTRY|TREE|MNT_US|extensions/reading-records-installer|Compatibility V1-V3|installer KUAL extension
+PACKAGE|FILE|MNT_US|RUNME.sh|9.7.4 and Compatibility V1-V3|one-shot root installer entry
+PACKAGE|FILE|MNT_US|README.txt|Compatibility V1-V3|installer package instructions
+PACKAGE|TREE|MNT_US|native-reading-time-package|9.7.4 and Compatibility V1-V3|installer payload after verified activation
+PACKAGE|FILE|MNT_US|PACKAGE-MANIFEST.json|Compatibility V3|package integrity manifest
+PACKAGE|FILE|BASE|bin/uninstall.sh|Compatibility V1-V3|now-safe legacy cleanup core copy
+SELF|FILE|DOCS|reading-records-uninstall.sh|Compatibility V1-V3|cleanup Scriptlet self-removal

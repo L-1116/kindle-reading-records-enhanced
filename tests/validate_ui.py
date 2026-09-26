@@ -42,6 +42,7 @@ for file in sorted(PKG.rglob('*'), key=lambda path: path.relative_to(ROOT).as_po
         if STABLE_HASHES.get(rel)!=hashlib.sha256(file.read_bytes()).hexdigest():
             stable_payload_changes.append(file.relative_to(ROOT).as_posix())
 assert stable_payload_changes==[
+    'native-reading-time-package/cleanup-manifest.txt',
     'native-reading-time-package/compat/detect_env.sh',
     'native-reading-time-package/diagnostics.sh',
     'native-reading-time-package/install-manifest.txt',
@@ -68,7 +69,7 @@ assert stable_payload_changes==[
     'native-reading-time-package/阅读记录-entry.sh',
     'native-reading-time-package/阅读记录-optimized.sh',
 ]
-record('stable payload scope','Against v9.6.10, statistics/daemon/data paths stay stable; additions are the 5.18 compatibility detector, unified launcher/diagnostics/installer/uninstaller entries, install manifest and the existing 9.7.5 UI/cover payload.')
+record('stable payload scope','Against v9.6.10, statistics/daemon/data paths stay stable; additions include the compatibility detector, launcher, installer/cleanup entries and manifests, and the 9.7.5 UI/cover payload.')
 
 unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:

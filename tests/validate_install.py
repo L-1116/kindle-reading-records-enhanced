@@ -159,65 +159,35 @@ for f in ['daily.png','books.png','total.png']:
 assert digest(state/'bin/reading-insights-touch.lua')==digest(PKG/'reading-insights-touch.lua')
 assert digest(release/'bin/reading-records-v9.6.3.sh')==digest(PKG/'阅读记录.sh')
 
-# Full PC/mock lifecycle: installer-created maintenance entries -> uninstall ->
-# fresh-path reinstall -> uninstall -> fresh-path reinstall. Canonical resources,
-# not the deleted deployed entries, must restore both Scriptlet and KUAL.
-(state/'book-covers').mkdir(exist_ok=True); (state/'book-covers/cached.jpg').write_text('regenerable cover')
-(state/'book-cover-cache.tsv').write_text('cache')
-(state/'service.log').write_text('program log')
-(state/'user.conf').write_text('user-setting')
-history_before=data.read_bytes(); backup_before=(state/'reading-time.tsv.bak').read_bytes()
-for name,body in {'mntroot':'#!/bin/sh\nexit 0\n','killall':'#!/bin/sh\nexit 0\n'}.items():
-    path=mockbin/name; path.write_text(body,encoding='utf-8',newline='\n')
-subprocess.run([sh,'-c','/usr/bin/chmod 755 "$@"','test',(mockbin/'mntroot').as_posix(),(mockbin/'killall').as_posix()],check=True)
-uninstall_env={**os.environ,'PATH':mockbin.as_posix()+':/usr/bin:/bin:'+os.environ.get('PATH',''),'READING_PACKAGE_DIR':PKG.as_posix(),'READING_BASE':state.as_posix(),'READING_DOCUMENTS':docs.as_posix(),'READING_UPSTART_DIR':etc.as_posix(),'READING_MNT_US':us.as_posix(),'READING_TMPDIR':(SANDBOX/'tmp').as_posix(),'READING_SKIP_ROOT_CHECK':'1'}
-(SANDBOX/'tmp').mkdir()
-p=subprocess.run([sh,uninstall_entry.as_posix()],capture_output=True,env=uninstall_env)
-assert p.returncode==0,(p.stdout,p.stderr,(docs/'reading-records-uninstall-diagnostic.txt').read_text(errors='replace'))
-assert data.read_bytes()==history_before and (state/'reading-time.tsv.bak').read_bytes()==backup_before
-assert (state/'user.conf').read_text()=='user-setting'
-assert not viewer.exists() and not bin_dir.exists() and not (state/'releases').exists()
-assert not (state/'book-covers').exists() and not (state/'book-cover-cache.tsv').exists() and not (state/'service.log').exists()
-assert install_entry.exists() and not uninstall_entry.exists() and not kual.exists()
-assert 'STATUS=uninstalled' in (docs/'reading-records-uninstall-result.txt').read_text(encoding='utf-8')
+# All supported upgrade origins replace the active resolver with the packaged
+# bytes, while keeping reading history and existing cover mappings/images.
+for old_tag in ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2'):
+    old_resolver=subprocess.check_output(['git','show',f'{old_tag}:native-reading-time-package/阅读记录-optimized.sh'],cwd=ROOT)
+    (release/'bin/reading-records.sh').write_bytes(old_resolver)
+    p=subprocess.run([sh,script.as_posix()],capture_output=True)
+    assert p.returncode==0,(old_tag,p.stdout,p.stderr,(state/'install.log').read_text(errors='replace'))
+    assert digest(release/'bin/reading-records.sh')==digest(PKG/'阅读记录-optimized.sh'),old_tag
+    assert digest(data)==before[str(data)] and digest(old_cover_map)==before[str(old_cover_map)] and digest(old_cover)==before[str(old_cover)],old_tag
+assert 'installed resolver path=' in (state/'install.log').read_text(encoding='utf-8')
 
-p=subprocess.run([sh,(PKG/'uninstall.sh').as_posix()],capture_output=True,env=uninstall_env)
-assert p.returncode==0,(p.stdout,p.stderr)
-assert 'STATUS=already_removed' in (docs/'reading-records-uninstall-result.txt').read_text(encoding='utf-8')
-assert data.read_bytes()==history_before
-
-raw_base=(PKG/'Install-Native-Reading-Time.sh').read_text(encoding='utf-8')
-base_installer=raw_base.replace('/mnt/us',us.as_posix()).replace('/etc/upstart',etc.as_posix())
-base_installer=base_installer.replace('/sbin/initctl','"'+initctl.as_posix()+'"').replace('/lib/ld-linux-armhf.so.3',fake_ld.as_posix()).replace('lipc-set-prop','"'+lipc.as_posix()+'"')
-base_installer=base_installer.replace('PKG="'+us.as_posix()+'/native-reading-time-package"','PKG="'+PKG.as_posix()+'"')
-base_script=SANDBOX/'base-reinstall.sh'; base_script.write_text(prelude+base_installer,encoding='utf-8',newline='\n')
-p=subprocess.run([sh,base_script.as_posix()],capture_output=True)
-assert p.returncode==0,(p.stdout,p.stderr,(state/'install.log').read_text(errors='replace'))
+# Reinstall remains idempotent and publishes only the safe cleanup entry. The
+# independent cleanup matrix exercises the destructive allowlist in sandboxes.
+(state/'book-covers/cached.jpg').write_bytes(b'old cached image')
+(state/'book-cover-cache.tsv').write_bytes(b'old mapping')
+(state/'user.conf').write_bytes(b'user-setting')
+protected=(data,state/'reading-time.tsv.bak',state/'book-covers/cached.jpg',state/'book-cover-cache.tsv',state/'user.conf')
+protected_before={p:digest(p) for p in protected}
 p=subprocess.run([sh,script.as_posix()],capture_output=True)
 assert p.returncode==0,(p.stdout,p.stderr,(state/'install.log').read_text(errors='replace'))
-assert data.read_bytes()==history_before and (state/'reading-time.tsv.bak').read_bytes()==backup_before
-assert digest(state/'bin/uninstall.sh')==digest(PKG/'uninstall.sh') and viewer.exists()
-assert (state/'book-covers').is_dir() and not any((state/'book-covers').iterdir())
+assert all(digest(path)==expected for path,expected in protected_before.items())
+assert digest(viewer)==digest(PKG/'阅读记录-entry.sh')
+assert digest(release/'bin/reading-records.sh')==digest(PKG/'阅读记录-optimized.sh')
 assert digest(uninstall_entry)==digest(PKG/'resources/reading-records-uninstall.sh')
-assert digest(kual/'bin/action.sh')==digest(PKG/'resources/kual/reading-records-installer/bin/action.sh')
-assert install_entry.exists()
-assert b'Keep reading history' in data.read_bytes()
+assert '# Name: 安装文件清理' in uninstall_entry.read_text(encoding='utf-8')
+assert '安装文件清理' in (kual/'menu.json').read_text(encoding='utf-8')
+assert '# READING_RECORDS_CLEANUP_CORE_V1' in (state/'bin/uninstall.sh').read_text(encoding='utf-8')
+assert install_entry.exists() and viewer.exists()
 
-# Second complete cycle proves repeated install/uninstall has no one-shot source
-# dependency in documents/ or extensions/.
-p=subprocess.run([sh,uninstall_entry.as_posix()],capture_output=True,env=uninstall_env)
-assert p.returncode==0,(p.stdout,p.stderr)
-assert install_entry.exists() and not uninstall_entry.exists() and not kual.exists() and not viewer.exists()
-assert data.read_bytes()==history_before and (state/'reading-time.tsv.bak').read_bytes()==backup_before
-p=subprocess.run([sh,base_script.as_posix()],capture_output=True)
-assert p.returncode==0,(p.stdout,p.stderr)
-p=subprocess.run([sh,script.as_posix()],capture_output=True)
-assert p.returncode==0,(p.stdout,p.stderr,(state/'install.log').read_text(errors='replace'))
-assert install_entry.exists() and uninstall_entry.exists() and viewer.exists()
-assert digest(uninstall_entry)==digest(PKG/'resources/reading-records-uninstall.sh')
-assert digest(kual/'menu.json')==digest(PKG/'resources/kual/reading-records-installer/menu.json')
-assert data.read_bytes()==history_before and (state/'reading-time.tsv.bak').read_bytes()==backup_before
-
-result={'result':'PASS','checks':['RUNME delegates to the single installer core.','Missing launcher icon and mismatched daemon are rejected before activation.','The installed library entry delegates to one launcher; the optimized UI is installed separately.','A post-icon/pre-entry failure restores the prior entry and removes newly introduced lifecycle/program files before rescanning.','Installer publishes uninstall Scriptlet and complete KUAL extension from canonical payload resources.','Independent Scriptlet uninstall removes program, KUAL and itself while preserving data and the install Scriptlet.','A repeated core uninstall is safe and reports already_removed.','Two consecutive uninstall/reinstall cycles restore launcher, uninstall Scriptlet and KUAL while preserving history byte-for-byte.'],'limitation':'Installer paths redirected into workspace; Kindle service/root/toaster/scanner commands mocked, not an on-device install.'}
+result={'result':'PASS','checks':['RUNME delegates to the single installer core.','Missing launcher icon and mismatched daemon are rejected before activation.','The installed library entry delegates to one launcher; the optimized UI is installed separately.','A post-icon/pre-entry failure restores the prior entry before rescanning.','Installer publishes the safe cleanup Scriptlet and KUAL action from canonical payload resources.','Repeated installation preserves history, user configuration and cover cache byte-for-byte.'],'limitation':'Installer paths redirected into workspace; Kindle service/root/toaster/scanner commands mocked, not an on-device install.'}
 (OUT/'installer-results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(result,indent=2))

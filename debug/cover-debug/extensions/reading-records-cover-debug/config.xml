@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extension>
+  <information><name>阅读记录封面调试</name><version>diagnostic-1</version><author>Kindle Reading Records Enhanced</author><id>reading-records-cover-debug</id></information>
+  <menus><menu type="json" dynamic="true">menu.json</menu></menus>
+</extension>

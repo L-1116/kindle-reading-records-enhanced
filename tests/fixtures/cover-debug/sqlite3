@@ -1,0 +1,26 @@
+#!/bin/sh
+# Minimal sqlite3 stand-in for the diagnostic script's two catalog queries.
+sql="$5"
+first_thumb="${MOCK_FIRST_THUMB:-}"
+second_thumb="${MOCK_SECOND_THUMB:-/mnt/us/system/thumbnails/thumbnail_random.jpg}"
+book_id="${MOCK_BOOK_ID:-NEWBOOK}"
+title="${MOCK_TITLE:-Test Book}"
+location="${MOCK_LOCATION:-/mnt/us/documents/Test.kfx}"
+case "$sql" in
+    'PRAGMA table_info(Entries);')
+        printf '0\tp_titles_0_nominal\tTEXT\t0\t\t0\n1\tp_cdeKey\tTEXT\t0\t\t0\n2\tp_thumbnail\tTEXT\t0\t\t0\n3\tp_lastAccess\tINTEGER\t0\t\t0\n'
+        [ "${MOCK_MISSING_LOCATION:-0}" = 1 ] || printf '4\tp_location\tTEXT\t0\t\t0\n'
+        ;;
+    *p_location*)
+        if [ "${MOCK_MISSING_LOCATION:-0}" = 1 ]; then
+            printf 'Error: no such column: p_location\n' >&2
+            exit 1
+        fi
+        printf '%s\t%s\t%s\t%s\t%s\t%s\n' -1 "$title" "$book_id" "$first_thumb" '' ''
+        printf '%s\t%s\t%s\t%s\t%s\t%s\n' -1 "$title" "$book_id" "$second_thumb" "$location" ''
+        ;;
+    *)
+        printf '%s\t%s\t%s\t%s\n' -1 "$title" "$book_id" "$first_thumb"
+        printf '%s\t%s\t%s\t%s\n' -1 "$title" "$book_id" "$second_thumb"
+        ;;
+esac

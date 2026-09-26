@@ -2,17 +2,18 @@
 
 ACTION="${1:-diagnostics}"
 PACKAGE="/mnt/us/native-reading-time-package"
-if [ "$ACTION" = uninstall-keep-data ]; then
-    for CORE in /mnt/us/reading-time/bin/uninstall.sh "$PACKAGE/uninstall.sh"; do
-        if [ -r "$CORE" ]; then
-            TEMP_CORE="/tmp/reading-records-uninstall.$$"
+case "$ACTION" in
+    cleanup|uninstall-keep-data)
+        for CORE in "$PACKAGE/uninstall.sh" /mnt/us/reading-time/bin/uninstall.sh; do
+            [ -r "$CORE" ] && grep -Fq '# READING_RECORDS_CLEANUP_CORE_V1' "$CORE" || continue
+            TEMP_CORE="/tmp/reading-records-cleanup.$$"
             cp "$CORE" "$TEMP_CORE" 2>/dev/null && chmod 700 "$TEMP_CORE" 2>/dev/null || continue
-            export READING_PACKAGE_DIR="$PACKAGE"
-            export READING_UNINSTALL_TEMP="$TEMP_CORE"
             exec /bin/sh "$TEMP_CORE"
-        fi
-    done
-fi
+        done
+        printf 'ABORT: safe Reading Records cleanup core not found\n' >&2
+        exit 127
+        ;;
+esac
 if [ -r "$PACKAGE/install.sh" ]; then
     exec /bin/sh "$PACKAGE/install.sh" "$ACTION"
 fi

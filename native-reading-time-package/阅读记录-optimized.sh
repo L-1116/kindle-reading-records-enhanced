@@ -293,10 +293,35 @@ catalog_row_for_book() {
     [ -r "$CATALOG" ] || return 1
     awk -F '\t' -v id="$1" -v title="$2" '
         function norm(s){s=tolower(s);sub(/\.(epub|mobi|pdf)$/, "", s);return s}
-        id!="" && id!="unknown" && $3==id {print; found=1; exit}
-        !fallback && norm($2)==norm(title) {fallback=$0}
-        END{if(!found && fallback)print fallback}
-    ' "$CATALOG"
+        id!="" && id!="unknown" {if($3==id)print;next}
+        title!="" && ($3=="" || $3=="unknown") && norm($2)==norm(title) {print}
+    ' "$CATALOG" | {
+        best_rank=-1; best_row=''
+        while IFS= read -r candidate_row; do
+            candidate_thumb="$(printf '%s\n' "$candidate_row" | awk -F '\t' '{print $4}')"
+            candidate_location="$(printf '%s\n' "$candidate_row" | awk -F '\t' '{print $5}')"
+            candidate_source="$candidate_location"
+            case "$candidate_source" in file://*) candidate_source="${candidate_source#file://}";; esac
+            if [ -n "$candidate_thumb" ] && cover_path_allowed "$candidate_thumb"; then
+                candidate_rank=30
+                [ -n "$candidate_location" ] && candidate_rank=40
+            elif book_path_allowed "$candidate_source"; then
+                case "$candidate_source" in
+                    *.epub|*.EPUB|*.mobi|*.MOBI) candidate_rank=20;;
+                    *) candidate_rank=10;;
+                esac
+            elif [ -n "$candidate_location" ]; then candidate_rank=5
+            elif [ -n "$candidate_thumb" ]; then candidate_rank=2
+            else candidate_rank=0; fi
+            cover_log "catalog candidate id=$1 rank=$candidate_rank thumbnail=${candidate_thumb:-none} location=${candidate_location:-none}"
+            if [ "$candidate_rank" -gt "$best_rank" ]; then
+                best_rank="$candidate_rank"; best_row="$candidate_row"
+            fi
+        done
+        [ "$best_rank" -ge 0 ] || return 1
+        cover_log "catalog selected id=$1 rank=$best_rank"
+        printf '%s\n' "$best_row"
+    }
 }
 
 extract_epub_cover() {

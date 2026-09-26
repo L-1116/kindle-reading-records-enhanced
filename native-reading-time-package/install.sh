@@ -12,22 +12,20 @@ JOB=native-reading-time
 CONF="${READING_UPSTART_DIR:-/etc/upstart}/$JOB.conf"
 ROOT_RW=0
 
-# Compatibility route for the existing KUAL action name. All uninstall entry
-# points execute the same standalone core from /tmp; no uninstall logic lives
-# in this installer.
-if [ "$ACTION" = uninstall-keep-data ]; then
-    for UNINSTALL_CORE in "$BASE/bin/uninstall.sh" "$PKG/uninstall.sh"; do
-        if [ -r "$UNINSTALL_CORE" ]; then
-            UNINSTALL_TMP="${READING_TMPDIR:-/tmp}/reading-records-uninstall.$$"
-            cp "$UNINSTALL_CORE" "$UNINSTALL_TMP" 2>/dev/null && chmod 700 "$UNINSTALL_TMP" 2>/dev/null || continue
-            export READING_PACKAGE_DIR="$PKG"
-            export READING_UNINSTALL_TEMP="$UNINSTALL_TMP"
-            exec /bin/sh "$UNINSTALL_TMP"
-        fi
-    done
-    printf 'STAGE=uninstall\nSTATUS=failed\nERROR=uninstaller_missing\n' > "$DOCS/reading-records-uninstall-result.txt" 2>/dev/null || true
-    exit 127
-fi
+# The old KUAL action name remains a safe alias; neither name can run the
+# pre-V3 destructive uninstaller. Run only a core with the cleanup marker.
+case "$ACTION" in
+    cleanup|uninstall-keep-data)
+        for CLEANUP_CORE in "$PKG/uninstall.sh" "$BASE/bin/uninstall.sh"; do
+            [ -r "$CLEANUP_CORE" ] && grep -Fq '# READING_RECORDS_CLEANUP_CORE_V1' "$CLEANUP_CORE" || continue
+            CLEANUP_TMP="${READING_TMPDIR:-/tmp}/reading-records-cleanup.$$"
+            cp "$CLEANUP_CORE" "$CLEANUP_TMP" 2>/dev/null && chmod 700 "$CLEANUP_TMP" 2>/dev/null || continue
+            exec /bin/sh "$CLEANUP_TMP"
+        done
+        printf 'ABORT: safe Reading Records cleanup core not found\n' >&2
+        exit 127
+        ;;
+esac
 
 toast() { command -v lipc-set-prop >/dev/null 2>&1 && lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; }
 log() { mkdir -p "$BASE" 2>/dev/null || true; printf '%s: %s\n' "$(date)" "$*" >> "$LOG" 2>/dev/null || true; }
@@ -101,7 +99,7 @@ if [ "$fbink_found" -eq 0 ] && command -v fbink >/dev/null 2>&1; then fbink_foun
 [ "$fbink_found" -eq 1 ] || fail "FBInk not found; install a kindlehf-compatible KMC/hotfix environment"
 
 STAGE=payload
-for required_file in Install-Native-Reading-Time.sh Install-Native-Reading-Time-Optimized.sh launch.sh diagnostics.sh uninstall.sh install-manifest.txt 阅读记录-entry.sh resources/reading-records-uninstall.sh resources/kual/reading-records-installer/bin/action.sh resources/kual/reading-records-installer/config.xml resources/kual/reading-records-installer/menu.json; do
+for required_file in Install-Native-Reading-Time.sh Install-Native-Reading-Time-Optimized.sh launch.sh diagnostics.sh uninstall.sh install-manifest.txt cleanup-manifest.txt 阅读记录-entry.sh resources/reading-records-uninstall.sh resources/kual/reading-records-installer/bin/action.sh resources/kual/reading-records-installer/config.xml resources/kual/reading-records-installer/menu.json; do
     [ -f "$PKG/$required_file" ] || fail "missing payload: $required_file"
 done
 
