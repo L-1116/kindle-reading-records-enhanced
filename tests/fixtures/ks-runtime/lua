@@ -1,0 +1,45 @@
+#!/usr/bin/env -S py -3
+"""Tiny Lua command stand-in for offline KS shell-flow validation."""
+
+from pathlib import Path
+import os
+import sys
+
+
+target = Path(sys.argv[1]).name if len(sys.argv) > 1 else ""
+
+
+def native_path(value: str) -> Path:
+    if len(value) > 3 and value[0] == "/" and value[2] == "/" and value[1].isalpha():
+        return Path(f"{value[1].upper()}:{value[2:]}")
+    return Path(value)
+if target == "reading-insights-touch-ks.lua":
+    actions_path = os.environ.get("KS_SIM_ACTIONS_FILE")
+    if actions_path:
+        actions_file = native_path(actions_path)
+        actions = actions_file.read_text(encoding="utf-8").splitlines()
+        print(actions[0] if actions else "exit")
+        actions_file.write_text("\n".join(actions[1:]) + ("\n" if len(actions) > 1 else ""), encoding="utf-8")
+    else:
+        print("exit")
+    raise SystemExit(0)
+if target in {"reading-insights-titles.lua", "reading-insights-title-widths.lua", "reading-insights-cover.lua"}:
+    raise SystemExit(0)
+if target != "reading-insights-render.lua":
+    raise SystemExit(f"unsupported simulated lua target: {target}")
+if len(sys.argv) > 3 and sys.argv[3] == "--measure":
+    print("48")
+    raise SystemExit(0)
+
+spec = native_path(sys.argv[3])
+canvases: dict[str, tuple[int, int, Path]] = {}
+for raw_line in spec.read_text(encoding="utf-8").splitlines():
+    fields = raw_line.split("\t")
+    if not fields or fields[0].startswith("#"):
+        continue
+    if fields[0] == "canvas":
+        canvases[fields[1]] = (int(fields[2]), int(fields[3]), native_path(fields[4]))
+    elif fields[0] == "write":
+        width, height, output = canvases[fields[1]]
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes(f"P5\n{width} {height}\n255\n".encode("ascii") + bytes([255]) * (width * height))

@@ -1,0 +1,2 @@
+#!/bin/sh
+printf 'mode "1860x2480"\n    geometry 1860 2480 1860 2480 8\nendmode\n'

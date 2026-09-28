@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "name": "阅读统计 KS",
+      "priority": 0,
+      "items": [
+        {"name": "安装 / 升级 KS 版", "action": "/mnt/us/extensions/reading-records-installer/bin/action.sh", "params": "install", "exitmenu": false},
+        {"name": "强制退出阅读统计", "action": "/mnt/us/extensions/reading-records-installer/bin/action.sh", "params": "force-exit", "exitmenu": false},
+        {"name": "追加 KS 诊断信息", "action": "/mnt/us/extensions/reading-records-installer/bin/action.sh", "params": "diagnostics", "exitmenu": false}
+      ]
+    }
+  ]
+}
