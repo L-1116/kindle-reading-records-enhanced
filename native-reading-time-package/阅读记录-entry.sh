@@ -8,8 +8,8 @@ if [ -x "$LAUNCHER" ]; then
     exec "$LAUNCHER"
 fi
 
-printf '%s\n' "Reading Records launcher missing: $LAUNCHER" > /mnt/us/documents/reading-records-launch-error.txt 2>/dev/null || true
+printf '%s\n' "Reading Records launcher missing: $LAUNCHER" > /mnt/us/reading-time/reading-records-launch-error.txt 2>/dev/null || true
 if [ -r /mnt/us/reading-time/bin/diagnostics.sh ]; then
-    /bin/sh /mnt/us/reading-time/bin/diagnostics.sh >/dev/null 2>&1 || true
+    READING_DIAGNOSTIC_INTERNAL=1 /bin/sh /mnt/us/reading-time/bin/diagnostics.sh >/dev/null 2>&1 || true
 fi
 exit 127

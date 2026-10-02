@@ -143,8 +143,8 @@ def preview_total(base: Image.Image) -> Image.Image:
     draw.line((130, 630, 1730, 630), fill=LIGHT, width=2)
     for i, (label, value) in enumerate(metrics):
         row, col = divmod(i, 3); x, y = 383 + col * 545, 444 + row * 240
-        centered(draw, (x, y), label, 25, MID)
-        centered(draw, (x, y + 78), value, 38)
+        centered(draw, (x, y), label, 24, MID)
+        centered(draw, (x, y + 78), value, 39)
     for i, (label, selected) in enumerate((("本周", True), ("今年", False), ("全部", False))):
         x = 110 + i * 105
         draw.rounded_rectangle((x, 965, x + 90, 1025), radius=15, outline=INK, width=2,
@@ -176,8 +176,8 @@ def preview_book_detail(base: Image.Image) -> Image.Image:
                ("最近阅读", "2026-09-28"), ("活跃日均", "42分钟"), ("阅读进度", "68%"))
     for i, (label, value) in enumerate(metrics):
         row, col = divmod(i, 2); x, y = 585 + col * 575, 410 + row * 175
-        draw.text((x, y), label, font=font(24), fill=MID)
-        draw.text((x, y + 48), value, font=font(35), fill=0)
+        draw.text((x, y), label, font=font(22), fill=MID)
+        draw.text((x, y + 48), value, font=font(34), fill=0)
     draw.text((120, 1050), "每日阅读趋势", font=font(34), fill=0)
     draw.line((120, 1108, 1740, 1108), fill=LIGHT, width=2)
     values = [0, 15, 34, 8, 72, 0, 52, 90, 28, 45, 17, 0, 60, 42, 35, 85,

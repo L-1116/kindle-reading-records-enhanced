@@ -8,6 +8,12 @@ DETECT_ENV="${READING_DETECT_ENV:-$BASE/compat/detect_env.sh}"
 
 ASCII_REPORT="${READING_DIAGNOSTIC_PATH:-$DOCS/reading-records-diagnostic.txt}"
 CHINESE_REPORT="$DOCS/阅读记录诊断.txt"
+if [ "${READING_DIAGNOSTIC_INTERNAL:-0}" = 1 ]; then
+    # Automatic launch failures never create a book in documents, even if a
+    # caller inherited a manual report-path override.
+    ASCII_REPORT="$BASE/last-launch-diagnostic.txt"
+    CHINESE_REPORT=""
+fi
 REPORT_TMP="${ASCII_REPORT}.new.$$"
 
 if [ -r "$DETECT_ENV" ]; then
@@ -36,7 +42,9 @@ permission_status() {
         "$([ -x "$diagnostic_path" ] && echo yes || echo no)"
 }
 
-mkdir -p "$DOCS" 2>/dev/null || exit 1
+case "$ASCII_REPORT" in */*) REPORT_DIR="${ASCII_REPORT%/*}";; *) REPORT_DIR=.;; esac
+mkdir -p "$REPORT_DIR" 2>/dev/null || exit 1
+if [ -n "$CHINESE_REPORT" ]; then mkdir -p "$DOCS" 2>/dev/null || exit 1; fi
 {
     echo "Kindle Reading Records diagnostic"
     echo "generated=$(date 2>/dev/null || echo unknown)"
@@ -122,7 +130,7 @@ mkdir -p "$DOCS" 2>/dev/null || exit 1
 
 chmod 600 "$REPORT_TMP" 2>/dev/null || true
 mv "$REPORT_TMP" "$ASCII_REPORT" || exit 1
-if [ "$CHINESE_REPORT" != "$ASCII_REPORT" ]; then
+if [ -n "$CHINESE_REPORT" ] && [ "$CHINESE_REPORT" != "$ASCII_REPORT" ]; then
     cp "$ASCII_REPORT" "${CHINESE_REPORT}.new.$$" 2>/dev/null && chmod 600 "${CHINESE_REPORT}.new.$$" 2>/dev/null && mv "${CHINESE_REPORT}.new.$$" "$CHINESE_REPORT" 2>/dev/null || true
 fi
 printf 'Diagnostic written: %s\n' "$ASCII_REPORT"

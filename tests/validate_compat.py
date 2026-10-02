@@ -80,8 +80,12 @@ detect_env = PKG / "compat/detect_env.sh"
 cases = {
     "5.19.0": "default",
     "5.18": "fw518",
+    "5.18.0": "fw518",
     "5.18.1": "fw518",
+    "5.18.1.2": "fw518",
     "5.18.1.1.1": "fw518",
+    "5.18.2": "fw518",
+    "5.18.10": "fw518",
     "5.18.5": "fw518",
     "5.18.5.0.1": "fw518",
     "5.18.6": "fw518",
@@ -91,7 +95,7 @@ for firmware, expected_profile in cases.items():
     pretty.write_text(f"Kindle Firmware Version {firmware} (mock build)\n", encoding="utf-8")
     version_txt.write_text("System Software Version fallback\n", encoding="utf-8")
     result = subprocess.run(
-        [SH, "-c", '. "$1"; printf "%s|%s|%s|%s|%s|%s\\n" "$FIRMWARE_FULL" "$FIRMWARE_MAJOR" "$FIRMWARE_MINOR" "$DEVICE_TYPE" "$HARD_FLOAT" "$COMPAT_PROFILE"', "test", detect_env.as_posix()],
+        [SH, "-c", '. "$1"; printf "%s|%s|%s|%s|%s|%s|%s\\n" "$FIRMWARE_FULL" "$FIRMWARE_MAJOR" "$FIRMWARE_MINOR" "$DEVICE_TYPE" "$HARD_FLOAT" "$COMPAT_PROFILE" "$IS_FW_5181"', "test", detect_env.as_posix()],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -99,7 +103,8 @@ for firmware, expected_profile in cases.items():
         env={**os.environ, "PATH": SHELL_PATH, "READING_PRETTYVERSION_PATH": pretty.as_posix(), "READING_VERSION_PATH": version_txt.as_posix(), "READING_DEVICETYPE_PATH": device_type.as_posix(), "READING_ARMHF_LOADER_PATH": loader.as_posix()},
         check=True,
     )
-    assert result.stdout.strip() == f"{firmware}|5|{firmware.split('.')[1]}|KindleMock|1|{expected_profile}", result.stdout
+    expected_5181 = int(firmware == "5.18.1" or firmware.startswith("5.18.1."))
+    assert result.stdout.strip() == f"{firmware}|5|{firmware.split('.')[1]}|KindleMock|1|{expected_profile}|{expected_5181}", result.stdout
 
 # Numeric comparison must not regress to lexical ordering.
 comparison = subprocess.run(
@@ -128,7 +133,7 @@ shutil.copy2(PKG / "launch.sh", base / "bin/launch.sh")
 (base / "fonts/NotoSansCJKsc-Regular.otf").write_bytes(b"font")
 (release / "ui-calendar/daily.png").write_bytes(b"png")
 main = release / "bin/reading-records.sh"
-main.write_text("#!/bin/sh\necho launcher-ok\nexit 0\n", encoding="utf-8", newline="\n")
+main.write_text('#!/bin/sh\necho "launcher-ok profile=$COMPAT_PROFILE fw5181=$IS_FW_5181"\nexit 0\n', encoding="utf-8", newline="\n")
 fbink = mockbin / "fbink"
 fbink.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
 lua = mockbin / "lua"
@@ -153,17 +158,66 @@ assert "launcher-ok" in (base / "last-launch.stdout").read_text(encoding="utf-8"
 success_status = (base / "last-launch-status.txt").read_text(encoding="utf-8")
 assert "stage=complete" in success_status, success_status
 
+# The narrow flag is exported to the UI; the existing ABI gate still applies
+# to every 5.18.x, including versions outside the refresh workaround.
+for firmware, expected_profile in cases.items():
+    pretty.write_text(f"Kindle {firmware}\n", encoding="utf-8")
+    result = subprocess.run([SH, (base / "bin/launch.sh").as_posix()], capture_output=True, env={**os.environ, **launch_env})
+    assert result.returncode == 0, (firmware, result.stderr)
+    expected_5181 = int(firmware == "5.18.1" or firmware.startswith("5.18.1."))
+    assert f"profile={expected_profile} fw5181={expected_5181}" in (base / "last-launch.stdout").read_text(encoding="utf-8")
+    result = subprocess.run(
+        [SH, (base / "bin/launch.sh").as_posix()], capture_output=True,
+        env={**os.environ, **launch_env, "READING_ARMHF_LOADER_PATH": (SANDBOX / "missing-loader").as_posix(), "READING_ARCH_OVERRIDE": "armv7l"},
+    )
+    assert result.returncode == (22 if expected_profile == "fw518" else 0), (firmware, result.stderr)
+pretty.write_text("Kindle 5.18.6\n", encoding="utf-8")
+
 main.write_text("#!/bin/sh\necho simulated-ui-failure >&2\nexit 7\n", encoding="utf-8", newline="\n")
 failure = subprocess.run([SH, (base / "bin/launch.sh").as_posix()], capture_output=True, text=True, encoding="utf-8", errors="replace", env={**os.environ, **launch_env})
 assert failure.returncode == 7, failure
 status = (base / "last-launch-status.txt").read_text(encoding="utf-8")
 assert "stage=ui" in status and "exit_code=7" in status
-diagnostic = docs / "reading-records-diagnostic.txt"
+diagnostic = base / "last-launch-diagnostic.txt"
 report = diagnostic.read_text(encoding="utf-8")
 assert all(section in report for section in ("[Device]", "[Compatibility]", "[Jailbreak]", "[KUAL/MRPI]", "[Plugin]", "[Dependencies]", "[Last Launch]"))
 assert "compat_profile=fw518" in report and "simulated-ui-failure" in report
 assert f"missing: {SANDBOX.as_posix()}/extensions/MRInstaller" in report
 assert "token=" not in report.lower() and "password=" not in report.lower()
-assert (docs / "阅读记录诊断.txt").exists()
+assert not (docs / "reading-records-diagnostic.txt").exists()
+assert not (docs / "阅读记录诊断.txt").exists()
+
+# A manual invocation keeps the existing USB-exportable reports.
+manual = subprocess.run([SH, (base / "bin/diagnostics.sh").as_posix()], capture_output=True, env={**os.environ, **launch_env})
+assert manual.returncode == 0, manual.stderr
+assert (docs / "reading-records-diagnostic.txt").read_bytes() == (docs / "阅读记录诊断.txt").read_bytes()
+assert "simulated-ui-failure" in (docs / "reading-records-diagnostic.txt").read_text(encoding="utf-8")
+
+# Internal mode ignores a inherited manual destination and does not even
+# require/create the documents directory.
+internal_docs = SANDBOX / "absent-documents"
+internal = subprocess.run([DASH, (base / "bin/diagnostics.sh").as_posix()], capture_output=True, env={
+    **os.environ, **launch_env, "READING_DOCUMENTS": internal_docs.as_posix(),
+    "READING_DIAGNOSTIC_INTERNAL": "1", "READING_DIAGNOSTIC_PATH": (internal_docs / "override.txt").as_posix(),
+})
+assert internal.returncode == 0 and not internal_docs.exists(), internal.stderr
+
+# The automatic entry failure (launcher absent) must be internal as well.
+missing_base = SANDBOX / "missing-launcher"
+(missing_base / "bin").mkdir(parents=True)
+shutil.copy2(PKG / "diagnostics.sh", missing_base / "bin/diagnostics.sh")
+missing_docs = SANDBOX / "entry-documents"
+entry = SANDBOX / "entry.sh"
+entry.write_text((PKG / "阅读记录-entry.sh").read_text(encoding="utf-8").replace(
+    "/mnt/us/reading-time", missing_base.as_posix(),
+), encoding="utf-8", newline="\n")
+for shell in (SH, DASH):
+    result = subprocess.run([shell, entry.as_posix()], capture_output=True, env={
+        **os.environ, **launch_env, "READING_BASE": missing_base.as_posix(),
+        "READING_DOCUMENTS": missing_docs.as_posix(), "READING_DETECT_ENV": detect_env.as_posix(),
+    })
+    assert result.returncode == 127 and not missing_docs.exists(), result.stderr
+    assert (missing_base / "last-launch-diagnostic.txt").exists()
+    assert (missing_base / "reading-records-launch-error.txt").exists()
 
 print("compatibility parser, launcher capture and diagnostics: PASS")

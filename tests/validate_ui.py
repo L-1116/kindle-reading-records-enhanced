@@ -3,7 +3,7 @@ No Kindle commands or foreground UI are used. Native FBInk text is approximated
 only in preview images; those previews are NOT a Kindle validation result.
 """
 from pathlib import Path
-import calendar, datetime, hashlib, json, os, shutil, subprocess, sys
+import calendar, datetime, hashlib, json, os, re, shutil, subprocess, sys
 from PIL import Image, ImageDraw, ImageFont
 from lupa.lua51 import LuaRuntime
 
@@ -83,16 +83,35 @@ record('preserved core','Daemon, Upstart, legacy viewer/touch, legacy ui/ assets
 
 viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
 old=STABLE_VIEWER.read_text(encoding='utf-8')
-for start,end in [('detect_screen()','time_text()'),('refresh_region()','dashboard_active=0')]:
+for start,end in [('find_touch_device()','time_text()')]:
     assert viewer[viewer.index(start):viewer.index(end)]==old[old.index(start):old.index(end)]
+# Orientation recovery may precede screen validation; the viewport transform
+# that controls layout and hitboxes must remain exactly the original code.
+screen=viewer[viewer.index('detect_screen()'):viewer.index('find_touch_device()')]
+old_screen=old[old.index('detect_screen()'):old.index('find_touch_device()')]
+transform='    if [ $((SCREEN_W*LOGICAL_H))'
+assert screen[screen.index(transform):]==old_screen[old_screen.index(transform):]
+refresh=viewer[viewer.index('refresh_region()'):viewer.index('\n}\n',viewer.index('refresh_region()'))+3]
+baseline_refresh=old[old.index('refresh_region()'):old.index('\n}\n',old.index('refresh_region()'))+3]
+# Permit exactly the first-refresh guard and exit-code capture. Regional
+# commands and periodic clean refreshes are also executed against the baseline
+# by validate_startup_refresh.py.
+compat_clean='''then
+        # Only the first full-screen update on 5.18.1 avoids a forced flash.
+        if [ "$draw_count" -eq 1 ] && [ "${IS_FW_5181:-0}" = 1 ]; then fb -q -W GC16 -s
+        else fb -q -f -W GC16 -s; fi
+        refresh_exit_status=$?; refresh_kind=GC16'''
+assert compat_clean in refresh
+assert refresh.replace(compat_clean,'then fb -q -f -W GC16 -s; refresh_kind=GC16')==baseline_refresh
 for name in ('page_prev)','page_next)'):
     assert next(x for x in viewer.splitlines() if x.strip().startswith(name))==next(x for x in old.splitlines() if x.strip().startswith(name))
 assert 'mode=daily; view_year=' in viewer
-record('interaction invariants','Default daily, page navigation branches and refresh policy remain stable; v9.7.5-test extends only filters, local cover fallback and release metadata.')
+record('interaction invariants','Default daily, touch discovery and page navigation remain stable; refresh differs only by the 5.18.1 first-full-refresh guard and return-code capture.')
 
 # Extract definitions only: never run startup, hardware access, or EXIT cleanup.
 defs=viewer[:viewer.index('\ndetect_screen; find_touch_device')]
-defs=defs.replace('if [ "${READING_LAUNCHER_CAPTURE:-0}" != 1 ]; then exec >> "$LOG" 2>&1; fi','').replace('\ntrap cleanup EXIT INT TERM HUP\n','\n')
+defs=defs.replace('if [ "${READING_LAUNCHER_CAPTURE:-0}" != 1 ]; then exec >> "$LOG" 2>&1; fi','')
+defs=re.sub(r'^trap .*\n','',defs,flags=re.M)
 defs=defs.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"','')
 (OUT/'functions.sh').write_text(defs,encoding='utf-8',newline='\n')
 calendar_key=hashlib.sha256(viewer[viewer.index('days_in_month()'):viewer.index('shift_month()')].encode()).hexdigest()
@@ -463,15 +482,13 @@ record('weekly plot layout','Monday at 0, 35, 120 and 210 min uses one measured 
 
 # Calendar rendering remains one offscreen canvas publication followed by the
 # existing single region refresh; total-period code is covered by its own suite.
-stable_viewer=STABLE_VIEWER.read_text(encoding='utf-8')
-for start,end in [('refresh_region()','dashboard_active=0')]:
-    assert viewer[viewer.index(start):viewer.index(end)]==stable_viewer[stable_viewer.index(start):stable_viewer.index(end)]
+# The first-refresh exception is checked above; regional commands are unchanged.
 daily_block=viewer[viewer.index('render_daily()'):viewer.index('active_books()')]
 assert daily_block.count('canvas calendar ')==1 and daily_block.count('swrite calendar')==1
 assert daily_block.count('image "$SESSION_DIR/daily-calendar.pgm"')==1 and 'refresh_region' not in daily_block
 assert 'month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 1308;;' in viewer
 assert 'day_*) new_day=' in viewer and 'perform_draw date_select 0 0 55 460 1162 1168' in viewer
-record('heatmap isolation and refresh','Daemon, calendar calculations and refresh policy remain byte-identical to v9.6.10; all-time aggregation and cover fallback do not alter heatmap inputs. The calendar is composed offscreen once, published once, then refreshed once through the existing GC16 region path.')
+record('heatmap isolation and refresh','Daemon and calendar calculations remain byte-identical to v9.6.10; all-time aggregation and cover fallback do not alter heatmap inputs. The calendar is composed offscreen once, published once, then refreshed once; only 5.18.1 startup omits forced flashing.')
 
 changes=[]
 for file in sorted(PKG.rglob('*')):

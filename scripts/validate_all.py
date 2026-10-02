@@ -15,11 +15,14 @@ CHECKS = [
     ROOT / "tests/validate_cover_fallbacks.py",
     ROOT / "tests/validate_cover_regression.py",
     ROOT / "tests/validate_compat.py",
+    ROOT / "tests/validate_startup_refresh.py",
+    ROOT / "tests/validate_orientation_startup.py",
     ROOT / "tests/validate_install.py",
     ROOT / "tests/validate_uninstall.py",
+    # Cleanup validates the current packaged resolver, not an earlier build.
+    ROOT / "scripts/package_cover_v3_test.py",
     ROOT / "tests/validate_cleanup.py",
     ROOT / "scripts/audit_native.py",
-    ROOT / "scripts/package_cover_v3_test.py",
     ROOT / "tests/validate_upgrade_matrix.py",
     ROOT / "scripts/package_release.py",
 ]

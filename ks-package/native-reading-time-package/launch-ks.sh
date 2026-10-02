@@ -33,7 +33,7 @@ write_status() {
 }
 
 run_diagnostics() {
-    [ -r "$DIAGNOSTICS" ] && /bin/sh "$DIAGNOSTICS" >> "$STDOUT" 2>> "$STDERR" || true
+    [ -r "$DIAGNOSTICS" ] && READING_DIAGNOSTIC_INTERNAL=1 /bin/sh "$DIAGNOSTICS" >> "$STDOUT" 2>> "$STDERR" || true
 }
 
 fail() {

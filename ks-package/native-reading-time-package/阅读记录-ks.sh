@@ -82,7 +82,7 @@ cover_lua() {
 
 fail() { echo "$(date): [ERROR] $1"; ks_log "[ERROR] $1"; lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; exit 1; }
 
-detect_screen() {
+read_screen_geometry() {
     geometry="$(fbset 2>/dev/null | awk '/geometry/{print $2 " " $3;exit}')"; set -- $geometry
     SCREEN_W="${1:-0}"; SCREEN_H="${2:-0}"
     case "$SCREEN_W:$SCREEN_H" in *[!0-9:]*|0:*|*:0) SCREEN_W=0; SCREEN_H=0;; esac
@@ -91,8 +91,53 @@ detect_screen() {
         case "$SCREEN_W:$vh" in *[!0-9:]*|0:*|*:0) SCREEN_W=0; vh=0;; esac
         if [ "$vh" -ge $((SCREEN_W*2)) ]; then SCREEN_H=$((vh/2)); else SCREEN_H="$vh"; fi
     fi
+}
+
+restore_orientation() {
+    [ "$ORIENTATION_CHANGED" = 1 ] || return 0
+    ORIENTATION_CHANGED=0
+    case "$ORIGINAL_ORIENTATION_LOCK" in U|D|L|R) :;; *) return 0;; esac
+    if lipc-set-prop com.lab126.winmgr orientationLock "$ORIGINAL_ORIENTATION_LOCK" >/dev/null 2>&1; then
+        ks_log "[EXIT] restoring orientation action=$ORIGINAL_ORIENTATION_LOCK result=success"
+    else
+        ks_log "[EXIT] restoring orientation action=$ORIGINAL_ORIENTATION_LOCK result=failed"
+    fi
+}
+
+recover_portrait() {
+    [ "$SCREEN_H" -gt "$SCREEN_W" ] && return 0
+    [ "$SCREEN_W" -gt 0 ] && [ "$SCREEN_H" -gt 0 ] || return 0
+    ORIGINAL_ORIENTATION_LOCK="$(lipc-get-prop com.lab126.winmgr orientationLock 2>/dev/null)" || ORIGINAL_ORIENTATION_LOCK=""
+    case "$ORIGINAL_ORIENTATION_LOCK" in U|D|L|R) :;; *) ORIGINAL_ORIENTATION_LOCK="";; esac
+    ks_log "[DEVICE] orientation_lock_before=${ORIGINAL_ORIENTATION_LOCK:-unknown} geometry_before=${SCREEN_W}x${SCREEN_H}"
+    # Claim the request before LIPC so a signal during the call can restore it.
+    ORIENTATION_CHANGED=1
+    if lipc-set-prop com.lab126.winmgr orientationLock U >/dev/null 2>&1; then
+        ks_log "[DEVICE] orientation_force=U result=success"
+    else
+        ORIENTATION_CHANGED=0
+        ks_log "[DEVICE] orientation_force=U result=failed"
+        fail "无法切换为竖屏，请先将 Kindle 转回竖屏再打开阅读记录"
+    fi
+    orientation_wait=0
+    while :; do
+        read_screen_geometry
+        if [ "$SCREEN_W" -gt 0 ] && [ "$SCREEN_H" -gt "$SCREEN_W" ]; then
+            ks_log "[DEVICE] geometry_after=${SCREEN_W}x${SCREEN_H}"
+            return 0
+        fi
+        [ "$orientation_wait" -lt 4 ] || break
+        sleep 1; orientation_wait=$((orientation_wait+1))
+    done
+    ks_log "[DEVICE] geometry_after=${SCREEN_W}x${SCREEN_H} result=timeout"
+    fail "无法切换为竖屏，请先将 Kindle 转回竖屏再打开阅读记录"
+}
+
+detect_screen() {
+    read_screen_geometry
+    recover_portrait
     [ "$SCREEN_W" -ge 600 ] && [ "$SCREEN_H" -ge 800 ] || fail "无法识别 Kindle 屏幕尺寸"
-    [ "$SCREEN_H" -gt "$SCREEN_W" ] || fail "KS 当前 framebuffer 不是竖屏，请先回到竖屏"
+    [ "$SCREEN_H" -gt "$SCREEN_W" ] || fail "KS 当前 framebuffer 不是竖屏"
     if [ $((SCREEN_W*LOGICAL_H)) -le $((SCREEN_H*LOGICAL_W)) ]; then SCALE_NUM="$SCREEN_W"; SCALE_DEN="$LOGICAL_W"; else SCALE_NUM="$SCREEN_H"; SCALE_DEN="$LOGICAL_H"; fi
     VIEW_W=$((LOGICAL_W*SCALE_NUM/SCALE_DEN)); VIEW_H=$((LOGICAL_H*SCALE_NUM/SCALE_DEN)); ORIGIN_X=$(((SCREEN_W-VIEW_W)/2)); ORIGIN_Y=$(((SCREEN_H-VIEW_H)/2))
 }
@@ -448,7 +493,7 @@ renderer_available=0; forced_failure_used=0
 run_renderer() {
     [ "$renderer_available" -eq 1 ] && [ "$cache_ok" -eq 1 ] || return 1
     if [ "${DASHBOARD_RENDERER_FORCE_FAIL:-0}" = 1 ] && [ "$forced_failure_used" -eq 0 ]; then forced_failure_used=1; echo "$(date): forced renderer failure"; return 1; fi
-    lua "$RENDERER" "$RENDER_ASSETS" "$SPEC" || return 1
+    lua "$RENDERER" "$RENDER_ASSETS" "$SPEC" || { ks_log "[UI] draw failed mode=$mode stage=renderer"; return 1; }
 }
 canvas() { printf 'canvas\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$SPEC"; }
 srect() { printf 'rect\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" >> "$SPEC"; }
@@ -564,8 +609,8 @@ render_total() {
     col=0
     for metric in "累计时长:$(summary_time_text "$total")" "阅读天数:${read_days}天" "阅读书籍:${overview_books}本" "本年时长:$(summary_time_text "$overview_year")" "本月时长:$(summary_time_text "$overview_month")" "本周时长:$(summary_time_text "$overview_week")"; do
         metric_label="${metric%%:*}"; metric_value="${metric#*:}"; metric_row=$((col/3)); metric_col=$((col%3)); metric_x=$((273+metric_col*545)); metric_y=$((54+metric_row*240))
-        stext summary R 25 "$metric_x" "$metric_y" center 110 "$metric_label"
-        stext summary B 38 "$metric_x" $((metric_y+64)) center 0 "$metric_value"
+        stext summary R 24 "$metric_x" "$metric_y" center 110 "$metric_label"
+        stext summary B 39 "$metric_x" $((metric_y+64)) center 0 "$metric_value"
         col=$((col+1))
     done
     swrite summary
@@ -1037,8 +1082,8 @@ spec_book_detail_summary() {
     metric_index=0
     for metric in "累计阅读:$(summary_time_text "$book_detail_total")" "阅读天数:${book_detail_read_days}天" "首次阅读:$first_display" "最近阅读:$last_display" "活跃日均:$(summary_time_text "$book_detail_active_average")" "阅读进度:$progress_display"; do
         metric_label="${metric%%:*}"; metric_value="${metric#*:}"; metric_row=$((metric_index/2)); metric_col=$((metric_index%2)); metric_x=$((485+metric_col*575)); metric_y=$((205+metric_row*175))
-        stext book_summary R 24 "$metric_x" "$metric_y" left 110 "$metric_label"
-        stext book_summary B 35 "$metric_x" $((metric_y+48)) left 0 "$metric_value"
+        stext book_summary R 22 "$metric_x" "$metric_y" left 110 "$metric_label"
+        stext book_summary B 34 "$metric_x" $((metric_y+48)) left 0 "$metric_value"
         metric_index=$((metric_index+1))
     done
     swrite book_summary
@@ -1260,20 +1305,28 @@ draw_dynamic() { case "$mode" in total) render_total;; daily) if [ "$1" = 2 ]; t
 draw_count=0; refresh_kind=none
 refresh_region() {
     rx="$1"; ry="$2"; rw="$3"; rh="$4"; draw_count=$((draw_count+1))
-    if [ "$draw_count" -eq 1 ] || [ $((draw_count%CLEAN_REFRESH_INTERVAL)) -eq 0 ]; then fb -q -f -W GC16 -s; refresh_kind=GC16
+    if [ "$draw_count" -eq 1 ] || [ $((draw_count%CLEAN_REFRESH_INTERVAL)) -eq 0 ]; then
+        if [ "$draw_count" -eq 1 ] && [ "${IS_FW_5181:-0}" = 1 ]; then fb -q -W GC16 -s
+        else fb -q -f -W GC16 -s; fi
+        refresh_kind=GC16
     else px="$(scale_x "$rx")"; py="$(scale_y "$ry")"; pw="$(scale_len "$rw")"; ph="$(scale_len "$rh")"; fb -q -W GC16_FAST -s "top=$py,left=$px,width=$pw,height=$ph" || fb -q -W GC16 -s "top=$py,left=$px,width=$pw,height=$ph"; refresh_kind=GC16_FAST; fi
 }
 
-dashboard_active=0
+dashboard_active=0; cleanup_done=0
+ORIGINAL_ORIENTATION_LOCK=""; ORIENTATION_CHANGED=0
 remove_session() { case "$SESSION_DIR" in "$SESSION_ROOT"/native-reading-dashboard-ks.[0-9]*) rm -rf "$SESSION_DIR";; esac; }
 cleanup() {
     cleanup_code=$?
+    [ "$cleanup_done" = 0 ] || return 0
+    cleanup_done=1
+    trap '' INT TERM HUP
     ks_log "[EXIT] cleanup entered code=$cleanup_code reason=${EXIT_REASON:-normal}"
     if [ -n "${TOUCH_PID:-}" ]; then kill "$TOUCH_PID" 2>/dev/null || true; fi
     rm -f "$PID_FILE" 2>/dev/null || true
-    ks_log "[EXIT] restoring orientation action=none initial=${INITIAL_ORIENTATION:-unknown}"
     lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 0 >/dev/null 2>&1 || true; remove_session
     if [ "$dashboard_active" -eq 1 ]; then ks_log "[EXIT] closing UI"; lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true; sleep 1; "$FBINK" -q -f -W GC16 -s >/dev/null 2>&1 || true; fi
+    if [ "$ORIENTATION_CHANGED" = 1 ]; then restore_orientation
+    else ks_log "[EXIT] restoring orientation action=none initial_accelerometer=${INITIAL_ACCELEROMETER:-unknown}"; fi
     ks_log "[EXIT] finished"
 }
 on_signal() { EXIT_REASON="signal-$1"; ks_log "[ERROR] signal=$1"; exit 143; }
@@ -1290,8 +1343,10 @@ fallback_to_legacy() {
 
 perform_draw() {
     op="$1"; background="$2"; labels="$3"; rx="$4"; ry="$5"; rw="$6"; rh="$7"; metric_begin "$op"
+    ks_log "[UI] draw begin mode=$mode"
     [ "$background" = 1 ] && draw_background || [ "$background" = 0 ] || fallback_to_legacy
     draw_dynamic "$labels" || fallback_to_legacy
+    ks_log "[UI] draw success mode=$mode"
     refresh_region "$rx" "$ry" "$rw" "$rh"; metric_end optimized 0 1
 }
 
@@ -1333,11 +1388,11 @@ EOF
     perform_draw book_detail_open 1 0 0 0 "$LOGICAL_W" "$LOGICAL_H"
 }
 
-INITIAL_ORIENTATION="$(lipc-get-prop com.lab126.winmgr accelerometer 2>/dev/null || echo unknown)"
+INITIAL_ACCELEROMETER="$(lipc-get-prop com.lab126.winmgr accelerometer 2>/dev/null || echo unknown)"
 detect_screen; find_touch_device || true
 ks_log "[DEVICE] model=$(sed -n '1p' /var/local/deviceType.txt 2>/dev/null || echo unknown)"
 ks_log "[DEVICE] firmware=$(sed -n '1p' /etc/prettyversion.txt 2>/dev/null || sed -n '1p' /etc/version.txt 2>/dev/null || echo unknown)"
-ks_log "[DEVICE] screen_width=$SCREEN_W screen_height=$SCREEN_H orientation=$INITIAL_ORIENTATION"
+ks_log "[DEVICE] screen_width=$SCREEN_W screen_height=$SCREEN_H accelerometer=$INITIAL_ACCELEROMETER orientation_lock=${ORIGINAL_ORIENTATION_LOCK:-unchanged}"
 ks_log "[DEVICE] framebuffer=$(fbset 2>/dev/null | tr '\n' ';' || echo unavailable)"
 ks_log "[DEVICE] framebuffer_rotate=$(cat /sys/class/graphics/fb0/rotate 2>/dev/null || echo unavailable)"
 ks_log "[DEVICE] touch_device=${TOUCH:-none} touch_name=$([ -n "${TOUCH:-}" ] && cat "/sys/class/input/${TOUCH##*/}/device/name" 2>/dev/null || echo unavailable)"

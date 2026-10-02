@@ -73,15 +73,59 @@ cover_lua() {
 
 fail() { echo "$(date): ERROR: $1"; lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; exit 1; }
 
-detect_screen() {
+read_screen_geometry() {
     geometry="$(fbset 2>/dev/null | awk '/geometry/{print $2 " " $3;exit}')"; set -- $geometry
     SCREEN_W="${1:-0}"; SCREEN_H="${2:-0}"
     case "$SCREEN_W:$SCREEN_H" in *[!0-9:]*|0:*|*:0) SCREEN_W=0; SCREEN_H=0;; esac
     if [ "$SCREEN_W" -le 0 ] || [ "$SCREEN_H" -le 0 ]; then
         virtual="$(cat /sys/class/graphics/fb0/virtual_size 2>/dev/null)"; SCREEN_W="${virtual%%,*}"; vh="${virtual#*,}"
-        case "$SCREEN_W:$vh" in *[!0-9:]*|0:*|*:0) SCREEN_W=0; vh=0;; esac
+        case "$SCREEN_W:$vh" in :*|*:|*[!0-9:]*|0:*|*:0) SCREEN_W=0; vh=0;; esac
         if [ "$vh" -ge $((SCREEN_W*2)) ]; then SCREEN_H=$((vh/2)); else SCREEN_H="$vh"; fi
     fi
+}
+
+restore_orientation() {
+    [ "$ORIENTATION_CHANGED" = 1 ] || [ "$orientation_request_pending" = 1 ] || return 0
+    ORIENTATION_CHANGED=0; orientation_request_pending=0
+    case "$ORIGINAL_ORIENTATION" in U|D|L|R) :;; *) return 0;; esac
+    if lipc-set-prop com.lab126.winmgr orientationLock "$ORIGINAL_ORIENTATION" >/dev/null 2>&1; then
+        printf 'orientation_restore=%s\n' "$ORIGINAL_ORIENTATION"
+    else printf 'orientation_restore=%s result=failed\n' "$ORIGINAL_ORIENTATION"; fi
+}
+
+recover_portrait() {
+    [ "$SCREEN_H" -gt "$SCREEN_W" ] && return 0
+    [ "$SCREEN_W" -gt 0 ] && [ "$SCREEN_H" -gt 0 ] || return 0
+    ORIGINAL_ORIENTATION="$(lipc-get-prop com.lab126.winmgr orientationLock 2>/dev/null)" || ORIGINAL_ORIENTATION=""
+    case "$ORIGINAL_ORIENTATION" in U|D|L|R) :;; *) ORIGINAL_ORIENTATION="";; esac
+    printf 'orientation_original=%s geometry_before=%sx%s\n' "${ORIGINAL_ORIENTATION:-unknown}" "$SCREEN_W" "$SCREEN_H"
+    # Cover a signal arriving as the LIPC request returns, before its status
+    # can be recorded. Only a successful request sets ORIENTATION_CHANGED.
+    orientation_request_pending=1
+    if lipc-set-prop com.lab126.winmgr orientationLock U >/dev/null 2>&1; then
+        ORIENTATION_CHANGED=1; orientation_request_pending=0
+        echo 'orientation_force=U'
+    else
+        orientation_request_pending=0
+        echo 'orientation_force=U result=failed'
+        fail "无法切换为竖屏，请先将 Kindle 调回竖屏后再打开阅读记录"
+    fi
+    orientation_wait=0
+    while :; do
+        read_screen_geometry
+        if [ "$SCREEN_W" -gt 0 ] && [ "$SCREEN_H" -gt "$SCREEN_W" ]; then
+            printf 'geometry_after=%sx%s\n' "$SCREEN_W" "$SCREEN_H"; return 0
+        fi
+        [ "$orientation_wait" -lt 4 ] || break
+        sleep 1; orientation_wait=$((orientation_wait+1))
+    done
+    printf 'geometry_after=%sx%s result=timeout\n' "$SCREEN_W" "$SCREEN_H"
+    fail "无法切换为竖屏，请先将 Kindle 调回竖屏后再打开阅读记录"
+}
+
+detect_screen() {
+    read_screen_geometry
+    recover_portrait
     [ "$SCREEN_W" -ge 600 ] && [ "$SCREEN_H" -ge 800 ] || fail "无法识别 Kindle 屏幕尺寸"
     [ "$SCREEN_H" -gt "$SCREEN_W" ] || fail "请将 Kindle 旋转为竖屏后再打开阅读记录"
     if [ $((SCREEN_W*LOGICAL_H)) -le $((SCREEN_H*LOGICAL_W)) ]; then SCALE_NUM="$SCREEN_W"; SCALE_DEN="$LOGICAL_W"; else SCALE_NUM="$SCREEN_H"; SCALE_DEN="$LOGICAL_H"; fi
@@ -1202,24 +1246,95 @@ draw_dynamic() { case "$mode" in total) render_total;; daily) if [ "$1" = 2 ]; t
 draw_count=0; refresh_kind=none
 refresh_region() {
     rx="$1"; ry="$2"; rw="$3"; rh="$4"; draw_count=$((draw_count+1))
-    if [ "$draw_count" -eq 1 ] || [ $((draw_count%CLEAN_REFRESH_INTERVAL)) -eq 0 ]; then fb -q -f -W GC16 -s; refresh_kind=GC16
+    if [ "$draw_count" -eq 1 ] || [ $((draw_count%CLEAN_REFRESH_INTERVAL)) -eq 0 ]; then
+        # Only the first full-screen update on 5.18.1 avoids a forced flash.
+        if [ "$draw_count" -eq 1 ] && [ "${IS_FW_5181:-0}" = 1 ]; then fb -q -W GC16 -s
+        else fb -q -f -W GC16 -s; fi
+        refresh_exit_status=$?; refresh_kind=GC16
     else px="$(scale_x "$rx")"; py="$(scale_y "$ry")"; pw="$(scale_len "$rw")"; ph="$(scale_len "$rh")"; fb -q -W GC16_FAST -s "top=$py,left=$px,width=$pw,height=$ph" || fb -q -W GC16 -s "top=$py,left=$px,width=$pw,height=$ph"; refresh_kind=GC16_FAST; fi
 }
 
-dashboard_active=0
+# Five small best-effort snapshots per launch, never per draw or tap.
+# "done" means the call returned, not that the eInk driver finished the update.
+startup_stage() {
+    {
+        printf 'timestamp=%s\nstage=%s\nfirmware=%s\nscreen=%sx%s\nviewport=%sx%s+%s+%s\ntouch=%s\nrefresh=%s\nrefresh_exit_code=%s\n' \
+            "$(date '+%Y-%m-%dT%H:%M:%S%z' 2>/dev/null || echo unknown)" "$1" \
+            "${FIRMWARE_FULL:-unknown}" "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" \
+            "$TOUCH" "$first_refresh_mode" "${refresh_exit_status:-unknown}"
+    } 2>/dev/null > "$BASE/dashboard-startup-stage.txt" || true
+}
+
+dashboard_active=0; cleanup_done=0; legacy_pid=""; touch_pid=""; ui_child_launch=""
+ORIGINAL_ORIENTATION=""; ORIENTATION_CHANGED=0; orientation_request_pending=0
 remove_session() { case "$SESSION_DIR" in /tmp/native-reading-dashboard.[0-9]*) rm -rf "$SESSION_DIR";; esac; }
+stop_ui_child() {
+    stopping_pid="$1"
+    # A child may have exited just as wait was interrupted. Do not signal a
+    # missing/unverifiable PID or a reused PID belonging to another parent.
+    if ! awk -v owner="$$" '
+        { sub(/^.*\) /, ""); split($0, fields, " "); if (fields[2]==owner) found=1 }
+        END { exit !found }' "/proc/$stopping_pid/stat" 2>/dev/null; then
+        return 0
+    fi
+    # Freeze only our child so it cannot reopen a reader during cleanup.
+    kill -STOP "$stopping_pid" 2>/dev/null || true
+    # One snapshot on interrupted recovery only, including blocked readers.
+    # /proc/stat also works on the old Kindle kernels; no process polling.
+    stopping_descendants="$(awk -v owner="$stopping_pid" '
+        { pid=$1; sub(/^.*\) /, ""); split($0, fields, " "); parent[pid]=fields[2] }
+        END {
+            owned[owner]=1
+            do { found=0; for (pid in parent) if (!(pid in owned) && (parent[pid] in owned)) { owned[pid]=1; found=1 } } while (found)
+            for (pid in owned) if (owned[pid] && pid!=owner) print pid
+        }' /proc/[0-9]*/stat 2>/dev/null)"
+    [ -z "$stopping_descendants" ] || kill -TERM $stopping_descendants 2>/dev/null || true
+    # The legacy shell traps TERM without exiting. This parent owns cleanup.
+    kill -KILL "$stopping_pid" 2>/dev/null || true
+    wait "$stopping_pid" 2>/dev/null || true
+}
 cleanup() {
+    [ "$cleanup_done" = 0 ] || return 0
+    cleanup_done=1
+    trap '' INT TERM HUP
+    # A signal may arrive between starting a child and saving $!.
+    case "$ui_child_launch" in
+        touch) [ -n "$touch_pid" ] || touch_pid="$!";;
+        legacy) [ -n "$legacy_pid" ] || legacy_pid="$!";;
+    esac
+    if [ -n "$touch_pid" ]; then
+        stop_ui_child "$touch_pid"; touch_pid=""
+    fi
+    if [ -n "$legacy_pid" ]; then
+        stop_ui_child "$legacy_pid"; legacy_pid=""
+    fi
     lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 0 >/dev/null 2>&1 || true; remove_session
     if [ "$dashboard_active" -eq 1 ]; then lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true; sleep 1; "$FBINK" -q -f -W GC16 -s >/dev/null 2>&1 || true; fi
+    restore_orientation
 }
-trap cleanup EXIT INT TERM HUP
+# Installed before detect_screen can change orientation, including early fail.
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 fallback_to_legacy() {
     echo "$(date): renderer failed; switching to byte-preserved 9.6.3 dashboard"
     lipc-set-prop com.lab126.system toasterMessage "优化渲染异常，已切换兼容模式" >/dev/null 2>&1 || true
-    metric_end legacy 1 1; remove_session; trap - EXIT INT TERM HUP
+    metric_end legacy 1 1; remove_session
+    if [ "$ORIENTATION_CHANGED" = 1 ]; then
+        # Keep this shell's restore trap alive while the unmodified fallback
+        # uses portrait. No extra supervisor is needed on ordinary launches.
+        ui_child_launch=legacy
+        /bin/sh "$LEGACY" & legacy_pid=$!; ui_child_launch=""
+        wait "$legacy_pid"; legacy_code=$?; legacy_pid=""
+        [ "$legacy_code" -ne 0 ] || dashboard_active=0
+        exit "$legacy_code"
+    fi
+    trap - EXIT INT TERM HUP
     exec /bin/sh "$LEGACY"
-    trap cleanup EXIT INT TERM HUP; fail "无法启动原始 9.6.3 后备界面"
+    trap cleanup EXIT; trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
+    fail "无法启动原始 9.6.3 后备界面"
 }
 
 perform_draw() {
@@ -1276,12 +1391,31 @@ echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${OR
 lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true; dashboard_active=1
 
 mode=daily; view_year="$(date +%Y)"; total_period=week; week_offset=0; book_filter=7d; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; today_date="$(date +%Y-%m-%d)"; selected_date="$today_date"; book_page=1; detail_page=1; detail_pages=1; day_detail_page=1; day_detail_pages=1; day_detail_source=daily; month_detail_source=daily; book_detail_filter=7d; book_detail_page=1
-metric_begin first_open; build_cache || fallback_to_legacy; selected_date="$today_date"; draw_background || fallback_to_legacy; draw_dynamic 1 || fallback_to_legacy; refresh_region 0 0 1272 1696; metric_end optimized 0 1
+first_refresh_mode=GC16_flash
+[ "${IS_FW_5181:-0}" = 1 ] && first_refresh_mode=GC16_nonflash
+startup_stage first_render_begin
+metric_begin first_open; build_cache || fallback_to_legacy; selected_date="$today_date"; draw_background || fallback_to_legacy; draw_dynamic 1 || fallback_to_legacy
+startup_stage first_render_done
+startup_stage first_refresh_begin
+refresh_region 0 0 1272 1696
+startup_stage first_refresh_done
+metric_end optimized 0 1
+startup_touch_pending=1
 
 while :; do
     if [ "$mode" = book_detail ]; then offset="$book_calendar_offset"; dim="$book_calendar_dim"; else offset="$(weekday_offset "$daily_y" "$daily_m")"; dim="$(days_in_month "$daily_y" "$daily_m")"; fi
     if [ "$mode" = day_detail ]; then touch_pages="$day_detail_pages"; touch_page="$day_detail_page"; touch_pager_y=$((DAY_DETAIL_LIST_TOP+DAY_DETAIL_PAGER_Y)); else touch_pages="$detail_pages"; touch_page="$detail_page"; touch_pager_y=$((DETAIL_TOP+DETAIL_H-DETAIL_PAGER_H)); fi
-    action="$(lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter")" || action=exit
+    if [ "$startup_touch_pending" = 1 ]; then startup_stage touch_listener_begin; startup_touch_pending=0; fi
+    if [ "${ORIENTATION_CHANGED:-0}" = 1 ]; then
+        # wait is interruptible even while Lua blocks in evdev read(). Keep
+        # the same reader/arguments, with no extra process or input polling.
+        ui_child_launch=touch
+        lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter" > "$SESSION_DIR/touch-action" & touch_pid=$!; ui_child_launch=""
+        wait "$touch_pid"; touch_code=$?; touch_pid=""
+        if [ "$touch_code" -eq 0 ]; then action="$(cat "$SESSION_DIR/touch-action")"; else action=exit; fi
+    else
+        action="$(lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter")" || action=exit
+    fi
     echo "$(date): dashboard action=$action mode=$mode"
     case "$action" in
       exit) break;;
