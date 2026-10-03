@@ -1,16 +1,16 @@
 #!/bin/sh
 
-PKG="/mnt/us/native-reading-time-package"
-BASE="/mnt/us/reading-time"
+PKG="${READING_PACKAGE_DIR:-/mnt/us/native-reading-time-package}"
+BASE="${READING_BASE:-/mnt/us/reading-time}"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/install.log"
 JOB="native-reading-time"
-CONF="/etc/upstart/${JOB}.conf"
+CONF="${READING_UPSTART_DIR:-/etc/upstart}/${JOB}.conf"
 DAEMON="$BASE/bin/native-reading-time-daemon.sh"
-DOCS="/mnt/us/documents"
+DOCS="${READING_DOCUMENTS:-/mnt/us/documents}"
 VIEWER="$DOCS/阅读记录.sh"
 UNINSTALL_ENTRY="$DOCS/reading-records-uninstall.sh"
-KUAL_DIR="/mnt/us/extensions/reading-records-installer"
+KUAL_DIR="${READING_MNT_US:-/mnt/us}/extensions/reading-records-installer"
 KUAL_ACTION="$KUAL_DIR/bin/action.sh"
 KUAL_CONFIG="$KUAL_DIR/config.xml"
 KUAL_MENU="$KUAL_DIR/menu.json"
@@ -38,7 +38,7 @@ root_rw() {
     if mntroot rw >/dev/null 2>&1 || /usr/sbin/mntroot rw >/dev/null 2>&1 || /sbin/mntroot rw >/dev/null 2>&1; then ROOT_RW=1; return 0; fi
     return 1
 }
-cleanup_stage() { case "$STAGE" in /mnt/us/reading-time/.install-9.7.5-test.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
+cleanup_stage() { case "$STAGE" in "$BASE"/.install-9.7.5-test.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
 
 backup_file() { backup_src="$1"; backup_key="$2"; if [ -f "$backup_src" ]; then cp "$backup_src" "$STAGE/rollback/$backup_key" || return 1; else : > "$STAGE/rollback/no-$backup_key"; fi; }
 restore_file() { restore_key="$1"; restore_dst="$2"; restore_mode="$3"; if [ -f "$STAGE/rollback/$restore_key" ]; then cp "$STAGE/rollback/$restore_key" "$restore_dst.rollback-new" && chmod "$restore_mode" "$restore_dst.rollback-new" && mv "$restore_dst.rollback-new" "$restore_dst"; elif [ -f "$STAGE/rollback/no-$restore_key" ]; then rm -f "$restore_dst"; fi; }
@@ -60,6 +60,13 @@ rollback() {
     restore_file kual-action "$KUAL_ACTION" 755
     restore_file kual-config "$KUAL_CONFIG" 644
     restore_file kual-menu "$KUAL_MENU" 644
+    restore_file legacy-touch "$BASE/bin/reading-insights-touch.lua" 644
+    if [ -d "$STAGE/rollback/release-tree" ]; then rm -rf "$RELEASE"; mv "$STAGE/rollback/release-tree" "$RELEASE" || true
+    elif [ -f "$STAGE/rollback/no-release-tree" ]; then rm -rf "$RELEASE"; fi
+    if [ -d "$STAGE/rollback/legacy-ui" ]; then rm -rf "$BASE/ui"; mv "$STAGE/rollback/legacy-ui" "$BASE/ui" || true
+    elif [ -f "$STAGE/rollback/no-legacy-ui" ]; then rm -rf "$BASE/ui"; fi
+    if [ -d "$STAGE/rollback/fonts" ]; then rm -rf "$BASE/fonts"; mv "$STAGE/rollback/fonts" "$BASE/fonts" || true
+    elif [ -f "$STAGE/rollback/no-fonts" ]; then rm -rf "$BASE/fonts"; fi
     rmdir "$KUAL_DIR/bin" "$KUAL_DIR" 2>/dev/null || true
     if [ -f "$STAGE/rollback/conf" ]; then
         if root_rw; then cp "$STAGE/rollback/conf" "$CONF.rollback-new" && chmod 644 "$CONF.rollback-new" && mv "$CONF.rollback-new" "$CONF"; else echo "$(date): WARNING: could not remount rootfs during rollback"; fi
@@ -76,7 +83,7 @@ trap 'root_ro' EXIT
 
 atomic_file() { src="$1"; dst="$2"; mode="$3"; tmp="${dst}.new.$$"; cp "$src" "$tmp" || return 1; chmod "$mode" "$tmp" || { rm -f "$tmp"; return 1; }; mv "$tmp" "$dst"; }
 
-[ "$(id -u)" -eq 0 ] || fail "not running as root; use ;log runme"
+[ "$(id -u)" -eq 0 ] || [ "${READING_ALLOW_NONROOT_TEST:-0}" = 1 ] || fail "not running as root; use ;log runme"
 [ -x /sbin/initctl ] || fail "Upstart not found"; [ -f /lib/ld-linux-armhf.so.3 ] || fail "not a kindlehf device"
 command -v cmp >/dev/null 2>&1 || fail "cmp unavailable"
 for f in native-reading-time-daemon.sh native-reading-time.conf 阅读记录.sh 阅读记录-entry.sh 阅读记录-optimized.sh launch.sh diagnostics.sh uninstall.sh install-manifest.txt cleanup-manifest.txt compat/detect_env.sh reading-insights-touch.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-cover.lua reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt launcher-icon.png; do [ -f "$PKG/$f" ] || fail "missing payload: $f"; done
@@ -117,6 +124,10 @@ backup_file "$UNINSTALL_ENTRY" uninstall-entry || fail "cannot back up uninstall
 backup_file "$KUAL_ACTION" kual-action || fail "cannot back up KUAL action"
 backup_file "$KUAL_CONFIG" kual-config || fail "cannot back up KUAL config"
 backup_file "$KUAL_MENU" kual-menu || fail "cannot back up KUAL menu"
+backup_file "$BASE/bin/reading-insights-touch.lua" legacy-touch || fail "cannot back up legacy touch reader"
+if [ -d "$RELEASE" ]; then cp -R "$RELEASE" "$STAGE/rollback/release-tree" || fail "cannot back up active release"; else : > "$STAGE/rollback/no-release-tree"; fi
+if [ -d "$BASE/ui" ]; then cp -R "$BASE/ui" "$STAGE/rollback/legacy-ui" || fail "cannot back up legacy UI"; else : > "$STAGE/rollback/no-legacy-ui"; fi
+if [ -d "$BASE/fonts" ]; then cp -R "$BASE/fonts" "$STAGE/rollback/fonts" || fail "cannot back up installed fonts"; else : > "$STAGE/rollback/no-fonts"; fi
 if [ -f "$CONF" ]; then cp "$CONF" "$STAGE/rollback/conf" || fail "cannot back up current Upstart job"; else : > "$STAGE/rollback/no-conf"; fi
 
 /sbin/initctl stop "$JOB" >/dev/null 2>&1 || true; ACTIVATED=1

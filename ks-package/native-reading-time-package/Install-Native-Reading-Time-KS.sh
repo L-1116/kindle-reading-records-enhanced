@@ -34,6 +34,12 @@ rollback() {
     restore_file diagnostics "$DIAGNOSTICS" 755
     restore_file detector "$DETECTOR" 644
     restore_file version "$BASE/VERSION" 644
+    restore_file font "$BASE/fonts/NotoSansCJKsc-Regular.otf" 644
+    restore_file font-license "$BASE/fonts/FONT-LICENSE.txt" 644
+    restore_file icon "$BASE/assets/launcher-icon.png" 644
+    restore_file kual-action "$KUAL_DIR/bin/action.sh" 755
+    restore_file kual-menu "$KUAL_DIR/menu.json" 644
+    restore_file kual-config "$KUAL_DIR/config.xml" 644
     if [ -d "$STAGE/rollback/release" ]; then rm -rf "$RELEASE"; mv "$STAGE/rollback/release" "$RELEASE" || true
     elif [ -f "$STAGE/rollback/no-release" ]; then rm -rf "$RELEASE"; fi
 }
@@ -67,6 +73,12 @@ backup_file "$FORCE_ENTRY" force-entry || fail "cannot back up force entry"
 backup_file "$DIAGNOSTICS" diagnostics || fail "cannot back up diagnostics"
 backup_file "$DETECTOR" detector || fail "cannot back up environment detector"
 backup_file "$BASE/VERSION" version || fail "cannot back up version"
+backup_file "$BASE/fonts/NotoSansCJKsc-Regular.otf" font || fail "cannot back up font"
+backup_file "$BASE/fonts/FONT-LICENSE.txt" font-license || fail "cannot back up font license"
+backup_file "$BASE/assets/launcher-icon.png" icon || fail "cannot back up icon"
+backup_file "$KUAL_DIR/bin/action.sh" kual-action || fail "cannot back up KUAL action"
+backup_file "$KUAL_DIR/menu.json" kual-menu || fail "cannot back up KUAL menu"
+backup_file "$KUAL_DIR/config.xml" kual-config || fail "cannot back up KUAL config"
 if [ -d "$RELEASE" ]; then mv "$RELEASE" "$STAGE/rollback/release" || fail "cannot back up KS release"; else : > "$STAGE/rollback/no-release"; fi
 
 mkdir -p "$BASE/bin" "$BASE/compat" "$BASE/releases" "$BASE/fonts" "$BASE/assets" "$KUAL_DIR/bin" || fail "cannot create install directories"

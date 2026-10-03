@@ -82,7 +82,7 @@ case "$ACTION" in
 esac
 
 STAGE=environment
-[ "$(id -u)" -eq 0 ] || fail "installer must run as root (Scriptlet, KUAL or ;log runme)"
+[ "$(id -u)" -eq 0 ] || [ "${READING_ALLOW_NONROOT_TEST:-0}" = 1 ] || fail "installer must run as root (Scriptlet, KUAL or ;log runme)"
 if [ "$COMPAT_PROFILE" = fw518 ] && [ "$HARD_FLOAT" != 1 ]; then fail "5.18.x detected without kindlehf loader"; fi
 [ "$HARD_FLOAT" = 1 ] || fail "9.7.5 requires a kindlehf runtime"
 [ -x /sbin/initctl ] || fail "Upstart initctl not found; service backend requires true-device verification"

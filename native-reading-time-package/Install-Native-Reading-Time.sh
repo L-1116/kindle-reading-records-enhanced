@@ -1,12 +1,12 @@
 #!/bin/sh
 
-PKG="/mnt/us/native-reading-time-package"
-BASE="/mnt/us/reading-time"
+PKG="${READING_PACKAGE_DIR:-/mnt/us/native-reading-time-package}"
+BASE="${READING_BASE:-/mnt/us/reading-time}"
 INSTALL_LOG="$BASE/install.log"
 JOB="native-reading-time"
-CONF="/etc/upstart/${JOB}.conf"
+CONF="${READING_UPSTART_DIR:-/etc/upstart}/${JOB}.conf"
 DAEMON="$BASE/bin/native-reading-time-daemon.sh"
-VIEWER="/mnt/us/documents/阅读记录.sh"
+VIEWER="${READING_DOCUMENTS:-/mnt/us/documents}/阅读记录.sh"
 TOUCH_READER="$BASE/bin/reading-insights-touch.lua"
 UI_DIR="$BASE/ui"
 FONT_DIR="$BASE/fonts"
@@ -18,7 +18,7 @@ mkdir -p "$BASE"
 echo "$(date): installer entered, uid=$(id -u), args=$*" >> "$INSTALL_LOG"
 
 # ;log runme must invoke this as root. Do not try a second su invocation here.
-[ "$(id -u)" -eq 0 ] || fail "not running as root; use ;log runme"
+[ "$(id -u)" -eq 0 ] || [ "${READING_ALLOW_NONROOT_TEST:-0}" = 1 ] || fail "not running as root; use ;log runme"
 echo "$(date): root invocation confirmed" >> "$INSTALL_LOG"
 
 # Repair input state left behind by any older dashboard version.

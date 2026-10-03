@@ -47,6 +47,7 @@ assert stable_payload_changes==[
     'native-reading-time-package/diagnostics.sh',
     'native-reading-time-package/install-manifest.txt',
     'native-reading-time-package/Install-Native-Reading-Time-Optimized.sh',
+    'native-reading-time-package/Install-Native-Reading-Time.sh',
     'native-reading-time-package/install.sh',
     'native-reading-time-package/launch.sh',
     'native-reading-time-package/launcher-icon.png',
@@ -71,7 +72,7 @@ assert stable_payload_changes==[
 ]
 record('stable payload scope','Against v9.6.10, statistics/daemon/data paths stay stable; additions include the compatibility detector, launcher, installer/cleanup entries and manifests, and the 9.7.5 UI/cover payload.')
 
-unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
+unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-touch.lua','阅读记录.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:
     key=f'native-reading-time-package/{rel}'
     assert hashlib.sha256((PKG/rel).read_bytes()).hexdigest()==STABLE_HASHES[key],rel
