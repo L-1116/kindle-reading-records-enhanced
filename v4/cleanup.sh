@@ -8,7 +8,8 @@ MNT_US="${READING_MNT_US:-/mnt/us}"
 DOCS="${READING_DOCUMENTS:-$MNT_US/documents}"
 BASE="${READING_BASE:-$MNT_US/reading-time}"
 LOG="$BASE/cleanup-last.log"
-BOOT="$DOCS/点这个安装，然后确认插件正常之前不要删文件.sh"
+BOOT="$DOCS/reading-records-v4-install.sh"
+OLD_BOOT="$DOCS/点这个安装，然后确认插件正常之前不要删文件.sh"
 PAYLOAD="$DOCS/阅读记录安装数据.tar"
 SELF="$DOCS/安装好之后，确认无误了再点这个.sh"
 PKG="$MNT_US/native-reading-time-package"
@@ -55,6 +56,7 @@ note "verified activation $version"
 # Detect ownership before any deletion. A copied personal file with a familiar
 # name stays untouched unless it has the known installer signature.
 if [ -e "$BOOT" ]; then grep -Fq '# READING_RECORDS_V4_BOOTSTRAP' "$BOOT" || abort 'bootstrap name occupied by unknown file'; fi
+if [ -e "$OLD_BOOT" ]; then grep -Fq '# READING_RECORDS_V4_BOOTSTRAP' "$OLD_BOOT" || abort 'old bootstrap name occupied by unknown file'; fi
 if [ -e "$PKG" ]; then
     command -v find >/dev/null 2>&1 || abort 'find unavailable for package inventory'
     [ -d "$PKG" ] && [ ! -L "$PKG" ] || abort 'old package tree has unknown ownership'
@@ -107,6 +109,7 @@ rmdir "$MNT_US/v4" 2>/dev/null || true
 had_boot=0
 if [ -f "$BOOT" ]; then had_boot=1; fi
 remove_owned "$BOOT" '# READING_RECORDS_V4_BOOTSTRAP' || exit 1
+remove_owned "$OLD_BOOT" '# READING_RECORDS_V4_BOOTSTRAP' || exit 1
 if [ "$had_boot" -eq 1 ] && [ ! -e "$BOOT" ]; then remove_file "$PAYLOAD" || exit 1; fi
 note 'result=SUCCESS'
 toast '安装文件清理完成'

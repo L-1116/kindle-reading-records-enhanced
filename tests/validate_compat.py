@@ -239,7 +239,7 @@ font.with_suffix(".missing").rename(font)
 
 lua.rename(lua.with_suffix(".missing"))
 code, log = launch()
-assert code == 32 and "primary_probe_result=lua:failed" in log
+assert code == 32 and "primary_probe_result=lua:missing" in log
 lua.with_suffix(".missing").rename(lua)
 
 broken = mockbin / "broken-fbink"
@@ -251,7 +251,7 @@ assert any(line.startswith("selected_fbink=") and line.endswith("/mockbin/fbink"
 
 fbink.rename(fbink.with_suffix(".missing"))
 code, log = launch({"READING_FBINK": broken.as_posix()})
-assert code == 31 and "error_stage=preflight" in log
+assert code == 31 and "error_stage=runtime_probe" in log
 fbink.with_suffix(".missing").rename(fbink)
 
 main.write_text('#!/bin/sh\necho run-marker\nexit 0\n', encoding="utf-8", newline="\n")

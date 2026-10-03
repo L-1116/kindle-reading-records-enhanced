@@ -15,6 +15,7 @@ CHECKS = [
     ROOT / "tests/validate_cover_fallbacks.py",
     ROOT / "tests/validate_cover_regression.py",
     ROOT / "tests/validate_compat.py",
+    ROOT / "tests/validate_runtime_probe.py",
     ROOT / "tests/validate_startup_refresh.py",
     ROOT / "tests/validate_orientation_startup.py",
     ROOT / "tests/validate_install.py",

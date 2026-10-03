@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "build/validation"
 OUT.mkdir(parents=True, exist_ok=True)
 SHELL = r"C:\Program Files\Git\bin\sh.exe"
-BOOT = "点这个安装，然后确认插件正常之前不要删文件.sh"
+BOOT = "reading-records-v4-install.sh"
 TAR = "阅读记录安装数据.tar"
 CLEAN = "安装好之后，确认无误了再点这个.sh"
 
@@ -47,7 +47,7 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
     tmp = session / "tmp"
     for folder in (docs, upstart, mock, tmp):
         folder.mkdir(parents=True, exist_ok=True)
-    zip_name = "ReadingTime-V4-Test.zip" if variant == "standard" else "ReadingTime-V4-KS-Test.zip"
+    zip_name = "ReadingTime-V4-Test2.zip" if variant == "standard" else "ReadingTime-V4-KS-Test2.zip"
     with zipfile.ZipFile(ROOT / "dist" / zip_name) as archive:
         assert set(archive.namelist()) == {BOOT, TAR}
         archive.extractall(docs)
@@ -221,8 +221,10 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
         with tarfile.open(docs / TAR) as archive:
             source_name = "native-reading-time-package/阅读记录-optimized.sh" if variant == "standard" else "native-reading-time-package/阅读记录-ks.sh"
             expected_runtime = archive.extractfile(source_name).read()
+            expected_launcher = archive.extractfile("native-reading-time-package/launch.sh" if variant == "standard" else "native-reading-time-package/launch-ks.sh").read()
         installed_runtime = base / ("releases/9.7.5-test/bin/reading-records.sh" if variant == "standard" else "releases/9.7.5-ks-test1/bin/reading-records-ks.sh")
         assert installed_runtime.read_bytes() == expected_runtime
+        assert (base / ("bin/launch.sh" if variant == "standard" else "bin/launch-ks.sh")).read_bytes() == expected_launcher
         if previous in {"V4", "V4-KS"}:
             repeated = subprocess.run([SHELL, script.as_posix()], env=env, capture_output=True, timeout=90)
             assert repeated.returncode == 0, (variant, repeated.stdout, repeated.stderr)
@@ -241,6 +243,8 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
     assert not list(tmp.glob("reading-records-installer.*"))
     if cleanup:
         assert not mutation
+        old_boot = docs / "点这个安装，然后确认插件正常之前不要删文件.sh"
+        put(old_boot, b"#!/bin/sh\n# READING_RECORDS_V4_BOOTSTRAP\n")
         backup = session / "cleanup-copy.sh"
         backup.write_bytes((docs / CLEAN).read_bytes())
         if legacy_tag:
@@ -252,7 +256,7 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
             with zipfile.ZipFile(ROOT / "dist" / legacy_archive) as archive:
                 archive.extractall(us)
         else:
-            full_name = "ReadingTime-V4-Full-Compatibility.zip" if variant == "standard" else "ReadingTime-V4-KS-Full-Compatibility.zip"
+            full_name = "ReadingTime-V4-Full-Compatibility-Test2.zip" if variant == "standard" else "ReadingTime-V4-KS-Full-Compatibility-Test2.zip"
             with zipfile.ZipFile(ROOT / "dist" / full_name) as archive:
                 archive.extractall(us)
         leftovers = {
@@ -273,6 +277,7 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
         first = subprocess.run([SHELL, (docs / CLEAN).as_posix()], env=env, capture_output=True, timeout=30)
         assert first.returncode == 0, (first.stdout, first.stderr, (base / "cleanup-last.log").read_text(errors="replace"))
         assert not (docs / BOOT).exists() and not (docs / TAR).exists() and not (docs / CLEAN).exists()
+        assert not old_boot.exists()
         assert not (us / "native-reading-time-package").exists()
         assert not (us / "extensions/reading-records-installer").exists()
         assert all(not path.exists() for path in leftovers)

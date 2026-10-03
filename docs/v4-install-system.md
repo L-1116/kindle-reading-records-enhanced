@@ -1,12 +1,14 @@
 # V4 / V4-KS 安装体系测试说明
 
-基线：`982ea7131c81a198997315602a79c684bb4f3d7d`。V4 只包装普通 V3 与 V3-KS runtime；UI、touch、daemon、统计及数据格式保持原字节。构建脚本在 `scripts/build_v4.py`，冻结文件核对脚本在 `scripts/check_v4_runtime.py`。
+基线：`982ea7131c81a198997315602a79c684bb4f3d7d`。本轮 runtime freeze 仅允许 `native-reading-time-package/launch.sh` 和 `ks-package/native-reading-time-package/launch-ks.sh` 与 checkpoint 不同；检查器仍逐字节核对其余 runtime，并核对两份新 launcher 已进入 tar payload。UI、touch、daemon、统计及数据格式保持原字节。构建脚本在 `scripts/build_v4.py`，冻结文件核对脚本在 `scripts/check_v4_runtime.py`。
+
+两个 launcher 的 runtime probe 使用相同的内建轮询 watchdog，无需 `timeout` 或新二进制。每次 Lua 执行、Lua source 语法检查和 FBInk `-e` 约 3 秒超时；仅终止并回收本次启动的子 PID，再尝试下一个去重候选。`launch-last.log` 记录候选、每步开始和结果、退出码、fallback 和最终选择。全部候选失败时 `error_stage=runtime_probe`，恢复书库并输出诊断。5.18 全家族、5.17 和 5.19 使用同一流程；KS touch 热修复不变。
 
 ## 推荐的两文件安装
 
-`ReadingTime-V4-Test.zip` 用于普通 Kindle，`ReadingTime-V4-KS-Test.zip` 用于 Kindle Scribe。每个 ZIP 顶层只有：
+本轮本地测试包 `ReadingTime-V4-Test2.zip` 用于普通 Kindle，`ReadingTime-V4-KS-Test2.zip` 用于 Kindle Scribe。每个 ZIP 顶层只有：
 
-- `点这个安装，然后确认插件正常之前不要删文件.sh`
+- `reading-records-v4-install.sh`（Scriptlet 显示名仍为中文；旧长文件名仅在清理时识别）
 - `阅读记录安装数据.tar`
 
 将两个文件一同复制到 Kindle 的 `documents` 文件夹，点击安装 Scriptlet。安装成功后先打开“阅读记录”验证，再点击自动生成的 `安装好之后，确认无误了再点这个.sh` 清理安装文件。安装失败时保留两个原始文件和日志。
@@ -27,8 +29,8 @@ cleanup 再次验证上述激活条件才执行。精确目标为 V4 bootstrap�
 
 ## 完整兼容备用包
 
-`ReadingTime-V4-Full-Compatibility.zip` 与 `ReadingTime-V4-KS-Full-Compatibility.zip` 保留传统目录、`RUNME.sh`、Scriptlet 与 KUAL 入口，适用于 `;log runme`、KUAL 或排障；这些安装入口转调同一 bootstrap。完整包包含相同的两文件安装数据，不能与另一 variant 混用。
+`ReadingTime-V4-Full-Compatibility-Test2.zip` 与 `ReadingTime-V4-KS-Full-Compatibility-Test2.zip` 保留传统目录、`RUNME.sh`、Scriptlet 与 KUAL 入口，适用于 `;log runme`、KUAL 或排障；这些安装入口转调同一 bootstrap。完整包包含相同的两文件安装数据，不能与另一 variant 混用。
 
 ## 离线验证与真机边界
 
-运行 `python scripts/build_v4.py`、`python tests/validate_v4.py`、`python scripts/check_v4_runtime.py`。离线测试从实际 ZIP 取出脚本和 tar，沙箱替换仅限安装脚本内的设备绝对路径，模拟 initctl、FBInk 等 Kindle 命令。真机仍需验证 Scriptlet root 权限、书库扫描、5.18.4 白屏设备的启动交互，以及 KS 5.19.6 的点击与退出；失败时普通版只取 `launch-last.log`，KS 只取 `launch-last.log` 和 `touch-last.log`。
+运行 `python scripts/build_v4.py`、`python tests/validate_runtime_probe.py`、`python tests/validate_v4.py`、`python scripts/check_v4_runtime.py`。离线测试从实际 ZIP 取出脚本和 tar，沙箱替换仅限安装脚本内的设备绝对路径，模拟 initctl、FBInk 等 Kindle 命令。真机仍需验证 Scriptlet root 权限、书库扫描、KPW4 5.18.1.1.1 的真实 runtime，以及 KS 5.19.6 的点击与退出；失败时普通版只取 `launch-last.log`，KS 只取 `launch-last.log` 和 `touch-last.log`。

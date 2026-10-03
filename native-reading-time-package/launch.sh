@@ -11,6 +11,7 @@ UI_ENTERED=0
 FALLBACK_USED=0
 SELECTED_LUA=none
 SELECTED_FBINK=none
+PROBE_PID=
 
 mkdir -p "$BASE" 2>/dev/null || exit 1
 : > "$LOG" 2>/dev/null || exit 1
@@ -47,6 +48,8 @@ restore_native() {
 }
 fail() {
     failure_code="$1"; shift
+    trap - INT TERM HUP
+    cleanup_probe
     printf 'error=%s\nerror_stage=%s\nexit_code=%s\n' "$*" "$STAGE" "$failure_code"
     write_status "$failure_code" "$*"
     restore_native
@@ -55,6 +58,14 @@ fail() {
     cp "$LOG" "$BASE/last-launch.stderr" 2>/dev/null || true
     [ -r "$DIAGNOSTICS" ] && READING_DIAGNOSTIC_INTERNAL=1 /bin/sh "$DIAGNOSTICS" >/dev/null 2>&1 || true
     exit "$failure_code"
+}
+cleanup_probe() {
+    [ -n "$PROBE_PID" ] || return 0
+    kill -TERM "$PROBE_PID" 2>/dev/null || true
+    sleep 1
+    kill -KILL "$PROBE_PID" 2>/dev/null || true
+    wait "$PROBE_PID" 2>/dev/null || true
+    PROBE_PID=
 }
 trap 'STAGE=interrupted; fail 70 "launcher interrupted"' INT TERM HUP
 
@@ -70,7 +81,7 @@ printf 'firmware=%s\nkernel=%s\nmachine=%s\narch=%s\ndetected_env=%s\nhard_float
     "$FIRMWARE_FULL" "${KERNEL:-unknown}" "${MACHINE:-unknown}" "$ARCH" "$COMPAT_PROFILE" "$HARD_FLOAT"
 
 STAGE=preflight
-for required_cmd in sh awk sed sort grep date cp mv mkdir; do
+for required_cmd in sh awk sed sort grep date cp mv mkdir sleep; do
     command -v "$required_cmd" >/dev/null 2>&1 || fail 30 "missing required command: $required_cmd"
 done
 [ -x "$MAIN" ] || fail 50 "UI entry is missing or not executable: $MAIN"
@@ -117,42 +128,114 @@ FBINK_PRIMARY="${READING_FBINK:-}"
 [ -n "$FBINK_PRIMARY" ] || FBINK_PRIMARY="$(command -v fbink 2>/dev/null || true)"
 printf 'primary_lua=%s\nprimary_fbink=%s\n' "${LUA_PRIMARY:-missing}" "${FBINK_PRIMARY:-missing}"
 
-probe_lua() {
-    [ -n "$1" ] && [ -x "$1" ] || return 1
-    "$1" -e 'assert(type(loadfile)=="function")' || return 1
-    for source in "$RELEASE/bin/reading-insights-touch-ui.lua" \
-        "$RELEASE/bin/reading-insights-render.lua" "$RELEASE/bin/reading-insights-cover.lua" \
-        "$RELEASE/bin/reading-insights-titles.lua" "$RELEASE/bin/reading-insights-title-widths.lua"; do
-        READING_PROBE_SOURCE="$source" "$1" -e 'assert(loadfile(os.getenv("READING_PROBE_SOURCE")))' || return 1
+STAGE=runtime_probe
+# The launcher is the watchdog. No separate timer process can outlive it.
+# A direct background child makes $! the exact runtime PID, never a process group.
+if sleep 0.1 2>/dev/null; then PROBE_SLEEP=0.2; PROBE_MAX_TICKS=15
+else PROBE_SLEEP=1; PROBE_MAX_TICKS=3; fi
+printf 'probe_timeout_seconds=3\n'
+probe_process() {
+    PROBE_EXIT_CODE=none
+    "$@" & PROBE_PID=$!
+    printf 'probe_child_pid=%s\n' "$PROBE_PID"
+    probe_ticks=0
+    while kill -0 "$PROBE_PID" 2>/dev/null; do
+        if [ "$probe_ticks" -ge "$PROBE_MAX_TICKS" ]; then
+            kill -TERM "$PROBE_PID" 2>/dev/null || true
+            sleep 1
+            kill -KILL "$PROBE_PID" 2>/dev/null || true
+            wait "$PROBE_PID" 2>/dev/null || true
+            PROBE_PID=
+            PROBE_RESULT=timeout
+            return 1
+        fi
+        sleep "$PROBE_SLEEP"
+        probe_ticks=$((probe_ticks + 1))
     done
+    wait "$PROBE_PID"; probe_rc=$?
+    PROBE_PID=
+    if [ "$probe_rc" -eq 0 ]; then PROBE_RESULT=ok
+    elif [ "$probe_rc" -ge 128 ]; then PROBE_RESULT=signal
+    else PROBE_RESULT=nonzero_exit; fi
+    PROBE_EXIT_CODE=$probe_rc
+    [ "$probe_rc" -eq 0 ]
 }
-probe_fbink() { [ -n "$1" ] && [ -x "$1" ] && "$1" -e; }
+probe_lua() {
+    probe_candidate=$1; probe_label=$2
+    printf 'probe_phase=lua_%s_begin\nprobe_candidate=%s\n' "$probe_label" "${probe_candidate:-missing}"
+    if [ -z "$probe_candidate" ]; then PROBE_RESULT=missing
+    elif [ ! -x "$probe_candidate" ]; then PROBE_RESULT=not_executable
+    else
+        printf 'lua_probe_basic_begin=%s\n' "$probe_candidate"
+        probe_process "$probe_candidate" -e 'assert(type(loadfile)=="function")'
+        printf 'lua_probe_basic_result=%s\nlua_probe_basic_exit_code=%s\n' "$PROBE_RESULT" "${PROBE_EXIT_CODE:-none}"
+        if [ "$PROBE_RESULT" = ok ]; then
+            for source in "$RELEASE/bin/reading-insights-touch-ui.lua" \
+                "$RELEASE/bin/reading-insights-render.lua" "$RELEASE/bin/reading-insights-cover.lua" \
+                "$RELEASE/bin/reading-insights-titles.lua" "$RELEASE/bin/reading-insights-title-widths.lua"; do
+                printf 'lua_probe_source_begin=%s\n' "$source"
+                READING_PROBE_SOURCE="$source"; export READING_PROBE_SOURCE
+                probe_process "$probe_candidate" -e 'assert(loadfile(os.getenv("READING_PROBE_SOURCE")))'
+                printf 'lua_probe_source_result=%s\nlua_probe_source_exit_code=%s\n' "$PROBE_RESULT" "${PROBE_EXIT_CODE:-none}"
+                [ "$PROBE_RESULT" = ok ] || { [ "$PROBE_RESULT" != nonzero_exit ] || PROBE_RESULT=syntax_probe_failed; break; }
+            done
+            unset READING_PROBE_SOURCE
+        fi
+    fi
+    printf 'probe_phase=lua_%s_end\nlua_%s_result=%s\n' "$probe_label" "$probe_label" "$PROBE_RESULT"
+    [ "$PROBE_RESULT" = ok ]
+}
+probe_fbink() {
+    probe_candidate=$1; probe_label=$2
+    printf 'probe_phase=fbink_%s_begin\nprobe_candidate=%s\n' "$probe_label" "${probe_candidate:-missing}"
+    if [ -z "$probe_candidate" ]; then PROBE_RESULT=missing
+    elif [ ! -x "$probe_candidate" ]; then PROBE_RESULT=not_executable
+    else
+        printf 'fbink_probe_init_begin=%s\n' "$probe_candidate"
+        probe_process "$probe_candidate" -e
+        printf 'fbink_probe_init_result=%s\nfbink_probe_init_exit_code=%s\n' "$PROBE_RESULT" "${PROBE_EXIT_CODE:-none}"
+        [ "$PROBE_RESULT" != nonzero_exit ] || PROBE_RESULT=fbink_init_failed
+    fi
+    printf 'probe_phase=fbink_%s_end\nfbink_%s_result=%s\n' "$probe_label" "$probe_label" "$PROBE_RESULT"
+    [ "$PROBE_RESULT" = ok ]
+}
 
-if probe_lua "$LUA_PRIMARY"; then SELECTED_LUA="$LUA_PRIMARY"; lua_result=ok
+lua_result=not_run; fbink_result=not_run
+if probe_lua "$LUA_PRIMARY" primary; then SELECTED_LUA=$LUA_PRIMARY; lua_result=ok
 else
-    lua_result=failed
+    lua_result=$PROBE_RESULT
+    seen_lua=":$LUA_PRIMARY:"
+    lua_fallback=0
     for candidate in /mnt/us/libkh/bin/lua /usr/bin/lua /usr/local/bin/lua; do
-        [ "$candidate" = "$LUA_PRIMARY" ] && continue
-        if [ -x "$candidate" ] && probe_lua "$candidate"; then
-            SELECTED_LUA="$candidate"; FALLBACK_USED=1
+        case "$seen_lua" in *:"$candidate":*) continue;; esac
+        seen_lua="$seen_lua$candidate:"
+        lua_fallback=$((lua_fallback + 1))
+        if probe_lua "$candidate" "fallback_$lua_fallback"; then
+            SELECTED_LUA=$candidate; FALLBACK_USED=1
             printf 'lua_fallback_reason=primary Lua probe failed; candidate passed execution and syntax probes\n'
             break
         fi
     done
 fi
-if probe_fbink "$FBINK_PRIMARY"; then SELECTED_FBINK="$FBINK_PRIMARY"; fbink_result=ok
+if probe_fbink "$FBINK_PRIMARY" primary; then SELECTED_FBINK=$FBINK_PRIMARY; fbink_result=ok
 else
-    fbink_result=failed
+    fbink_result=$PROBE_RESULT
+    seen_fbink=":$FBINK_PRIMARY:"
+    fbink_fallback=0
     for candidate in /var/local/kmc/bin/fbink /mnt/us/libkh/bin/fbink "$(command -v fbink 2>/dev/null || true)"; do
-        [ "$candidate" = "$FBINK_PRIMARY" ] && continue
-        if [ -x "$candidate" ] && probe_fbink "$candidate"; then
-            SELECTED_FBINK="$candidate"; FALLBACK_USED=1
+        [ -n "$candidate" ] || continue
+        case "$seen_fbink" in *:"$candidate":*) continue;; esac
+        seen_fbink="$seen_fbink$candidate:"
+        fbink_fallback=$((fbink_fallback + 1))
+        if probe_fbink "$candidate" "fallback_$fbink_fallback"; then
+            SELECTED_FBINK=$candidate; FALLBACK_USED=1
             printf 'fbink_fallback_reason=primary FBInk init probe failed; candidate passed framebuffer init\n'
             break
         fi
     done
 fi
 printf 'primary_probe_result=lua:%s,fbink:%s\nfallback_used=%s\n' "$lua_result" "$fbink_result" "$FALLBACK_USED"
+printf 'selected_lua=%s\nselected_fbink=%s\n' "$SELECTED_LUA" "$SELECTED_FBINK"
 [ "$SELECTED_LUA" != none ] || fail 32 'no Lua runtime passed execution and syntax probes'
 [ "$SELECTED_FBINK" != none ] || fail 31 'no FBInk runtime passed framebuffer initialization probe'
 printf 'selected_runtime=external-lua+external-fbink\nselected_lua=%s\nselected_fbink=%s\n' "$SELECTED_LUA" "$SELECTED_FBINK"

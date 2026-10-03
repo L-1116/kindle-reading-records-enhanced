@@ -1,5 +1,5 @@
 #!/bin/sh
-# Name: 点这个安装，然后确认插件正常之前不要删文件
+# Name: 安装阅读记录
 # Author: Kindle Reading Records
 # READING_RECORDS_V4_BOOTSTRAP
 

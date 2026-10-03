@@ -15,7 +15,7 @@ from package_release import FILES as STANDARD_FILES
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
-BOOT_NAME = "点这个安装，然后确认插件正常之前不要删文件.sh"
+BOOT_NAME = "reading-records-v4-install.sh"
 TAR_NAME = "阅读记录安装数据.tar"
 
 
@@ -125,8 +125,8 @@ def build(variant: str) -> dict:
     bootstrap = (ROOT / "v4/bootstrap.template.sh").read_text(encoding="utf-8")
     bootstrap = bootstrap.replace("@VARIANT@", variant).replace("@SIZE@", str(len(tar_bytes))).replace("@CKSUM@", cksum).encode("utf-8")
     label = "V4" if variant == "standard" else "V4-KS"
-    simple = DIST / f"ReadingTime-{label}-Test.zip"
-    full = DIST / f"ReadingTime-{label}-Full-Compatibility.zip"
+    simple = DIST / f"ReadingTime-{label}-Test2.zip"
+    full = DIST / f"ReadingTime-{label}-Full-Compatibility-Test2.zip"
     make_zip(simple, {BOOT_NAME: bootstrap, TAR_NAME: tar_bytes})
     full_files = dict(payload_files)
     full_files[f"documents/{BOOT_NAME}"] = bootstrap
