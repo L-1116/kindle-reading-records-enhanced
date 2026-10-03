@@ -93,7 +93,7 @@ printf '%s|%s|%s\\n' "$draw_count" "$refresh_kind" "$fbink_calls"
                     logs.append(commands.read_text(encoding="utf-8").splitlines())
                     assert result.stdout.startswith("18|GC16|"), result.stdout
                 expected = logs[0].copy()
-                if firmware == "5.18.1" or firmware.startswith("5.18.1."):
+                if firmware.startswith("5.18."):
                     assert expected[0] == "-q -f -W GC16 -s"
                     expected[0] = "-q -W GC16 -s"
                 assert logs[1] == expected, (shell, firmware, fail_fast, logs)
@@ -119,6 +119,7 @@ metric_begin() { :; }; metric_end() { :; }
 build_cache() { today_date=2026-10-02; }
 draw_background() { [ "${STOP_RENDER:-0}" = 1 ] && exit 87; return 0; }
 draw_dynamic() { :; }; fallback_to_legacy() { exit 89; }
+fail() { exit 86; }
 weekday_offset() { echo 3; }; days_in_month() { echo 31; }
 lua() {
     # This snapshot must already exist before the first listener invocation.
@@ -142,13 +143,13 @@ lua() {
                 result = run(shell, setup + function(viewer, "refresh_region") + traced_writer + mocks + startup, {**detector_env, **scenario})
                 rows = trace.read_text(encoding="utf-8").splitlines()
                 observed = [row.removeprefix("stage=") for row in rows if row.startswith("stage=")]
-                expected_count = 1 if "STOP_RENDER" in scenario else 3 if "STOP_REFRESH" in scenario else 5
+                expected_count = 1 if "STOP_RENDER" in scenario else 3 if "STOP_REFRESH" in scenario or "FAIL_FULL" in scenario else 5
                 assert observed == expected_stages[:expected_count], (scenario, observed, result.stderr)
-                assert result.returncode == (87 if "STOP_RENDER" in scenario else 88 if "STOP_REFRESH" in scenario else 0), result
+                assert result.returncode == (87 if "STOP_RENDER" in scenario else 88 if "STOP_REFRESH" in scenario else 86 if "FAIL_FULL" in scenario or "FAIL_TOUCH" in scenario else 0), result
                 snapshot = stage_path.read_text(encoding="utf-8")
                 assert f"firmware={firmware}\n" in snapshot and "screen=1072x1448\n" in snapshot
                 assert "viewport=1072x1429+0+9\n" in snapshot and "touch=/dev/input/event7\n" in snapshot
-                expected_mode = "GC16_nonflash" if firmware == "5.18.1" else "GC16_flash"
+                expected_mode = "GC16_nonflash" if firmware.startswith("5.18.") else "GC16_flash"
                 assert f"refresh={expected_mode}\n" in snapshot and "timestamp=" in snapshot
                 expected_status = "unknown" if expected_count < 5 else scenario.get("FAIL_FULL", "0")
                 assert f"refresh_exit_code={expected_status}\n" in snapshot, snapshot

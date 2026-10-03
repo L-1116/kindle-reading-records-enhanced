@@ -12,6 +12,8 @@ FBINK="${READING_FBINK:-/var/local/kmc/bin/fbink}"
 RELEASE="$BASE/releases/9.7.5-ks-test1"
 UI_DIR="$RELEASE/ui-scribe"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch-ks.lua"
+TOUCH_PROBE="$RELEASE/bin/reading-insights-touch-probe-ks.lua"
+TOUCH_LOG="$BASE/touch-last.log"
 RENDERER="$RELEASE/bin/reading-insights-render.lua"
 RENDER_ASSETS="$RELEASE/render-assets"
 CACHE_BUILDER="$RELEASE/bin/reading-insights-cache.awk"
@@ -143,16 +145,26 @@ detect_screen() {
 }
 
 find_touch_device() {
-    if [ -n "${READING_TOUCH_DEVICE:-}" ] && [ -r "$READING_TOUCH_DEVICE" ]; then TOUCH="$READING_TOUCH_DEVICE"; return; fi
-    if [ -r /dev/input/touch ]; then TOUCH=/dev/input/touch; return; fi
-    TOUCH=""
-    for ep in /sys/class/input/event*; do
-        [ -r "$ep/device/name" ] || continue; en="$(tr '[:upper:]' '[:lower:]' < "$ep/device/name" 2>/dev/null)"
-        c="/dev/input/${ep##*/}"
-        ks_log "[DEVICE] input_candidate=$c name=$en"
-        case "$en" in pt_mt|*touchscreen*|*touch*|*zforce*|*cyttsp*|*fts*|*_ts*) [ -r "$c" ] && { TOUCH="$c"; return; };; esac
+    [ -r "$TOUCH_PROBE" ] || fail "缺少 KS 触摸设备探针"
+    : > "$SESSION_ROOT/reading-touch-events.$$"
+    for ep in "${READING_INPUT_SYSFS:-/sys/class/input}"/event*; do
+        [ -d "$ep" ] && printf '%s\n' "${ep##*/}" >> "$SESSION_ROOT/reading-touch-events.$$"
     done
-    return 1
+    READING_TOUCH_FIRMWARE="${FIRMWARE_FULL:-unknown}" READING_TOUCH_MODEL="${DEVICE_TYPE:-unknown}" READING_TOUCH_DEVICE="${READING_TOUCH_DEVICE:-}" \
+    READING_TOUCH_MACHINE="${MACHINE:-unknown}" READING_TOUCH_ARCH="${ARCH:-unknown}" \
+    READING_TOUCH_SCREEN_WIDTH="$SCREEN_W" READING_TOUCH_SCREEN_HEIGHT="$SCREEN_H" \
+    READING_TOUCH_ORIENTATION=portrait READING_TOUCH_VIEWPORT="${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}" \
+    READING_TOUCH_LOGICAL_SIZE="${LOGICAL_W}x${LOGICAL_H}" \
+        lua "$TOUCH_PROBE" "$BASE" "$SESSION_ROOT/reading-touch-events.$$" > "$SESSION_ROOT/reading-touch-probe.$$" || { printf 'error_stage=touch\n'; fail "阅读记录触摸初始化失败，请查看 touch-last.log"; }
+    TOUCH="$(sed -n '1p' "$SESSION_ROOT/reading-touch-probe.$$" 2>/dev/null)"
+    EVENT_STRUCT_SIZE="$(sed -n '2p' "$SESSION_ROOT/reading-touch-probe.$$" 2>/dev/null)"
+    RAW_X_MIN="$(sed -n '3p' "$SESSION_ROOT/reading-touch-probe.$$" 2>/dev/null)"
+    RAW_X_MAX="$(sed -n '4p' "$SESSION_ROOT/reading-touch-probe.$$" 2>/dev/null)"
+    RAW_Y_MIN="$(sed -n '5p' "$SESSION_ROOT/reading-touch-probe.$$" 2>/dev/null)"
+    RAW_Y_MAX="$(sed -n '6p' "$SESSION_ROOT/reading-touch-probe.$$" 2>/dev/null)"
+    rm -f "$SESSION_ROOT/reading-touch-probe.$$"
+    rm -f "$SESSION_ROOT/reading-touch-events.$$"
+    [ -n "$TOUCH" ] && [ "$EVENT_STRUCT_SIZE" = 16 -o "$EVENT_STRUCT_SIZE" = 24 ] || { printf 'error_stage=touch\n'; fail "阅读记录触摸初始化失败，请查看 touch-last.log"; }
 }
 
 scale_len() { n=$(( $1*SCALE_NUM/SCALE_DEN )); [ "$n" -gt 0 ] || n=1; echo "$n"; }
@@ -1306,7 +1318,7 @@ draw_count=0; refresh_kind=none
 refresh_region() {
     rx="$1"; ry="$2"; rw="$3"; rh="$4"; draw_count=$((draw_count+1))
     if [ "$draw_count" -eq 1 ] || [ $((draw_count%CLEAN_REFRESH_INTERVAL)) -eq 0 ]; then
-        if [ "$draw_count" -eq 1 ] && [ "${IS_FW_5181:-0}" = 1 ]; then fb -q -W GC16 -s
+        if [ "$draw_count" -eq 1 ] && [ "${COMPAT_PROFILE:-default}" = fw518 ]; then fb -q -W GC16 -s
         else fb -q -f -W GC16 -s; fi
         refresh_kind=GC16
     else px="$(scale_x "$rx")"; py="$(scale_y "$ry")"; pw="$(scale_len "$rw")"; ph="$(scale_len "$rh")"; fb -q -W GC16_FAST -s "top=$py,left=$px,width=$pw,height=$ph" || fb -q -W GC16 -s "top=$py,left=$px,width=$pw,height=$ph"; refresh_kind=GC16_FAST; fi
@@ -1322,9 +1334,16 @@ cleanup() {
     trap '' INT TERM HUP
     ks_log "[EXIT] cleanup entered code=$cleanup_code reason=${EXIT_REASON:-normal}"
     if [ -n "${TOUCH_PID:-}" ]; then kill "$TOUCH_PID" 2>/dev/null || true; fi
+    rm -f "$SESSION_ROOT/reading-touch-events.$$" "$SESSION_ROOT/reading-touch-probe.$$" 2>/dev/null || true
     rm -f "$PID_FILE" 2>/dev/null || true
     lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 0 >/dev/null 2>&1 || true; remove_session
-    if [ "$dashboard_active" -eq 1 ]; then ks_log "[EXIT] closing UI"; lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true; sleep 1; "$FBINK" -q -f -W GC16 -s >/dev/null 2>&1 || true; fi
+    if [ "$dashboard_active" -eq 1 ]; then
+        ks_log "[EXIT] closing UI"
+        lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
+        sleep 1
+        if [ "${COMPAT_PROFILE:-default}" = fw518 ]; then "$FBINK" -q -W GC16 -s >/dev/null 2>&1 || true
+        else "$FBINK" -q -f -W GC16 -s >/dev/null 2>&1 || true; fi
+    fi
     if [ "$ORIENTATION_CHANGED" = 1 ]; then restore_orientation
     else ks_log "[EXIT] restoring orientation action=none initial_accelerometer=${INITIAL_ACCELEROMETER:-unknown}"; fi
     ks_log "[EXIT] finished"
@@ -1389,7 +1408,7 @@ EOF
 }
 
 INITIAL_ACCELEROMETER="$(lipc-get-prop com.lab126.winmgr accelerometer 2>/dev/null || echo unknown)"
-detect_screen; find_touch_device || true
+detect_screen; find_touch_device
 ks_log "[DEVICE] model=$(sed -n '1p' /var/local/deviceType.txt 2>/dev/null || echo unknown)"
 ks_log "[DEVICE] firmware=$(sed -n '1p' /etc/prettyversion.txt 2>/dev/null || sed -n '1p' /etc/version.txt 2>/dev/null || echo unknown)"
 ks_log "[DEVICE] screen_width=$SCREEN_W screen_height=$SCREEN_H accelerometer=$INITIAL_ACCELEROMETER orientation_lock=${ORIGINAL_ORIENTATION_LOCK:-unchanged}"
@@ -1408,14 +1427,22 @@ lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-p
 
 mode=daily; view_year="$(date +%Y)"; total_period=week; week_offset=0; book_filter=7d; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; today_date="$(date +%Y-%m-%d)"; selected_date="$today_date"; book_page=1; detail_page=1; detail_pages=1; day_detail_page=1; day_detail_pages=1; day_detail_source=daily; month_detail_source=daily; book_detail_filter=7d; book_detail_page=1
 metric_begin first_open; build_cache || fallback_to_legacy; selected_date="$today_date"; draw_background || fallback_to_legacy; ks_log "[UI] static shell loaded"; draw_dynamic 1 || fallback_to_legacy; ks_log "[UI] renderer initialized"; refresh_region 0 0 "$LOGICAL_W" "$LOGICAL_H"; metric_end optimized 0 1; ks_log "[UI] first paint completed"
+printf 'stage=first_paint_completed\n'
 
 while :; do
     if [ "$mode" = book_detail ]; then offset="$book_calendar_offset"; dim="$book_calendar_dim"; else offset="$(weekday_offset "$daily_y" "$daily_m")"; dim="$(days_in_month "$daily_y" "$daily_m")"; fi
     if [ "$mode" = day_detail ]; then touch_pages="$day_detail_pages"; touch_page="$day_detail_page"; touch_pager_y=$((DAY_DETAIL_LIST_TOP+DAY_DETAIL_PAGER_Y)); else touch_pages="$detail_pages"; touch_page="$detail_page"; touch_pager_y=$((DETAIL_TOP+DETAIL_H-DETAIL_PAGER_H)); fi
     action_file="$SESSION_DIR/action.txt"; : > "$action_file"
-    lua "$TOUCH_READER" "$TOUCH" "$LOG" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter" "${READING_TOUCH_TRANSFORM:-auto}" > "$action_file" &
+    printf 'stage=touch_listener_begin\n'
+    lua "$TOUCH_READER" "$TOUCH" "$LOG" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter" "${READING_TOUCH_TRANSFORM:-auto}" "$EVENT_STRUCT_SIZE" "$SCREEN_W" "$SCREEN_H" "$TOUCH_LOG" "$RAW_X_MIN" "$RAW_X_MAX" "$RAW_Y_MIN" "$RAW_Y_MAX" > "$action_file" &
     TOUCH_PID=$!; wait "$TOUCH_PID"; touch_code=$?; TOUCH_PID=""
-    action="$(sed -n '1p' "$action_file" 2>/dev/null)"; [ -n "$action" ] && [ "$touch_code" -eq 0 ] || action=exit
+    if [ "$touch_code" -ne 0 ] || [ ! -s "$action_file" ]; then
+        printf 'reader_exit_code=%s\nreader_error=reader_failed_or_empty_action\n' "$touch_code" >> "$TOUCH_LOG"
+        printf 'error_stage=touch\n'
+        ks_log "[ERROR] error_stage=touch reader_exit_code=$touch_code"
+        fail "阅读记录触摸初始化失败，请查看 touch-last.log"
+    fi
+    action="$(sed -n '1p' "$action_file" 2>/dev/null)"
     echo "$(date): dashboard action=$action mode=$mode"
     ks_log "[NAV] action=$action mode=$mode touch_exit_code=$touch_code"
     case "$action" in

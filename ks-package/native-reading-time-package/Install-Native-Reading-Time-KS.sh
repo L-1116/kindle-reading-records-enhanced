@@ -44,7 +44,7 @@ trap 'fail "interrupted"' INT TERM HUP
 [ -x "$BASE/bin/native-reading-time-daemon.sh" ] || fail "base tracker is missing"
 [ -r "$BASE/reading-time.tsv" ] || fail "reading history is missing"
 for cmd in sh awk sed grep cp mv mkdir chmod cmp lua; do command -v "$cmd" >/dev/null 2>&1 || fail "missing command: $cmd"; done
-for file in 阅读记录-ks.sh 阅读记录-KS-entry.sh 阅读记录-KS-force-exit-entry.sh launch-ks.sh reading-insights-touch-ks.lua force-exit-ks.sh diagnostics-ks.sh compat/detect_env.sh reading-insights-render.lua reading-insights-cache.awk reading-insights-cover.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt launcher-icon.png; do
+for file in 阅读记录-ks.sh 阅读记录-KS-entry.sh 阅读记录-KS-force-exit-entry.sh launch-ks.sh reading-insights-touch-ks.lua reading-insights-touch-probe-ks.lua force-exit-ks.sh diagnostics-ks.sh compat/detect_env.sh reading-insights-render.lua reading-insights-cache.awk reading-insights-cover.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt launcher-icon.png; do
     [ -f "$PKG/$file" ] || fail "missing payload: $file"
 done
 for image in total.png daily.png books.png day_detail.png month_detail.png week_trend.png book_detail.png; do [ -f "$PKG/ui-scribe/$image" ] || fail "missing KS UI: $image"; done
@@ -53,7 +53,7 @@ for image in total.png daily.png books.png day_detail.png month_detail.png week_
 
 rm -rf "$STAGE"; mkdir -p "$STAGE/release/bin" "$STAGE/release/ui-scribe" "$STAGE/release/render-assets" "$STAGE/release/assets" "$STAGE/rollback" || fail "cannot create stage"
 cp "$PKG/阅读记录-ks.sh" "$STAGE/release/bin/reading-records-ks.sh" || fail "cannot stage KS UI"
-for file in reading-insights-touch-ks.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-cover.lua reading-insights-titles.lua reading-insights-title-widths.lua; do cp "$PKG/$file" "$STAGE/release/bin/$file" || fail "cannot stage helper $file"; done
+for file in reading-insights-touch-ks.lua reading-insights-touch-probe-ks.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-cover.lua reading-insights-titles.lua reading-insights-title-widths.lua; do cp "$PKG/$file" "$STAGE/release/bin/$file" || fail "cannot stage helper $file"; done
 cp "$PKG"/ui-scribe/*.png "$STAGE/release/ui-scribe/" || fail "cannot stage UI assets"
 cp "$PKG"/render-assets/* "$STAGE/release/render-assets/" || fail "cannot stage render assets"
 cp "$PKG/launcher-icon.png" "$STAGE/release/assets/launcher-icon.png" || fail "cannot stage icon"
@@ -83,7 +83,7 @@ atomic_file "$PKG/launcher-icon.png" "$BASE/assets/launcher-icon.png" 644 || fai
 atomic_file "$PKG/resources/kual/reading-records-installer/bin/action.sh" "$KUAL_DIR/bin/action.sh" 755 || fail "cannot install KUAL action"
 atomic_file "$PKG/resources/kual/reading-records-installer/menu.json" "$KUAL_DIR/menu.json" 644 || fail "cannot install KUAL menu"
 atomic_file "$PKG/resources/kual/reading-records-installer/config.xml" "$KUAL_DIR/config.xml" 644 || fail "cannot install KUAL config"
-printf '9.7.5-ks-test1\n' > "$STAGE/VERSION" || fail "cannot stage version"
+printf '9.7.5-ks-test1-touch-compat\n' > "$STAGE/VERSION" || fail "cannot stage version"
 atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot install version"
 
 [ -x "$LAUNCHER" ] && [ -x "$RELEASE/bin/reading-records-ks.sh" ] && [ -x "$FORCE_EXIT" ] || fail "installed executable validation failed"
@@ -91,6 +91,6 @@ atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot install version
 grep -Fq 'LAYOUT_PROFILE=scribe' "$RELEASE/bin/reading-records-ks.sh" || fail "KS layout marker missing"
 lipc-set-prop com.lab126.scanner doFullScan 1 >/dev/null 2>&1 || lipc-set-prop com.lab126.scanner triggerUpdate 1 >/dev/null 2>&1 || true
 cleanup_stage; trap - INT TERM HUP; sync
-echo "$(date): KS test1 installed; reading history preserved"
-toast "阅读统计 KS 测试版安装完成"
+echo "$(date): KS touch compatibility hotfix installed; reading history preserved"
+toast "阅读统计 KS 触摸兼容热修安装完成"
 exit 0

@@ -17,7 +17,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 KS = ROOT / "ks-package"
 PKG = KS / "native-reading-time-package"
-ARCHIVE = ROOT / "dist/ReadingTime-v9.7.5-KS-test1.zip"
+ARCHIVE = ROOT / "dist/ReadingTime-v9.7.5-KS-touch-compat-hotfix.zip"
 
 
 def check_shell_syntax() -> None:
@@ -32,6 +32,7 @@ def check_shell_syntax() -> None:
 def main() -> None:
     main_sh = (PKG / "阅读记录-ks.sh").read_text(encoding="utf-8")
     touch = (PKG / "reading-insights-touch-ks.lua").read_text(encoding="utf-8")
+    probe = (PKG / "reading-insights-touch-probe-ks.lua").read_text(encoding="utf-8")
     installer = (PKG / "Install-Native-Reading-Time-KS.sh").read_text(encoding="utf-8")
     launcher = (PKG / "launch-ks.sh").read_text(encoding="utf-8")
     force_exit = (PKG / "force-exit-ks.sh").read_text(encoding="utf-8")
@@ -43,7 +44,7 @@ def main() -> None:
     assert "canvas summary 1640 480" in main_sh
     assert "每日阅读趋势" in main_sh
     assert "native-reading-dashboard-ks" in main_sh
-    assert "pt_mt" in main_sh and "/dev/input/touch" in main_sh
+    assert "pt_mt" in probe and "capabilities/abs" in probe
     assert 'TOUCH="/dev/input/event1"' not in main_sh
     assert "reading_time_ks_debug.log" in main_sh and "[UI] first paint completed" in main_sh
     for tag in ("[BOOT]", "[DEVICE]", "[RUNTIME]", "[UI]", "[NAV]", "[EXIT]", "[ERROR]"):
@@ -58,13 +59,14 @@ def main() -> None:
     assert 'compat/detect_env.sh' in installer and '"$DETECTOR"' in installer
     assert "reading-time.tsv" in installer and '>' + ' "$BASE/reading-time.tsv"' not in installer
     assert "reading history is missing" in installer and "reading history preserved" in installer
-    assert "PREVIOUS_LOG" in launcher and ': > "$LAUNCH_LOG"' in launcher
+    assert 'LOG="$BASE/launch-last.log"' in launcher and ': > "$LOG"' in launcher
     assert 'MAIN="$RELEASE/bin/reading-records-ks.sh"' in launcher
     assert '"$RELEASE/ui-scribe/daily.png"' in launcher
     assert 'bin/reading-records.sh' not in launcher and 'ui-calendar' not in launcher
     assert "legacy fallback intentionally disabled" in main_sh
     from lupa.lua51 import LuaRuntime
     LuaRuntime().execute("assert(loadstring(...))", touch)
+    LuaRuntime().execute("assert(loadstring(...))", probe)
     hit_test_source = (
         'local mode, calendar_offset, calendar_days, detail_pages, detail_page, pager_y, total_period = "books", 1, 30, 1, 1, 0, "week"\n'
         'local function inside(x, y, left, top, right, bottom) return x >= left and y >= top and x <= right and y <= bottom end\n'
@@ -142,6 +144,7 @@ def main() -> None:
             "native-reading-time-package/Install-Native-Reading-Time-KS.sh",
             "native-reading-time-package/阅读记录-ks.sh",
             "native-reading-time-package/reading-insights-touch-ks.lua",
+            "native-reading-time-package/reading-insights-touch-probe-ks.lua",
             "native-reading-time-package/compat/detect_env.sh",
             "native-reading-time-package/ui-scribe/daily.png",
             "PACKAGE-MANIFEST-KS.json",

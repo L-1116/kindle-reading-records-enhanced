@@ -21,10 +21,12 @@ SHELL = next(
 with tempfile.TemporaryDirectory(prefix="ks-layout-flow-", dir=ROOT / "build") as directory:
     base = Path(directory) / "reading-time"
     shutil.copytree(SOURCE, base)
+    shutil.copy2(ROOT / "tests/fixtures/ks-runtime/lua", base / "bin/lua")
     (base / "reading_time_ks_debug.log").write_text("", encoding="utf-8")
     release = base / "releases/9.7.5-ks-test1"
     shutil.copy2(KS / "阅读记录-ks.sh", release / "bin/reading-records-ks.sh")
     shutil.copy2(KS / "reading-insights-touch-ks.lua", release / "bin/reading-insights-touch-ks.lua")
+    shutil.copy2(KS / "reading-insights-touch-probe-ks.lua", release / "bin/reading-insights-touch-probe-ks.lua")
     for image in (KS / "ui-scribe").glob("*.png"):
         shutil.copy2(image, release / "ui-scribe" / image.name)
     today = date.today().isoformat()
@@ -47,6 +49,7 @@ with tempfile.TemporaryDirectory(prefix="ks-layout-flow-", dir=ROOT / "build") a
         "READING_TOUCH_DEVICE": touch.as_posix(),
         "READING_TMPDIR": (base / "tmp").as_posix(),
         "KS_SIM_ACTIONS_FILE": (base / "actions.txt").as_posix(),
+        "READING_EVENT_STRUCT_SIZE": "16",
     }
     result = subprocess.run(
         [SHELL, (release / "bin/reading-records-ks.sh").as_posix()],

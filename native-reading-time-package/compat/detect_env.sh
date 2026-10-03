@@ -68,7 +68,11 @@ detect_reading_environment() {
             ;;
     esac
 
-    ARCH="${READING_ARCH_OVERRIDE:-$(uname -m 2>/dev/null)}"
+    MACHINE="$(uname -m 2>/dev/null)"
+    KERNEL="$(uname -r 2>/dev/null)"
+    [ -n "$MACHINE" ] || MACHINE=unknown
+    [ -n "$KERNEL" ] || KERNEL=unknown
+    ARCH="${READING_ARCH_OVERRIDE:-$MACHINE}"
     [ -n "$ARCH" ] || ARCH="unknown"
     HARD_FLOAT=0
     if [ -e "$ARMHF_LOADER_PATH" ]; then
@@ -82,13 +86,7 @@ detect_reading_environment() {
         COMPAT_PROFILE=fw518
     fi
 
-    # Narrow startup-refresh workaround; fw518 still describes the whole ABI family.
-    case "$FIRMWARE_FULL" in
-        5.18.1|5.18.1.*) IS_FW_5181=1;;
-        *) IS_FW_5181=0;;
-    esac
-
-    export FIRMWARE_FULL FIRMWARE_MAJOR FIRMWARE_MINOR DEVICE_TYPE ARCH HARD_FLOAT COMPAT_PROFILE IS_FW_5181
+    export FIRMWARE_FULL FIRMWARE_MAJOR FIRMWARE_MINOR DEVICE_TYPE MACHINE KERNEL ARCH HARD_FLOAT COMPAT_PROFILE
 }
 
 detect_reading_environment

@@ -350,7 +350,7 @@ record("touch controls", "The hit map returns week/year/all, suppresses arrows i
 render_total_section = viewer[viewer.index("prepare_week_view()"):viewer.index("prepare_daily_view()")]
 render_books_section = viewer[viewer.index("active_books()"):viewer.index("draw_background()")]
 assert "$DATA" not in render_total_section + render_books_section
-assert viewer.count("build_cache || fallback_to_legacy") == 1
+assert viewer.count('build_cache || fail "启动缓存构建失败"') == 1
 assert "mode=daily; view_year=\"$(date +%Y)\"; total_period=week; week_offset=0; book_filter=7d" in viewer
 assert 'if [ "$view_year" -lt "$current_year" ]' in viewer
 record("state and cache performance", f"Fresh startup defaults to week/offset 0 and books/7d; one launch-time raw-data scan ({build_ms} ms on the fixture) feeds all clicks from small session caches, with future week/year navigation guarded.")

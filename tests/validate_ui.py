@@ -93,20 +93,18 @@ transform='    if [ $((SCREEN_W*LOGICAL_H))'
 assert screen[screen.index(transform):]==old_screen[old_screen.index(transform):]
 refresh=viewer[viewer.index('refresh_region()'):viewer.index('\n}\n',viewer.index('refresh_region()'))+3]
 baseline_refresh=old[old.index('refresh_region()'):old.index('\n}\n',old.index('refresh_region()'))+3]
-# Permit exactly the first-refresh guard and exit-code capture. Regional
-# commands and periodic clean refreshes are also executed against the baseline
-# by validate_startup_refresh.py.
-compat_clean='''then
-        # Only the first full-screen update on 5.18.1 avoids a forced flash.
-        if [ "$draw_count" -eq 1 ] && [ "${IS_FW_5181:-0}" = 1 ]; then fb -q -W GC16 -s
-        else fb -q -f -W GC16 -s; fi
-        refresh_exit_status=$?; refresh_kind=GC16'''
-assert compat_clean in refresh
-assert refresh.replace(compat_clean,'then fb -q -f -W GC16 -s; refresh_kind=GC16')==baseline_refresh
+# Startup and later refresh failures must return a nonzero status to the UI.
+# The command sequence is compared with the stable baseline in the dedicated
+# startup refresh test.
+assert 'if [ "$draw_count" -eq 1 ] && [ "${COMPAT_PROFILE:-default}" = fw518 ]' in refresh
+assert 'refresh_exit_status=$?; refresh_kind=GC16' in refresh
+assert 'refresh_exit_status=$?; refresh_kind=GC16_FAST' in refresh
+assert 'return "$refresh_exit_status"' in refresh
+assert 'fb -q -f -W GC16 -s' in refresh and 'fb -q -W GC16 -s' in refresh
 for name in ('page_prev)','page_next)'):
     assert next(x for x in viewer.splitlines() if x.strip().startswith(name))==next(x for x in old.splitlines() if x.strip().startswith(name))
 assert 'mode=daily; view_year=' in viewer
-record('interaction invariants','Default daily, touch discovery and page navigation remain stable; refresh differs only by the 5.18.1 first-full-refresh guard and return-code capture.')
+record('interaction invariants','Default daily, touch discovery and page navigation remain stable; 5.18.x first refresh is nonflashing and refresh failures propagate.')
 
 # Extract definitions only: never run startup, hardware access, or EXIT cleanup.
 defs=viewer[:viewer.index('\ndetect_screen; find_touch_device')]
@@ -488,7 +486,7 @@ assert daily_block.count('canvas calendar ')==1 and daily_block.count('swrite ca
 assert daily_block.count('image "$SESSION_DIR/daily-calendar.pgm"')==1 and 'refresh_region' not in daily_block
 assert 'month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 1308;;' in viewer
 assert 'day_*) new_day=' in viewer and 'perform_draw date_select 0 0 55 460 1162 1168' in viewer
-record('heatmap isolation and refresh','Daemon and calendar calculations remain byte-identical to v9.6.10; all-time aggregation and cover fallback do not alter heatmap inputs. The calendar is composed offscreen once, published once, then refreshed once; only 5.18.1 startup omits forced flashing.')
+record('heatmap isolation and refresh','Daemon and calendar calculations remain byte-identical to v9.6.10; all-time aggregation and cover fallback do not alter heatmap inputs. The calendar is composed offscreen once, published once, then refreshed once; 5.18.x startup omits forced flashing.')
 
 changes=[]
 for file in sorted(PKG.rglob('*')):

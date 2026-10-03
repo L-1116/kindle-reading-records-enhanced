@@ -16,9 +16,46 @@ local pager_y = tonumber(arg[12] or "1576") or 1576
 local total_period = arg[13] or "week"
 local book_filter = arg[14] or "7d"
 local transform_hint = arg[15] or "auto"
+local event_size = tonumber(arg[16])
+local screen_w = tonumber(arg[17])
+local screen_h = tonumber(arg[18])
+local report_path = arg[19]
+local min_x, max_x = tonumber(arg[20]), tonumber(arg[21])
+local min_y, max_y = tonumber(arg[22]), tonumber(arg[23])
 local logical_w, logical_h = 1860, 2480
 
-local f = assert(io.open(device, "rb"))
+local function report(fields)
+    if not report_path then return end
+    local old = io.open(report_path, "rb")
+    local lines = {}
+    if old then
+        for line in old:lines() do
+            local key = line:match("^([^=]+)=")
+            if not key or fields[key] == nil then lines[#lines+1] = line end
+        end
+        old:close()
+    end
+    local tmp = report_path .. ".new"
+    local out = io.open(tmp, "wb")
+    if not out then return end
+    for _, line in ipairs(lines) do out:write(line, "\n") end
+    for key, value in pairs(fields) do out:write(key, "=", tostring(value), "\n") end
+    out:flush(); out:close()
+    if not os.rename(tmp, report_path) then
+        os.remove(report_path)
+        os.rename(tmp, report_path)
+    end
+end
+local function reader_fail(reason, code)
+    report({reader_exit_code=code, reader_error=reason, reader_state="failed"})
+    io.stderr:write("touch reader: ", reason, "\n")
+    os.exit(code)
+end
+if event_size ~= 16 and event_size ~= 24 then reader_fail("invalid_event_struct_size", 2) end
+if not screen_w or not screen_h or screen_w < 1 or screen_h < 1 then reader_fail("invalid_screen_size", 2) end
+local f = io.open(device, "rb")
+if not f then reader_fail("device_open_failed", 2) end
+report({reader_mode=mode, reader_state="waiting"})
 local log = io.open(log_path, "a")
 local x, y = nil, nil
 local contact_reported = false
@@ -36,6 +73,7 @@ local function note(message)
 end
 local function finish(action)
     note("action=" .. action)
+    report({reader_state="action_returned", reader_exit_code=0})
     io.write(action, "\n")
     f:close()
     if log then log:close() end
@@ -143,6 +181,13 @@ end
 -- Map physical framebuffer coordinates back to the 1860x2480 design canvas.
 -- The viewer uses the inverse of this transform for every rendered element.
 local function action_for_physical(px, py, transform)
+    local swapped = transform:sub(1, 4) == "swap"
+    if min_x and max_x and min_y and max_y and max_x > min_x and max_y > min_y then
+        local target_x = swapped and screen_h or screen_w
+        local target_y = swapped and screen_w or screen_h
+        px = math.floor((px - min_x) * (target_x - 1) / (max_x - min_x) + 0.5)
+        py = math.floor((py - min_y) * (target_y - 1) / (max_y - min_y) + 0.5)
+    end
     local tx, ty = px, py
     if transform == "swap" then tx, ty = py, px
     elseif transform == "invert_xy" then tx, ty = 2 * origin_x + view_w - 1 - px, 2 * origin_y + view_h - 1 - py
@@ -155,7 +200,7 @@ local function action_for_physical(px, py, transform)
     px, py = tx, ty
     if px < origin_x or py < origin_y or
        px > origin_x + view_w or py > origin_y + view_h then
-        return nil
+        return nil, px, py, nil, nil
     end
     local lx = math.floor((px - origin_x) * logical_w / view_w + 0.5)
     local ly = math.floor((py - origin_y) * logical_h / view_h + 0.5)
@@ -163,18 +208,26 @@ local function action_for_physical(px, py, transform)
     if action then
         note(string.format("[INPUT] mapped transform=%s client_x=%d client_y=%d action=%s", transform, lx, ly, action))
     end
-    return action
+    return action, px, py, lx, ly
 end
 
 note(string.format("[INPUT] interactive watcher started mode=%s viewport=%dx%d+%d+%d",
     mode, view_w, view_h, origin_x, origin_y))
-note("[INPUT] transform_hint=" .. transform_hint)
+note("[INPUT] transform_hint=" .. transform_hint .. " event_struct_size=" .. event_size)
+local invalid_events = 0
+local last_type, last_code = "none", "none"
 while true do
-    local event = f:read(16)
-    if not event or #event ~= 16 then note("[INPUT] short read"); os.exit(2) end
-    local etype = u16(event, 9)
-    local code = u16(event, 11)
-    local value = u32(event, 13)
+    local event = f:read(event_size)
+    if not event or #event ~= event_size then reader_fail("short_read", 2) end
+    local offset = event_size == 16 and 9 or 17
+    local etype = u16(event, offset)
+    local code = u16(event, offset + 2)
+    local value = u32(event, offset + 4)
+    if etype > 31 or (etype == 0 and code > 3) then
+        invalid_events = invalid_events + 1
+        if invalid_events >= 16 then reader_fail("corrupt_event_stream", 2) end
+    else invalid_events = 0 end
+    if etype ~= 0 then last_type, last_code = etype, code end
     if etype == 3 then
         if code == 53 or code == 0 then x = value end
         if code == 54 or code == 1 then y = value end
@@ -187,16 +240,21 @@ while true do
         else contact_reported = false end
     elseif etype == 0 and code == 0 and x and y and not contact_reported then
         contact_reported = true
-        note(string.format("[INPUT] touch received raw_x=%d raw_y=%d screen_x=%d screen_y=%d", x, y, x, y))
+        note(string.format("[INPUT] touch received raw_x=%d raw_y=%d", x, y))
         -- KS firmware has shipped both portrait and rotated input mappings.
         -- Prefer the supplied hint, then try every lossless rectangle transform.
         local order = {"direct", "swap", "invert_xy", "swap_invert_xy", "invert_x", "invert_y", "swap_invert_x", "swap_invert_y"}
         if transform_hint ~= "auto" then table.insert(order, 1, transform_hint) end
-        local action = nil
+        local action, px, py, lx, ly, chosen = nil, nil, nil, nil, nil, "none"
         for _, transform in ipairs(order) do
-            action = action_for_physical(x, y, transform)
-            if action then break end
+            action, px, py, lx, ly = action_for_physical(x, y, transform)
+            if action then chosen = transform; break end
         end
+        report({last_event_type=last_type, last_event_code=last_code,
+            last_raw_x=x, last_raw_y=y, last_physical_x=px or "outside",
+            last_physical_y=py or "outside", last_logical_x=lx or "outside",
+            last_logical_y=ly or "outside", last_transform=chosen,
+            last_action=action or "ignore_outside"})
         if action and action ~= "ignore" then finish(action) end
     end
 end

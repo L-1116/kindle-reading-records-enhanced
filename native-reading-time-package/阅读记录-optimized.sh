@@ -1247,11 +1247,13 @@ draw_count=0; refresh_kind=none
 refresh_region() {
     rx="$1"; ry="$2"; rw="$3"; rh="$4"; draw_count=$((draw_count+1))
     if [ "$draw_count" -eq 1 ] || [ $((draw_count%CLEAN_REFRESH_INTERVAL)) -eq 0 ]; then
-        # Only the first full-screen update on 5.18.1 avoids a forced flash.
-        if [ "$draw_count" -eq 1 ] && [ "${IS_FW_5181:-0}" = 1 ]; then fb -q -W GC16 -s
+        # The first 5.18.x refresh avoids a forced flash; later updates keep
+        # the existing waveform and cadence.
+        if [ "$draw_count" -eq 1 ] && [ "${COMPAT_PROFILE:-default}" = fw518 ]; then fb -q -W GC16 -s
         else fb -q -f -W GC16 -s; fi
         refresh_exit_status=$?; refresh_kind=GC16
-    else px="$(scale_x "$rx")"; py="$(scale_y "$ry")"; pw="$(scale_len "$rw")"; ph="$(scale_len "$rh")"; fb -q -W GC16_FAST -s "top=$py,left=$px,width=$pw,height=$ph" || fb -q -W GC16 -s "top=$py,left=$px,width=$pw,height=$ph"; refresh_kind=GC16_FAST; fi
+    else px="$(scale_x "$rx")"; py="$(scale_y "$ry")"; pw="$(scale_len "$rw")"; ph="$(scale_len "$rh")"; fb -q -W GC16_FAST -s "top=$py,left=$px,width=$pw,height=$ph" || fb -q -W GC16 -s "top=$py,left=$px,width=$pw,height=$ph"; refresh_exit_status=$?; refresh_kind=GC16_FAST; fi
+    return "$refresh_exit_status"
 }
 
 # Five small best-effort snapshots per launch, never per draw or tap.
@@ -1309,7 +1311,15 @@ cleanup() {
         stop_ui_child "$legacy_pid"; legacy_pid=""
     fi
     lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 0 >/dev/null 2>&1 || true; remove_session
-    if [ "$dashboard_active" -eq 1 ]; then lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true; sleep 1; "$FBINK" -q -f -W GC16 -s >/dev/null 2>&1 || true; fi
+    if [ "$dashboard_active" -eq 1 ]; then
+        lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
+        sleep 1
+        if [ "${COMPAT_PROFILE:-default}" = fw518 ]; then
+            "$FBINK" -q -W GC16 -s >/dev/null 2>&1 || true
+        else
+            "$FBINK" -q -f -W GC16 -s >/dev/null 2>&1 || true
+        fi
+    fi
     restore_orientation
 }
 # Installed before detect_screen can change orientation, including early fail.
@@ -1322,26 +1332,19 @@ fallback_to_legacy() {
     echo "$(date): renderer failed; switching to byte-preserved 9.6.3 dashboard"
     lipc-set-prop com.lab126.system toasterMessage "优化渲染异常，已切换兼容模式" >/dev/null 2>&1 || true
     metric_end legacy 1 1; remove_session
-    if [ "$ORIENTATION_CHANGED" = 1 ]; then
-        # Keep this shell's restore trap alive while the unmodified fallback
-        # uses portrait. No extra supervisor is needed on ordinary launches.
-        ui_child_launch=legacy
-        /bin/sh "$LEGACY" & legacy_pid=$!; ui_child_launch=""
-        wait "$legacy_pid"; legacy_code=$?; legacy_pid=""
-        [ "$legacy_code" -ne 0 ] || dashboard_active=0
-        exit "$legacy_code"
-    fi
-    trap - EXIT INT TERM HUP
-    exec /bin/sh "$LEGACY"
-    trap cleanup EXIT; trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
-    fail "无法启动原始 9.6.3 后备界面"
+    # Keep the cleanup trap active even when the old renderer fails.
+    ui_child_launch=legacy
+    /bin/sh "$LEGACY" & legacy_pid=$!; ui_child_launch=""
+    wait "$legacy_pid"; legacy_code=$?; legacy_pid=""
+    [ "$legacy_code" -ne 0 ] || dashboard_active=0
+    exit "$legacy_code"
 }
 
 perform_draw() {
     op="$1"; background="$2"; labels="$3"; rx="$4"; ry="$5"; rw="$6"; rh="$7"; metric_begin "$op"
-    [ "$background" = 1 ] && draw_background || [ "$background" = 0 ] || fallback_to_legacy
+    [ "$background" = 1 ] && draw_background || [ "$background" = 0 ] || fail "FBInk 无法绘制背景"
     draw_dynamic "$labels" || fallback_to_legacy
-    refresh_region "$rx" "$ry" "$rw" "$rh"; metric_end optimized 0 1
+    refresh_region "$rx" "$ry" "$rw" "$rh" || fail "FBInk 刷新失败"; metric_end optimized 0 1
 }
 
 # Both calendar and weekly chart drill into this single renderer/data path.
@@ -1392,12 +1395,12 @@ lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-p
 
 mode=daily; view_year="$(date +%Y)"; total_period=week; week_offset=0; book_filter=7d; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; today_date="$(date +%Y-%m-%d)"; selected_date="$today_date"; book_page=1; detail_page=1; detail_pages=1; day_detail_page=1; day_detail_pages=1; day_detail_source=daily; month_detail_source=daily; book_detail_filter=7d; book_detail_page=1
 first_refresh_mode=GC16_flash
-[ "${IS_FW_5181:-0}" = 1 ] && first_refresh_mode=GC16_nonflash
+[ "${COMPAT_PROFILE:-default}" = fw518 ] && first_refresh_mode=GC16_nonflash
 startup_stage first_render_begin
-metric_begin first_open; build_cache || fallback_to_legacy; selected_date="$today_date"; draw_background || fallback_to_legacy; draw_dynamic 1 || fallback_to_legacy
+metric_begin first_open; build_cache || fail "启动缓存构建失败"; selected_date="$today_date"; draw_background || fail "FBInk 无法绘制首屏背景"; draw_dynamic 1 || fail "首屏 Lua/FBInk 渲染失败"
 startup_stage first_render_done
 startup_stage first_refresh_begin
-refresh_region 0 0 1272 1696
+refresh_region 0 0 1272 1696 || fail "FBInk 首屏刷新失败"
 startup_stage first_refresh_done
 metric_end optimized 0 1
 startup_touch_pending=1
@@ -1412,9 +1415,9 @@ while :; do
         ui_child_launch=touch
         lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter" > "$SESSION_DIR/touch-action" & touch_pid=$!; ui_child_launch=""
         wait "$touch_pid"; touch_code=$?; touch_pid=""
-        if [ "$touch_code" -eq 0 ]; then action="$(cat "$SESSION_DIR/touch-action")"; else action=exit; fi
+        if [ "$touch_code" -eq 0 ]; then action="$(cat "$SESSION_DIR/touch-action")"; else fail "触摸 Lua 退出码 $touch_code"; fi
     else
-        action="$(lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter")" || action=exit
+        action="$(lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter")" || fail "触摸 Lua 启动或读取失败"
     fi
     echo "$(date): dashboard action=$action mode=$mode"
     case "$action" in

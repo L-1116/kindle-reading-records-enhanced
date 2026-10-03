@@ -12,7 +12,7 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ARCHIVE = ROOT / "dist/ReadingTime-v9.7.5-KS-test1.zip"
+ARCHIVE = ROOT / "dist/ReadingTime-v9.7.5-KS-touch-compat-hotfix.zip"
 SHELL = next(
     path for path in (shutil.which("sh"), r"C:\Program Files\Git\bin\sh.exe")
     if path and Path(path).is_file()
@@ -88,7 +88,7 @@ with tempfile.TemporaryDirectory(prefix="ks-install-", dir=ROOT / "build") as na
     assert (documents / "阅读记录.sh").is_file()
     assert (documents / "reading-records-ks-force-exit.sh").is_file()
     assert (usb / "extensions/reading-records-installer/menu.json").is_file()
-    assert (base / "VERSION").read_text(encoding="utf-8").strip() == "9.7.5-ks-test1"
+    assert (base / "VERSION").read_text(encoding="utf-8").strip() == "9.7.5-ks-test1-touch-compat"
     assert not (base / "releases/9.7.5-test/bin/reading-records.sh").exists()
 
     # Start through the installed launcher, render once, consume an exit touch

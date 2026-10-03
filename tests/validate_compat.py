@@ -85,6 +85,7 @@ cases = {
     "5.18.1.2": "fw518",
     "5.18.1.1.1": "fw518",
     "5.18.2": "fw518",
+    "5.18.4": "fw518",
     "5.18.10": "fw518",
     "5.18.5": "fw518",
     "5.18.5.0.1": "fw518",
@@ -95,7 +96,7 @@ for firmware, expected_profile in cases.items():
     pretty.write_text(f"Kindle Firmware Version {firmware} (mock build)\n", encoding="utf-8")
     version_txt.write_text("System Software Version fallback\n", encoding="utf-8")
     result = subprocess.run(
-        [SH, "-c", '. "$1"; printf "%s|%s|%s|%s|%s|%s|%s\\n" "$FIRMWARE_FULL" "$FIRMWARE_MAJOR" "$FIRMWARE_MINOR" "$DEVICE_TYPE" "$HARD_FLOAT" "$COMPAT_PROFILE" "$IS_FW_5181"', "test", detect_env.as_posix()],
+        [SH, "-c", '. "$1"; printf "%s|%s|%s|%s|%s|%s\\n" "$FIRMWARE_FULL" "$FIRMWARE_MAJOR" "$FIRMWARE_MINOR" "$DEVICE_TYPE" "$HARD_FLOAT" "$COMPAT_PROFILE"', "test", detect_env.as_posix()],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -103,8 +104,7 @@ for firmware, expected_profile in cases.items():
         env={**os.environ, "PATH": SHELL_PATH, "READING_PRETTYVERSION_PATH": pretty.as_posix(), "READING_VERSION_PATH": version_txt.as_posix(), "READING_DEVICETYPE_PATH": device_type.as_posix(), "READING_ARMHF_LOADER_PATH": loader.as_posix()},
         check=True,
     )
-    expected_5181 = int(firmware == "5.18.1" or firmware.startswith("5.18.1."))
-    assert result.stdout.strip() == f"{firmware}|5|{firmware.split('.')[1]}|KindleMock|1|{expected_profile}|{expected_5181}", result.stdout
+    assert result.stdout.strip() == f"{firmware}|5|{firmware.split('.')[1]}|KindleMock|1|{expected_profile}", result.stdout
 
 # Numeric comparison must not regress to lexical ordering.
 comparison = subprocess.run(
@@ -124,21 +124,29 @@ base = SANDBOX / "reading-time"
 docs = SANDBOX / "documents"
 release = base / "releases/9.7.5-test"
 mockbin = SANDBOX / "mockbin"
-for folder in (base / "bin", base / "compat", base / "fonts", release / "bin", release / "ui-calendar", docs, mockbin):
+for folder in (base / "bin", base / "compat", base / "fonts", release / "bin", release / "ui-calendar", release / "render-assets", docs, mockbin):
     folder.mkdir(parents=True, exist_ok=True)
 shutil.copy2(detect_env, base / "compat/detect_env.sh")
 shutil.copy2(PKG / "diagnostics.sh", base / "bin/diagnostics.sh")
 shutil.copy2(PKG / "launch.sh", base / "bin/launch.sh")
 (base / "reading-time.tsv").write_text("date\tbook_id\tseconds\ttitle\n", encoding="utf-8")
 (base / "fonts/NotoSansCJKsc-Regular.otf").write_bytes(b"font")
-(release / "ui-calendar/daily.png").write_bytes(b"png")
+for name in ("daily.png", "total.png", "books.png", "day_detail.png", "month_detail.png", "week_trend.png", "book_detail.png"):
+    (release / "ui-calendar" / name).write_bytes(b"png")
+for name in ("reading-insights-touch-ui.lua", "reading-insights-render.lua", "reading-insights-cover.lua", "reading-insights-titles.lua", "reading-insights-title-widths.lua"):
+    (release / "bin" / name).write_text("return true\n", encoding="utf-8")
+for name in ("dynamic-glyphs.pgm", "dynamic-glyphs.tsv"):
+    (release / "render-assets" / name).write_text("mock\n", encoding="utf-8")
 main = release / "bin/reading-records.sh"
-main.write_text('#!/bin/sh\necho "launcher-ok profile=$COMPAT_PROFILE fw5181=$IS_FW_5181"\nexit 0\n', encoding="utf-8", newline="\n")
+main.write_text('#!/bin/sh\necho "launcher-ok profile=$COMPAT_PROFILE"\nexit 0\n', encoding="utf-8", newline="\n")
 fbink = mockbin / "fbink"
 fbink.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
 lua = mockbin / "lua"
 lua.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
-subprocess.run([SH, "-c", '/usr/bin/chmod 755 "$@"', "test", (base / "bin/launch.sh").as_posix(), (base / "bin/diagnostics.sh").as_posix(), main.as_posix(), fbink.as_posix(), lua.as_posix()], check=True)
+lipc_calls = SANDBOX / "lipc-calls.txt"
+lipc = mockbin / "lipc-set-prop"
+lipc.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$READING_TEST_LIPC_LOG"\n', encoding="utf-8", newline="\n")
+subprocess.run([SH, "-c", '/usr/bin/chmod 755 "$@"', "test", (base / "bin/launch.sh").as_posix(), (base / "bin/diagnostics.sh").as_posix(), main.as_posix(), fbink.as_posix(), lua.as_posix(), lipc.as_posix()], check=True)
 
 launch_env = {
     "READING_BASE": base.as_posix(),
@@ -149,6 +157,7 @@ launch_env = {
     "READING_VERSION_PATH": version_txt.as_posix(),
     "READING_DEVICETYPE_PATH": device_type.as_posix(),
     "READING_ARMHF_LOADER_PATH": loader.as_posix(),
+    "READING_TEST_LIPC_LOG": lipc_calls.as_posix(),
     "PATH": mockbin.as_posix() + ":/usr/bin:/bin:" + os.environ.get("PATH", ""),
 }
 pretty.write_text("Kindle 5.18.6\n", encoding="utf-8")
@@ -158,19 +167,18 @@ assert "launcher-ok" in (base / "last-launch.stdout").read_text(encoding="utf-8"
 success_status = (base / "last-launch-status.txt").read_text(encoding="utf-8")
 assert "stage=complete" in success_status, success_status
 
-# The narrow flag is exported to the UI; the existing ABI gate still applies
-# to every 5.18.x, including versions outside the refresh workaround.
+# Firmware labels are logged, but a successful executable probe decides
+# whether a runtime can launch even when the loader heuristic says soft-float.
 for firmware, expected_profile in cases.items():
     pretty.write_text(f"Kindle {firmware}\n", encoding="utf-8")
     result = subprocess.run([SH, (base / "bin/launch.sh").as_posix()], capture_output=True, env={**os.environ, **launch_env})
     assert result.returncode == 0, (firmware, result.stderr)
-    expected_5181 = int(firmware == "5.18.1" or firmware.startswith("5.18.1."))
-    assert f"profile={expected_profile} fw5181={expected_5181}" in (base / "last-launch.stdout").read_text(encoding="utf-8")
+    assert f"profile={expected_profile}" in (base / "last-launch.stdout").read_text(encoding="utf-8")
     result = subprocess.run(
         [SH, (base / "bin/launch.sh").as_posix()], capture_output=True,
         env={**os.environ, **launch_env, "READING_ARMHF_LOADER_PATH": (SANDBOX / "missing-loader").as_posix(), "READING_ARCH_OVERRIDE": "armv7l"},
     )
-    assert result.returncode == (22 if expected_profile == "fw518" else 0), (firmware, result.stderr)
+    assert result.returncode == 0, (firmware, result.stderr)
 pretty.write_text("Kindle 5.18.6\n", encoding="utf-8")
 
 main.write_text("#!/bin/sh\necho simulated-ui-failure >&2\nexit 7\n", encoding="utf-8", newline="\n")
@@ -192,6 +200,64 @@ manual = subprocess.run([SH, (base / "bin/diagnostics.sh").as_posix()], capture_
 assert manual.returncode == 0, manual.stderr
 assert (docs / "reading-records-diagnostic.txt").read_bytes() == (docs / "阅读记录诊断.txt").read_bytes()
 assert "simulated-ui-failure" in (docs / "reading-records-diagnostic.txt").read_text(encoding="utf-8")
+
+# Preflight failures must occur before the UI can alter the framebuffer.
+history_before = (base / "reading-time.tsv").read_bytes()
+font_before = (base / "fonts/NotoSansCJKsc-Regular.otf").read_bytes()
+def launch(extra: dict[str, str] | None = None) -> tuple[int, str]:
+    lipc_calls.unlink(missing_ok=True)
+    result = subprocess.run([SH, (base / "bin/launch.sh").as_posix()], capture_output=True,
+                            env={**os.environ, **launch_env, **(extra or {})})
+    log = (base / "launch-last.log").read_text(encoding="utf-8", errors="replace")
+    for key in ("timestamp", "firmware", "kernel", "machine", "arch", "detected_env",
+                "hard_float", "selected_runtime", "selected_lua", "selected_fbink",
+                "ui_entry", "screen_width", "screen_height", "orientation",
+                "launch_command", "primary_probe_result", "fallback_used",
+                "exit_code", "error_stage"):
+        assert f"{key}=" in log, key
+    assert (base / "reading-time.tsv").read_bytes() == history_before
+    if (base / "fonts/NotoSansCJKsc-Regular.otf").exists():
+        assert (base / "fonts/NotoSansCJKsc-Regular.otf").read_bytes() == font_before
+    if result.returncode:
+        assert "com.lab126.appmgrd start app://com.lab126.KPPMainApp?view=KPP_LIBRARY" in lipc_calls.read_text(encoding="utf-8")
+    return result.returncode, log
+
+main.rename(main.with_suffix(".missing"))
+code, log = launch()
+assert code == 50 and "error_stage=preflight" in log
+main.with_suffix(".missing").rename(main)
+main_source = main.read_text(encoding="utf-8")
+main.write_text("#!/bin/sh\nif then\n", encoding="utf-8", newline="\n")
+code, log = launch()
+assert code == 53 and "error_stage=preflight" in log
+main.write_text(main_source, encoding="utf-8", newline="\n")
+font = base / "fonts/NotoSansCJKsc-Regular.otf"
+font.rename(font.with_suffix(".missing"))
+code, log = launch()
+assert code == 51 and "error_stage=preflight" in log
+font.with_suffix(".missing").rename(font)
+
+lua.rename(lua.with_suffix(".missing"))
+code, log = launch()
+assert code == 32 and "primary_probe_result=lua:failed" in log
+lua.with_suffix(".missing").rename(lua)
+
+broken = mockbin / "broken-fbink"
+broken.write_text("#!/bin/sh\necho primary-probe-error >&2\nexit 6\n", encoding="utf-8", newline="\n")
+subprocess.run([SH, "-c", '/usr/bin/chmod 755 "$1"', "test", broken.as_posix()], check=True)
+code, log = launch({"READING_FBINK": broken.as_posix()})
+assert code == 7 and "fbink_fallback_reason=" in log and "fallback_used=1" in log
+assert any(line.startswith("selected_fbink=") and line.endswith("/mockbin/fbink") for line in log.splitlines()) and "primary-probe-error" in log, log
+
+fbink.rename(fbink.with_suffix(".missing"))
+code, log = launch({"READING_FBINK": broken.as_posix()})
+assert code == 31 and "error_stage=preflight" in log
+fbink.with_suffix(".missing").rename(fbink)
+
+main.write_text('#!/bin/sh\necho run-marker\nexit 0\n', encoding="utf-8", newline="\n")
+code, log = launch()
+assert code == 0 and "run-marker" in log and "primary-probe-error" not in log
+assert log.count("timestamp=") == 1 and (base / "launch-last.log").stat().st_size < 10000
 
 # Internal mode ignores a inherited manual destination and does not even
 # require/create the documents directory.

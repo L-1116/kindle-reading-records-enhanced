@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STANDARD = ROOT / "native-reading-time-package"
 KS = ROOT / "ks-package"
 DIST = ROOT / "dist"
-VERSION = "v9.7.5-KS-test1"
+VERSION = "v9.7.5-KS-touch-compat-hotfix"
 ARCHIVE = DIST / f"ReadingTime-{VERSION}.zip"
 MANIFEST = "PACKAGE-MANIFEST-KS.json"
 
@@ -62,6 +62,7 @@ def main() -> None:
         "native-reading-time-package/Install-Native-Reading-Time-KS.sh",
         "native-reading-time-package/阅读记录-ks.sh",
         "native-reading-time-package/reading-insights-touch-ks.lua",
+        "native-reading-time-package/reading-insights-touch-probe-ks.lua",
         "native-reading-time-package/force-exit-ks.sh",
         "native-reading-time-package/ui-scribe/daily.png",
     }

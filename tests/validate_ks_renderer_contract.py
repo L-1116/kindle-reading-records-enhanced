@@ -127,6 +127,8 @@ def run_case(name: str, history: str, actions: tuple[str, ...] = ("tab_books", "
         shutil.copy2(KS, release / "bin/reading-records-ks.sh")
         shutil.copy2(ROOT / "ks-package/native-reading-time-package/reading-insights-touch-ks.lua",
                      release / "bin/reading-insights-touch-ks.lua")
+        shutil.copy2(ROOT / "ks-package/native-reading-time-package/reading-insights-touch-probe-ks.lua",
+                     release / "bin/reading-insights-touch-probe-ks.lua")
         for helper in ("reading-insights-render.lua", "reading-insights-cache.awk",
                        "reading-insights-cover.lua", "reading-insights-titles.lua",
                        "reading-insights-title-widths.lua"):

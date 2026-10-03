@@ -11,7 +11,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 VALIDATION = ROOT / "build/validation"
-VERSION = "v9.7.5-compat-v3"
+VERSION = "v9.7.5-compat-v3-fw518-hotfix"
 ARCHIVE = DIST / f"kindle-reading-records-{VERSION}.zip"
 RESOLVER = "native-reading-time-package/阅读记录-optimized.sh"
 MANIFEST = "PACKAGE-MANIFEST.json"

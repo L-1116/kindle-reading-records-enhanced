@@ -4,9 +4,12 @@
 from pathlib import Path
 import os
 import sys
+sys.stdout.reconfigure(encoding="utf-8")
 
 
 target = Path(sys.argv[1]).name if len(sys.argv) > 1 else ""
+if sys.argv[1:2] == ["-e"]:
+    raise SystemExit(0)
 
 
 def native_path(value: str) -> Path:
@@ -22,6 +25,13 @@ if target == "reading-insights-touch-ks.lua":
         actions_file.write_text("\n".join(actions[1:]) + ("\n" if len(actions) > 1 else ""), encoding="utf-8")
     else:
         print("exit")
+    raise SystemExit(0)
+if target == "reading-insights-touch-probe-ks.lua":
+    base = native_path(sys.argv[2])
+    (base / "touch-last.log").write_text("selected_touch=" + os.environ.get("READING_TOUCH_DEVICE", "unknown") + "\nevent_struct_size=16\n", encoding="utf-8")
+    print(os.environ.get("READING_TOUCH_DEVICE", "unknown"))
+    print("16")
+    print("unknown\nunknown\nunknown\nunknown")
     raise SystemExit(0)
 if target in {"reading-insights-titles.lua", "reading-insights-title-widths.lua", "reading-insights-cover.lua"}:
     raise SystemExit(0)

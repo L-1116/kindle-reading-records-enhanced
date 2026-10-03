@@ -129,8 +129,6 @@ printf 'LEGACY orientation=%s\n' "$(cat "$STATE")" >> "$TRACE"
 if [ -n "$FALLBACK_SIGNAL" ]; then
     # Parent must terminate a fallback that traps TERM without exiting.
     trap ':' TERM
-    /bin/sleep 30 & reader_pid=$!
-    echo "$reader_pid" > "$READER_PID"
     kill -"$FALLBACK_SIGNAL" "$(cat "$UI_PID")"
     while :; do /bin/sleep 1; done
 fi
@@ -163,14 +161,14 @@ find_touch_device() { TOUCH="$READING_TOUCH_DEVICE"; }
 remove_session() { echo REMOVE_SESSION >> "$TRACE"; }
 metric_begin() { :; }; metric_end() { :; }
 build_cache() { today_date=2026-10-02; }
-draw_background() { [ "$FALLBACK" != 1 ]; }
-draw_dynamic() { [ "$FAIL_LATER" != 1 ] || [ "$mode" = daily ]; }
+draw_background() { [ "${DRAW_FAIL:-0}" != 1 ]; }
+draw_dynamic() { [ "$mode" = daily ] || { [ "$FALLBACK" != 1 ] && [ "$FAIL_LATER" != 1 ]; }; }
 weekday_offset() { echo 3; }; days_in_month() { echo 31; }
 lua() {
     echo UI_READY >> "$TRACE"
     if [ -n "$BLOCK_SIGNAL" ]; then exec "$BLOCK_READER"; fi
     [ -z "$UI_SIGNAL" ] || kill -"$UI_SIGNAL" "$$"
-    if [ "$FAIL_LATER" = 1 ]; then echo tab_total; else echo exit; fi
+    if [ "$FAIL_LATER" = 1 ] || [ "$FALLBACK" = 1 ]; then echo tab_total; else echo exit; fi
 }
 '''
     # Actual UI resource checks, first refresh, listener boundary and exit.
@@ -209,6 +207,7 @@ lua() {
         ("timeout", {"PORTRAIT_AT": "99"}, 1, ["U", "R"]),
         ("last-poll-succeeds", {"PORTRAIT_AT": "6"}, 0, ["U", "R"]),
         ("early-resource-fail", {"REMOVE_FONT": "1"}, 1, ["U", "R"]),
+        ("fbink-draw-fail", {"DRAW_FAIL": "1"}, 1, ["U", "R"]),
         ("later-ui-fail", {"FAIL_LATER": "1", "LEGACY_EXIT": "7"}, 7, ["U", "R"]),
         ("fallback", {"FALLBACK": "1"}, 0, ["U", "R"]),
         ("fallback-unknown-lock", {"FALLBACK": "1", "GET_EXIT": "1"}, 0, ["U"]),
@@ -253,6 +252,11 @@ lua() {
                 sets = [row.split()[-1] for row in rows if row.startswith("LIPC com.lab126.winmgr orientationLock ")]
                 assert result.returncode == code, (shell, firmware, label, result.returncode, result.stdout, result.stderr, rows)
                 assert sets == expected_sets, (label, sets, rows)
+                for index, row in enumerate(rows):
+                    if row == "LIPC com.lab126.appmgrd start app://com.lab126.KPPMainApp?view=KPP_LIBRARY":
+                        restore_refresh = next((item for item in rows[index + 1:] if item.startswith("FB ")), None)
+                        expected_refresh = "FB -q -W GC16 -s" if firmware.startswith("5.18.") else "FB -q -f -W GC16 -s"
+                        assert restore_refresh == expected_refresh, (label, firmware, restore_refresh, rows)
                 assert canary.poll() is None, (label, "unrelated process was terminated")
                 if len(expected_sets) == 2:
                     expected_restored = "U" if overrides.get("RESTORE_FAIL") == "1" else expected_sets[-1]
@@ -261,7 +265,7 @@ lua() {
                     assert "GET" not in rows and int(count.read_text()) == 1
                 if code == 0 and overrides.get("FALLBACK") != "1":
                     first = next(row for row in rows if row.startswith("FB "))
-                    assert first == ("FB -q -W GC16 -s" if firmware == "5.18.1" else "FB -q -f -W GC16 -s"), (label, first)
+                    assert first == ("FB -q -W GC16 -s" if firmware.startswith("5.18.") else "FB -q -f -W GC16 -s"), (label, first)
                     assert "UI_READY" in rows
                     before_refresh = rows[:rows.index(first)]
                     sleeps = sum(row == "SLEEP 1" for row in before_refresh)

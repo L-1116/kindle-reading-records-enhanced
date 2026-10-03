@@ -31,6 +31,7 @@ def setup(root: Path, *, version: str, geometry: str, lock: str, actions: str = 
         path.mkdir(parents=True)
     shutil.copy2(KS / "阅读记录-ks.sh", release / "bin/reading-records-ks.sh")
     shutil.copy2(KS / "reading-insights-touch-ks.lua", release / "bin/reading-insights-touch-ks.lua")
+    shutil.copy2(KS / "reading-insights-touch-probe-ks.lua", release / "bin/reading-insights-touch-probe-ks.lua")
     shutil.copy2(KS / "launch-ks.sh", base / "bin/launch-ks.sh")
     shutil.copy2(KS / "diagnostics-ks.sh", base / "bin/diagnostics-ks.sh")
     shutil.copy2(KS / "install.sh", root / "install-ks.sh")
@@ -47,6 +48,8 @@ def setup(root: Path, *, version: str, geometry: str, lock: str, actions: str = 
 case "$1" in
     *reading-insights-render.lua) [ "${KS_SIM_RENDER_FAIL:-0}" = 1 ] && exit 9;;
     *reading-insights-touch-ks.lua)
+        [ "${KS_SIM_TOUCH_FAIL:-0}" = 1 ] && exit 2
+        [ "${KS_SIM_TOUCH_DELAY:-0}" = 0 ] || sleep "$KS_SIM_TOUCH_DELAY"
         if [ "${KS_SIM_TOUCH_BLOCK:-0}" = 1 ]; then
             printf '%s\n' "$$" > "$READING_BASE/touch-child.pid"
             (sleep 1; kill -"${KS_SIM_SIGNAL:-TERM}" "$(cat "$READING_BASE/reading-time-ks-ui.pid")") &
@@ -149,6 +152,11 @@ def run_case(label: str, *, version: str = "5.18.1", geometry: str = "1860 2480"
             full = [line for line in fb if "-W GC16 -s" in line and "top=" not in line]
             assert full and ("-f" in full[0].split()) == expect_first_flash, (label, full[:2])
         assert (base / "last-launch-diagnostic.txt").exists() == (expected_code != 0), label
+        if env.get("KS_SIM_TOUCH_FAIL") == "1":
+            launch = (base / "launch-last.log").read_text(encoding="utf-8", errors="replace")
+            touch = (base / "touch-last.log").read_text(encoding="utf-8", errors="replace")
+            assert "error_stage=touch" in launch and "reader_exit_code=2" in touch, label
+            assert "KPP_LIBRARY" in trace, label
         assert not list((root / "documents").glob("*diagnostic*.txt")), label
         assert not list((base / "tmp").glob("native-reading-dashboard-ks.*")), label
         print(label + ": PASS")
@@ -163,7 +171,7 @@ def refresh_contract() -> None:
         trace = root / "fb.txt"
         runner = root / "refresh.sh"
         runner.write_text('''#!/bin/sh
-CLEAN_REFRESH_INTERVAL=6; draw_count=0; IS_FW_5181=1
+CLEAN_REFRESH_INTERVAL=6; draw_count=0; COMPAT_PROFILE=fw518
 scale_x() { echo "$1"; }; scale_y() { echo "$1"; }; scale_len() { echo "$1"; }
 fb() { printf '%s\\n' "$*" >> "$FB_TRACE"; case "$*" in *GC16_FAST*) return 1;; esac; return 0; }
 ''' + function + '''
@@ -197,8 +205,12 @@ def main() -> None:
     run_case("I TERM during touch wait", geometry="2480 1860", lock="R", overrides={"KS_SIM_TOUCH_BLOCK": "1"}, expected_code=1, expected_restore="R")
     run_case("I INT during touch wait", geometry="2480 1860", lock="R", overrides={"KS_SIM_TOUCH_BLOCK": "1", "KS_SIM_SIGNAL": "INT"}, expected_code=1, expected_restore="R")
     run_case("I HUP during touch wait", geometry="2480 1860", lock="R", overrides={"KS_SIM_TOUCH_BLOCK": "1", "KS_SIM_SIGNAL": "HUP"}, expected_code=1, expected_restore="R")
-    run_case("L 5.18.2", version="5.18.2", expect_first_flash=True)
+    run_case("L 5.18.2", version="5.18.2", expect_first_flash=False)
     run_case("M 5.19.1", version="5.19.1", expect_first_flash=True)
+    run_case("N touch reader failure restores Library", version="5.19.6",
+             overrides={"KS_SIM_TOUCH_FAIL": "1"}, expected_code=1)
+    run_case("O quiet reader waits 11 seconds", version="5.19.6",
+             overrides={"KS_SIM_TOUCH_DELAY": "11"})
     with tempfile.TemporaryDirectory(prefix="ks-manual-diagnostic-") as directory:
         root = Path(directory)
         base, env = setup(root, version="5.18.1", geometry="1860 2480", lock="U")
