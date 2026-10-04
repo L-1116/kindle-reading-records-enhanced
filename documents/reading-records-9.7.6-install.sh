@@ -5,7 +5,7 @@ HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)" || exit 1
 PAYLOAD="$HERE/阅读记录安装数据.tar"
 TMP="/tmp/reading-records-9.7.6-installer.$$"
 LOG="/mnt/us/reading-time/install-last.log"
-INSTALL_PID=
+INSTALL_PID=; SPAWNING=0; SIGNAL_STATUS=0; CLEANING=0
 EXPECTED_CKSUM=@PAYLOAD_CKSUM@
 EXPECTED_SIZE=@PAYLOAD_SIZE@
 mkdir -p /mnt/us/reading-time || exit 1
@@ -14,14 +14,16 @@ log() { printf '%s
 ' "$1" >> "$LOG"; }
 fail() { log "ERROR: $1"; lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; exit 1; }
 cleanup_tmp() {
-    trap '' INT TERM HUP
+    CLEANING=1
+    if [ -n "$INSTALL_PID" ]; then : > "$TMP/installer-cancel"; : > "$TMP/installer-start"; fi
     if [ -n "$INSTALL_PID" ]; then kill -TERM "$INSTALL_PID" 2>/dev/null || true; wait "$INSTALL_PID" 2>/dev/null || true; fi
     rm -f "$LOG.tar-list.$$"
     case "$TMP" in /tmp/reading-records-9.7.6-installer.[0-9]*) rm -rf "$TMP";; esac; }
+on_signal() { [ "$CLEANING" -eq 0 ] || return 0; SIGNAL_STATUS=$1; [ "$SPAWNING" -eq 1 ] || exit "$1"; }
 trap cleanup_tmp EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
-trap 'exit 129' HUP
+trap 'on_signal 130' INT
+trap 'on_signal 143' TERM
+trap 'on_signal 129' HUP
 [ -f "$PAYLOAD" ] || fail "缺少阅读记录安装数据，请把两个文件一起复制到 Kindle。"
 command -v cksum >/dev/null 2>&1 || fail "无法校验安装数据"
 checksum="$(cksum < "$PAYLOAD")" || fail "无法校验安装数据"
@@ -43,8 +45,12 @@ mkdir "$TMP" || fail "无法创建临时安装目录"
 tar_run -xf "$PAYLOAD" -C "$TMP" || fail "安装数据解包失败"
 INSTALLER="$TMP/native-reading-time-package/install.sh"
 [ -f "$INSTALLER" ] || fail "安装数据缺少正式安装器"
-/bin/sh "$INSTALLER" >> "$LOG" 2>&1 &
+SPAWNING=1
+/bin/sh "$INSTALLER" "$TMP/installer-start" >> "$LOG" 2>&1 &
 INSTALL_PID=$!
+SPAWNING=0
+[ "$SIGNAL_STATUS" -eq 0 ] || exit "$SIGNAL_STATUS"
+: > "$TMP/installer-start" || fail "无法开始安装事务"
 wait "$INSTALL_PID"; result=$?; INSTALL_PID=
 [ "$result" -eq 0 ] || fail "阅读记录安装失败，原安装文件已保留。"
 log 'SUCCESS: verified activation completed'

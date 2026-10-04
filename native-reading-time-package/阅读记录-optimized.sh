@@ -1159,8 +1159,7 @@ cleanup() { stop_ui_child; remove_session; }
 fallback_to_legacy() {
     echo "$(date): renderer failed; switching to original dashboard"
     metric_end legacy 1 1
-    /bin/sh "$LEGACY" &
-    UI_CHILD=$!
+    start_ui_child /bin/sh "$LEGACY"
     wait "$UI_CHILD"; legacy_result=$?; UI_CHILD=
     exit "$legacy_result"
 }
@@ -1212,9 +1211,9 @@ EOF
 
 . "$RELEASE/bin/runtime-child.sh" || fail "缺少运行清理模块"
 trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
-trap 'exit 129' HUP
+trap 'runtime_child_signal 130' INT
+trap 'runtime_child_signal 143' TERM
+trap 'runtime_child_signal 129' HUP
 detect_screen; find_touch_device
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
     [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] && [ -f "$UI_DIR/month_detail.png" ] && [ -f "$UI_DIR/week_trend.png" ] && [ -f "$UI_DIR/book_detail.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"

@@ -1,18 +1,25 @@
 #!/bin/sh
 # Internal transactional installer: the document Scriptlet is only a bootstrap.
+# A private bootstrap handoff: do no work until the owner has saved our PID
+# and processed any signal received during fork. Direct internal use has no gate.
+if [ -n "${1:-}" ]; then
+    case "$1" in /tmp/reading-records-9.7.6-installer.[0-9]*/installer-start) :;; *) exit 1;; esac
+    while [ ! -f "$1" ]; do sleep 1; done
+    [ ! -f "${1%-start}-cancel" ] || exit 143
+fi
 PKG="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)" || exit 1
 BASE="/mnt/us/reading-time"
 DOCS="/mnt/us/documents"
 RELEASE="$BASE/releases/9.7.6-5.19-normal"
 CONF="/etc/upstart/native-reading-time.conf"
 STAGE="$BASE/.install-9.7.6-normal.$$"
-LOCK="/tmp/reading-records-install.lock"
-ROOT_RW=0; ACTIVATED=0; COMMITTED=0; LOCK_OWNED=0; SERVICE_WAS_RUNNING=0; HAD_RELEASE=0
+LOCK="/tmp/reading-records-ui.lock"
+ROOT_RW=0; ACTIVATED=0; COMMITTED=0; LOCK_OWNED=0; SERVICE_WAS_RUNNING=0; HAD_RELEASE=0; ROLLBACK_FAILED=0
 log() { echo "$(date): $*"; }
 toast() { lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; }
 fail() { log "ERROR: $1"; toast "$1"; exit 1; }
-root_rw() { [ "$ROOT_RW" -eq 1 ] && return 0; mntroot rw >/dev/null 2>&1 || return 1; ROOT_RW=1; }
-root_ro() { if [ "$ROOT_RW" -eq 1 ]; then mntroot ro >/dev/null 2>&1 || log 'WARNING: rootfs restore failed'; ROOT_RW=0; fi; }
+root_rw() { [ "$ROOT_RW" -eq 1 ] && return 0; ROOT_RW=1; mntroot rw >/dev/null 2>&1; }
+root_ro() { if [ "$ROOT_RW" -eq 1 ]; then if mntroot ro >/dev/null 2>&1; then ROOT_RW=0; else log 'ERROR: rootfs restore failed'; return 1; fi; fi; }
 scan() { lipc-set-prop com.lab126.scanner doFullScan 1 >/dev/null 2>&1 || lipc-set-prop com.lab126.scanner triggerUpdate 1 >/dev/null 2>&1 || true; }
 atomic_file() {
     af_src="$1"; af_dst="$2"; af_mode="$3"; af_tmp="$2.new.$$"
@@ -24,25 +31,29 @@ rollback() {
     log 'rolling back runtime transaction'
     /sbin/initctl stop native-reading-time >/dev/null 2>&1 || true
     if [ -d "$STAGE/old-release" ]; then
-        rm -rf "$RELEASE"; mv "$STAGE/old-release" "$RELEASE" || log 'ERROR: release rollback failed'
+        rm -rf "$RELEASE"; mv "$STAGE/old-release" "$RELEASE" || { log 'ERROR: release rollback failed'; ROLLBACK_FAILED=1; }
     elif [ "$HAD_RELEASE" -eq 0 ]; then rm -rf "$RELEASE"; fi
-    root_rw || log 'ERROR: rootfs unavailable during rollback'
+    root_rw || { log 'ERROR: rootfs unavailable during rollback'; ROLLBACK_FAILED=1; }
     while IFS="$(printf '\t')" read -r slot dst; do
         rm -f "$dst.new.$$"
         if [ -f "$STAGE/backup/$slot" ]; then
-            cp -p "$STAGE/backup/$slot" "$dst.rollback.$$" && mv "$dst.rollback.$$" "$dst" || log "ERROR: rollback failed: $dst"
+            cp -p "$STAGE/backup/$slot" "$dst.rollback.$$" && mv "$dst.rollback.$$" "$dst" || { log "ERROR: rollback failed: $dst"; ROLLBACK_FAILED=1; }
         else rm -f "$dst"; fi
     done < "$STAGE/journal"
     /sbin/initctl reload-configuration >/dev/null 2>&1 || true
-    root_ro
+    root_ro || ROLLBACK_FAILED=1
     [ "$SERVICE_WAS_RUNNING" -eq 0 ] || /sbin/initctl start native-reading-time >/dev/null 2>&1 || true
     scan
 }
 finish() {
     trap '' INT TERM HUP
     if [ "$ACTIVATED" -eq 1 ] && [ "$COMMITTED" -eq 0 ]; then rollback; fi
-    root_ro
-    case "$STAGE" in /mnt/us/reading-time/.install-9.7.6-normal.[0-9]*) rm -rf "$STAGE";; esac
+    root_ro || log "ERROR: manual rootfs recovery required"
+    if [ "$ROLLBACK_FAILED" -eq 1 ]; then
+        log "ERROR: retained recovery backup: $STAGE"
+    else
+        case "$STAGE" in /mnt/us/reading-time/.install-9.7.6-normal.[0-9]*) rm -rf "$STAGE";; esac
+    fi
     if [ "$LOCK_OWNED" -eq 1 ]; then rm -f "$LOCK/pid"; rmdir "$LOCK" 2>/dev/null || true; fi
 }
 trap finish EXIT
@@ -73,15 +84,14 @@ case "$width:$height" in *[!0-9:]*|0:*|*:0)
 esac
 [ "$width" -lt "$height" ] && short="$width" || short="$height"
 [ "$short" -lt 1500 ] || fail '这是普通 Kindle 5.19 安装包，Kindle Scribe 请使用 KS 版本。'
-existing="$(cat "$BASE/VERSION" "$BASE/PACKAGE_VARIANT" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
-case "$existing" in *ks*|*scribe*) fail '检测到 KS 安装，请使用 KS 版本，禁止混装。';; esac
+existing="$(cat "$BASE/VERSION" "$BASE/PACKAGE_VARIANT" "$BASE/release-info" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+if printf '%s\n' "$existing" | grep -Eq '(^|[^[:alnum:]])(ks|scribe)([^[:alnum:]]|$)'; then fail '检测到 KS 安装，请使用 KS 版本，禁止混装。'; fi
 [ -x /sbin/initctl ] || fail '缺少 Kindle Upstart 服务'
-[ ! -d /tmp/reading-records-ui.lock ] || fail '请先退出阅读记录，再安装'
 if ! mkdir "$LOCK" 2>/dev/null; then
     old_pid="$(cat "$LOCK/pid" 2>/dev/null)"
     case "$old_pid" in ''|*[!0-9]*) fail '安装已经开始，请稍后重试';; esac
     kill -0 "$old_pid" 2>/dev/null && fail '安装已经开始，请稍后重试'
-    rm -f "$LOCK/pid"; rmdir "$LOCK" 2>/dev/null || fail '无法清理旧安装锁'
+    rm -f "$LOCK/pid" "$LOCK/ui-start" "$LOCK/ui-cancel"; rmdir "$LOCK" 2>/dev/null || fail '无法清理旧安装锁'
     mkdir "$LOCK" || fail '安装已经开始，请稍后重试'
 fi
 LOCK_OWNED=1; printf '%s\n' "$$" > "$LOCK/pid" || fail '无法写安装锁'
@@ -137,7 +147,7 @@ while IFS="$(printf '\t')" read -r src dst mode; do
     cmp -s "$PKG/$src" "$dst" || fail "部署后校验失败: $dst"
 done < "$STAGE/deploy"
 /sbin/initctl reload-configuration >/dev/null 2>&1 || fail '无法加载系统服务'
-root_ro
+root_ro || fail '无法恢复系统只读状态'
 /sbin/initctl start native-reading-time >/dev/null 2>&1 || fail '阅读记录服务启动失败'
 sleep 2
 /sbin/initctl status native-reading-time 2>/dev/null | grep -q 'start/running' || fail '阅读记录服务未运行'

@@ -86,9 +86,9 @@ scale_right() { printf '%s\n' $((SCREEN_W-ORIGIN_X-VIEW_W+$1*SCALE_NUM/SCALE_DEN
 . "$RELEASE/bin/runtime-child.sh" || fail "缺少运行清理模块"
 cleanup() { stop_ui_child; case "$SESSION_DIR" in /tmp/native-reading-legacy.[0-9]*) rm -rf "$SESSION_DIR";; esac; }
 trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
-trap 'exit 129' HUP
+trap 'runtime_child_signal 130' INT
+trap 'runtime_child_signal 143' TERM
+trap 'runtime_child_signal 129' HUP
 mkdir -p "$SESSION_DIR" || fail "无法创建后备界面缓存"
 chmod 700 "$SESSION_DIR" || fail "无法保护后备界面缓存"
 detect_screen

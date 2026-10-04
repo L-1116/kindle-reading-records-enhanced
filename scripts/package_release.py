@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import tarfile
@@ -66,12 +67,14 @@ def main() -> dict:
     assert bootstrap.splitlines()[1] == "# Name: 安装阅读记录"
     bootstrap = bootstrap.replace("@PAYLOAD_CKSUM@", str(checksum)).replace("@PAYLOAD_SIZE@", str(size)).encode("utf-8")
     assert b"@PAYLOAD_" not in bootstrap and len(bootstrap) < 8192
-    with zipfile.ZipFile(ARCHIVE, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+    temporary = ARCHIVE.with_suffix(".zip.tmp")
+    with zipfile.ZipFile(temporary, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for name, raw, mode in [(BOOTSTRAP, bootstrap, 0o755), (PAYLOAD, payload, 0o644)]:
             entry = zipfile.ZipInfo(name, date_time=(2026, 10, 4, 0, 0, 0))
             entry.create_system = 3
             entry.external_attr = (0o100000 | mode) << 16
             archive.writestr(entry, raw, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+    os.replace(temporary, ARCHIVE)
     with zipfile.ZipFile(ARCHIVE) as archive:
         assert archive.namelist() == [BOOTSTRAP, PAYLOAD]
         assert archive.testzip() is None
