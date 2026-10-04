@@ -264,8 +264,9 @@ catalog_row_for_book() {
     [ -r "$CATALOG" ] || return 1
     awk -F '\t' -v id="$1" -v title="$2" '
         function norm(s){s=tolower(s);sub(/\.(epub|mobi|pdf)$/, "", s);return s}
-        id!="" && id!="unknown" {if($3==id)print;next}
-        title!="" && norm($2)==norm(title) {print}
+        id!="" && id!="unknown" && $3==id {print;found=1;next}
+        title!="" && norm($2)==norm(title) {fallback=fallback $0 ORS}
+        END {if(!found)printf "%s",fallback}
     ' "$CATALOG" | {
         best_rank=-1; best_row=''
         while IFS= read -r candidate_row; do

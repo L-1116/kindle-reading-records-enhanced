@@ -116,7 +116,8 @@ done
 resolveBookCover A Book > "{(d.root / 'resolved-A').as_posix()}"
 resolveBookCover P Book > "{(d.root / 'resolved-P').as_posix()}"
 resolveBookCover B Book > "{(d.root / 'resolved-B').as_posix()}" || exit 42
-! resolveBookCover WRONG 'Repeated title' > "{(d.root / 'resolved-wrong').as_posix()}" || exit 8
+! resolveBookCover NO 'Repeated title' > "{(d.root / 'resolved-wrong').as_posix()}" || exit 8
+resolveBookCover WRONG 'Repeated title' > "{(d.root / 'resolved-title-fallback').as_posix()}" || exit 9
 rm -rf "$SESSION_DIR"
 '''
 script = d.root / 'cover-regression.sh'
@@ -129,6 +130,7 @@ assert selected['C'][3] == thumb.as_posix() and selected['C'][4] == mobi.as_posi
 assert selected['P'][3] == thumb.as_posix()
 assert selected['E'][4] == mobi.as_posix()
 assert selected['S'][4] == epub.as_posix()
+assert (d.root / 'resolved-title-fallback').read_text(encoding='utf-8').strip() == thumb.as_posix()
 assert (d.root / 'resolved-A').read_text(encoding="utf-8").strip() == thumb.as_posix()
 assert (d.root / 'resolved-P').read_text(encoding="utf-8").strip() == thumb.as_posix()
 cover = Path((d.root / 'resolved-B').read_text(encoding="utf-8").strip())
@@ -137,7 +139,7 @@ assert (d.base / 'book-covers/old.jpg').read_text(encoding="utf-8") == 'old cach
 assert 'OLDMISS' in (d.base / 'book-cover-misses.tsv').read_text(encoding="utf-8")
 assert 'OLD\t' in (d.base / 'book-cover-cache.tsv').read_text(encoding="utf-8")
 d.no_temporary()
-passed('duplicate rows: empty first row, stale thumbnail, usable locations, preference ranking, PDF thumbnail, actual EPUB extraction, ID isolation, preserved caches')
+passed('duplicate rows: empty first row, stale thumbnail, usable locations, preference ranking, PDF thumbnail, actual EPUB extraction, matching ID isolation, baseline title fallback when ID absent, preserved caches')
 
 result = {'result': 'PASS', 'checks': checks, 'case_count': len(checks), 'baseline_sha': baseline,
           'limits': ['Real repository/shell/Lua fixtures; no live Kindle catalog queried.']}
