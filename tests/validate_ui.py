@@ -60,6 +60,7 @@ assert sorted(stable_payload_changes)==sorted([
     'native-reading-time-package/reading-insights-title-widths.lua',
     'native-reading-time-package/launch.sh',
     'native-reading-time-package/runtime-child.sh',
+    'native-reading-time-package/runtime-lock.sh',
     'native-reading-time-package/install.sh',
     'native-reading-time-package/install-manifest.txt',
     'native-reading-time-package/cleanup-manifest.txt',

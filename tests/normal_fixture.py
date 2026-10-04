@@ -63,8 +63,14 @@ class Device:
         write(self.root / "unzip.py", "import sys,zipfile\nwith zipfile.ZipFile(sys.argv[2]) as z: sys.stdout.buffer.write(z.read(sys.argv[3]))\n")
         self.command("unzip", 'exec "$PYTHON_BIN" "$SIM/unzip.py" "$@"')
         self.command("id", "echo 0")
-        self.command("mntroot", 'echo "root $*" >> "$SIM/calls"; [ ! -f "$SIM/fail-root" ]')
+        self.command("mntroot", 'echo "root $*" >> "$SIM/calls"; case "$1" in rw) [ ! -f "$SIM/fail-root" ];; ro) [ ! -f "$SIM/fail-root-ro" ];; esac')
         self.command("sleep", "exit 0")
+        # Real host free space is unrelated to Kindle partitions. Individual
+        # preflight cases override this deterministic POSIX/BusyBox df fixture.
+        self.command("df", r'''echo "df $*" >> "$SIM/calls"
+echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'
+echo 'kindle 1048576 1024 1047552 1% /'
+''')
         self.command("lipc-get-prop", '\n'.join([
             '[ ! -f "$SIM/fail-get-$2" ] || exit 1', 'case "$2" in orientationLock) cat "$SIM/orientation";; *) cat "$SIM/$2";; esac']))
         self.command("lipc-set-prop", r'''echo "set $*" >> "$SIM/calls"
@@ -82,7 +88,7 @@ case "$(cat "$SIM/orientation")" in R|L) echo 'geometry 1696 1272 1696 1272 8';;
 ''')
         self.command("initctl", r'''echo "service $*" >> "$SIM/calls"
 case "$1" in
- status) [ -f "$SIM/running" ] && echo 'native-reading-time start/running, process 123';;
+ status) if [ -f "$SIM/running" ]; then echo 'native-reading-time start/running, process 123'; else echo 'native-reading-time stop/waiting'; fi;;
  stop) rm -f "$SIM/running"; exit 0;;
  start)
    if [ -f "$SIM/fail-service" ]; then rm -f "$SIM/fail-service"; exit 1; fi

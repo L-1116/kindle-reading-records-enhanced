@@ -14,7 +14,7 @@ fail() { echo "ERROR: $1"; lipc-set-prop com.lab126.system toasterMessage "$1" >
 cleanup_runtime_state() {
     [ "$CLEANED" -eq 0 ] || return 0
     CLEANED=1
-    if [ -n "$UI_PID" ]; then : > "$LOCK/ui-cancel"; : > "$LOCK/ui-start"; fi
+    if [ -n "$UI_PID" ]; then : > "$LOCK_OWNER/ui-cancel"; : > "$LOCK_OWNER/ui-start"; fi
     if [ -n "$UI_PID" ]; then kill -TERM "$UI_PID" 2>/dev/null || true; wait "$UI_PID" 2>/dev/null || true; UI_PID=; fi
     # Flags are set BEFORE each LIPC request: interruption during the request
     # must also restore the saved property, even when its return code is unknown.
@@ -31,7 +31,7 @@ cleanup_runtime_state() {
         lipc-set-prop com.lab126.winmgr orientationLock "$ORIGINAL_ORIENTATION" || echo 'restore orientation failed'
         echo "orientation_restore=$ORIGINAL_ORIENTATION"
     fi
-    if [ "$LOCK_OWNED" -eq 1 ]; then rm -f "$LOCK/pid" "$LOCK/ui-start" "$LOCK/ui-cancel"; rmdir "$LOCK" 2>/dev/null || true; fi
+    if [ "$LOCK_OWNED" -eq 1 ]; then release_runtime_lock; fi
 }
 on_signal() { [ "$CLEANED" -eq 0 ] || return 0; SIGNAL_STATUS=$1; [ "$SPAWNING" -eq 1 ] || exit "$1"; }
 trap cleanup_runtime_state EXIT
@@ -39,15 +39,8 @@ trap 'on_signal 130' INT
 trap 'on_signal 143' TERM
 trap 'on_signal 129' HUP
 # Reject concurrent sessions before taking any system-state snapshot.
-if ! mkdir "$LOCK" 2>/dev/null; then
-    old_pid="$(cat "$LOCK/pid" 2>/dev/null)"
-    case "$old_pid" in ''|*[!0-9]*) fail "阅读记录已在启动，请稍后重试";; esac
-    kill -0 "$old_pid" 2>/dev/null && fail "阅读记录已经打开"
-    rm -f "$LOCK/pid" "$LOCK/ui-start" "$LOCK/ui-cancel"; rmdir "$LOCK" 2>/dev/null || fail "无法清理旧会话锁"
-    mkdir "$LOCK" 2>/dev/null || fail "阅读记录已经打开"
-fi
-LOCK_OWNED=1
-printf '%s\n' "$$" > "$LOCK/pid" || fail "无法记录会话锁"
+. "$RELEASE/bin/runtime-lock.sh" || fail "缺少会话锁模块，请重新安装"
+acquire_runtime_lock || fail "阅读记录已经打开或安装正在进行，请稍后重试"
 [ -r "$MAIN" ] || fail "缺少阅读记录运行文件，请重新安装"
 /bin/sh -n "$MAIN" || fail "阅读记录运行文件损坏"
 read_geometry() {
@@ -86,14 +79,14 @@ POWER_PENDING=1; lipc-set-prop com.lab126.powerd preventScreenSaver 1 || fail "�
 UI_ENTERED=1
 SPAWNING=1
 (
-    while [ ! -f "$LOCK/ui-start" ]; do sleep 1; done
-    [ ! -f "$LOCK/ui-cancel" ] || exit 143
+    while [ ! -f "$LOCK_OWNER/ui-start" ]; do sleep 1; done
+    [ ! -f "$LOCK_OWNER/ui-cancel" ] || exit 143
     exec /bin/sh "$MAIN"
 ) &
 UI_PID=$!
 SPAWNING=0
 [ "$SIGNAL_STATUS" -eq 0 ] || exit "$SIGNAL_STATUS"
-: > "$LOCK/ui-start" || fail "无法开始阅读记录会话"
+: > "$LOCK_OWNER/ui-start" || fail "无法开始阅读记录会话"
 wait "$UI_PID"; result=$?; UI_PID=
 echo "ui_exit=$result"
 exit "$result"

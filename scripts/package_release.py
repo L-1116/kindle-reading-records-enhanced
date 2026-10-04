@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PKG = ROOT / "native-reading-time-package"
 VERSION = "9.7.6-5.19-normal"
 BOOTSTRAP = "reading-records-9.7.6-install.sh"
-PAYLOAD = "阅读记录安装数据.tar"
+PAYLOAD = "reading-records-9.7.6-data.tar"
 ARCHIVE = ROOT / "dist" / f"ReadingTime-{VERSION}.zip"
 OUT = ROOT / "build/validation"
 

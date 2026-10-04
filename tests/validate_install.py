@@ -10,7 +10,7 @@ def passed(name, detail=""):
 with zipfile.ZipFile(ARCHIVE) as z:
     assert z.namelist() == [BOOTSTRAP, PAYLOAD] and z.testzip() is None
     boot=z.read(BOOTSTRAP); payload=z.read(PAYLOAD)
-    assert BOOTSTRAP.isascii() and boot.decode("utf-8").splitlines()[1]=='# Name: 安装阅读记录'
+    assert BOOTSTRAP.isascii() and PAYLOAD.isascii() and boot.decode("utf-8").splitlines()[1]=='# Name: 安装阅读记录'
     assert len(boot)<8192 and len(payload)>1_000_000
     checksum,size=cksum(payload)
     assert f"EXPECTED_CKSUM={checksum}".encode() in boot and f"EXPECTED_SIZE={size}".encode() in boot
@@ -34,7 +34,7 @@ for mode in ('missing','corrupt','tar-failure','internal-failure'):
     if mode=='corrupt':assert '安装数据损坏' in d.install_log()
     d.no_temporary();passed('bootstrap failure: '+mode)
 
-for firmware,model in [('5.19.0','Kindle 青春版'),('5.19.1','Paperwhite'),('5.19.6','KPW Signature'),('5.19.10','Unexpected Standard marketing name')]:
+for firmware,model in [('5.19.0','Kindle 青春版'),('5.19.1','Paperwhite'),('5.19.6','KPW Signature'),('5.19.10','Unexpected Standard marketing name'),('5.19.6.1','Unknown Standard')]:
     d=Device();d.firmware(firmware);write(d.root/'var/local/deviceType.txt',model)
     d.install();d.no_temporary()
     assert (d.docs/'reading-records.sh').exists()

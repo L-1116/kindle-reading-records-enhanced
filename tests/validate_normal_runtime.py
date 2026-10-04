@@ -31,6 +31,18 @@ def restored(d,orientation,eat,power):
     assert d.read('eatTapMode')==eat and d.read('preventScreenSaver')==power,d.calls()
     d.no_temporary()
     assert ' -e ' not in d.calls()
+    # Assert actual command order for ALL existing normal/error/signal cases,
+    # including partial initialization and repeated launches. Each restoration
+    # follows a Library request, independent of why EXIT cleanup was reached.
+    calls=d.calls().splitlines()
+    libraries=[i for i,c in enumerate(calls) if c.startswith('set com.lab126.appmgrd start ')]
+    directions=[i for i,c in enumerate(calls) if c.startswith('set com.lab126.winmgr orientationLock ') and not c.endswith(' U')]
+    for index in directions:
+        assert index>0 and calls[index-1].startswith('set com.lab126.appmgrd start '), calls
+    for index in libraries:
+        end=next((i for i in libraries if i>index),len(calls))
+        assert not any(c.startswith(('set com.lab126.powerd preventScreenSaver ', 'set com.lab126.winmgr eatTapMode '))
+                       for c in calls[index+1:min(end,index+2)]),calls
 
 def ui(d,ok=True):return d.run(d.docs/'reading-records.sh',ok=ok)
 
@@ -48,12 +60,14 @@ d=ready();d.flag('orientation','R');d.flag('preventScreenSaver','1')
 for i in range(5):d.flag('actions','exit');ui(d);restored(d,'R','0','1')
 passed('five repeated landscape launches; original nonzero screensaver property preserved')
 
-for mode in ['missing-main','syntax-main','missing-font','touch-failure','fbink-failure','orientation-timeout','orientation-set-failure','orientation-read-failure','invalid-orientation','power-read-failure','eat-set-failure']:
+for mode in ['missing-main','syntax-main','missing-font','touch-failure','touch-init-missing-device','touch-init-missing-reader','fbink-failure','orientation-timeout','orientation-set-failure','orientation-read-failure','invalid-orientation','power-read-failure','eat-set-failure']:
     d=ready();d.flag('orientation','R');release=d.base/'releases/9.7.6-5.19-normal'
     if mode=='missing-main':(release/'bin/reading-records-ui.sh').unlink()
     elif mode=='syntax-main':write(release/'bin/reading-records-ui.sh','if then broken')
     elif mode=='missing-font':(d.base/'fonts/NotoSansCJKsc-Regular.otf').unlink()
     elif mode=='touch-failure':d.flag('fail-touch')
+    elif mode=='touch-init-missing-device':(d.root/'touch').unlink()
+    elif mode=='touch-init-missing-reader':(release/'bin/reading-insights-touch-ui.lua').unlink()
     elif mode=='fbink-failure':d.flag('fail-fbink')
     elif mode=='orientation-timeout':d.flag('orientation-timeout')
     elif mode=='orientation-set-failure':d.flag('fail-set-orientationLock')
@@ -163,6 +177,33 @@ log=(d.base/'dashboard-launch.log').read_text(encoding='utf-8')
 assert 'switching to original dashboard' not in log,log
 for action in actions:assert 'dashboard action='+action+' ' in log,action
 passed('complete optimized UI dispatch with real Lua: statistics, all filters, day/month/8-week/book detail and book calendar')
+
+# Invoke the exact production cleanup function twice, independently of EXIT,
+# with full, partial and absent state changes; its second call must be a no-op.
+source=(PKG/'launch.sh').read_text(encoding='utf-8')
+definitions=source[:source.index('on_signal()')].replace('exec >> "$LOG" 2>&1','')
+for shell in (SH,DASH):
+    for orientation_pending,eat_pending,power_pending,entered in [(1,1,1,1),(1,0,0,0),(0,1,1,1),(0,0,0,0)]:
+        d=Device(shell)
+        helper=d.transform((PKG/'runtime-lock.sh').read_bytes()).decode()
+        script=d.transform(definitions.encode()).decode()+helper+f'''
+acquire_runtime_lock || exit 1
+ORIGINAL_ORIENTATION=R; ORIGINAL_EAT=3; ORIGINAL_POWER=2
+ORIENTATION_PENDING={orientation_pending}; EAT_PENDING={eat_pending}; POWER_PENDING={power_pending}; UI_ENTERED={entered}; LOCK_OWNED=1
+cleanup_runtime_state
+cp "$SIM/calls" "$SIM/first-cleanup" 2>/dev/null || : > "$SIM/first-cleanup"
+cleanup_runtime_state
+'''
+        path=d.root/'cleanup-idempotency.sh';write(path,script);d.run(path)
+        calls=d.calls().splitlines();expected=[]
+        if power_pending:expected.append('set com.lab126.powerd preventScreenSaver 2')
+        if eat_pending:expected.append('set com.lab126.winmgr eatTapMode 3')
+        if entered or orientation_pending:expected.append("set com.lab126.appmgrd start app://com.lab126.KPPMainApp?view=KPP_LIBRARY")
+        if orientation_pending:expected.append('set com.lab126.winmgr orientationLock R')
+        assert calls==expected,(calls,expected)
+        assert d.calls()==(d.root/'first-cleanup').read_text(encoding='utf-8')
+        d.no_temporary()
+        passed(f'{Path(shell).name}: cleanup command order + idempotency pending={orientation_pending}{eat_pending}{power_pending}, entered={entered}')
 
 result={'result':'PASS','checks':checks,'case_count':len(checks),'limits':['LIPC, framebuffer and physical input hardware mocked; no actual Kindle power-key or rotation verification. SIGKILL, power loss and an unresponsive system LIPC service cannot be recovered by POSIX traps.']}
 write(OUT/'runtime-results.json',json.dumps(result,ensure_ascii=False,indent=2))

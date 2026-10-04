@@ -1,6 +1,7 @@
 阅读记录-optimized.sh	release	bin/reading-records-ui.sh	755
 阅读记录.sh	release	bin/reading-records-v9.6.3.sh	755
 runtime-child.sh	release	bin/runtime-child.sh	644
+runtime-lock.sh	release	bin/runtime-lock.sh	644
 reading-insights-cover.lua	release	bin/reading-insights-cover.lua	644
 reading-insights-render.lua	release	bin/reading-insights-render.lua	644
 reading-insights-title-widths.lua	release	bin/reading-insights-title-widths.lua	644

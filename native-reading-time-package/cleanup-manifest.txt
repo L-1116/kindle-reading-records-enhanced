@@ -1,4 +1,5 @@
 /mnt/us/documents/reading-records-9.7.6-install.sh
+/mnt/us/documents/reading-records-9.7.6-data.tar
 /mnt/us/documents/阅读记录安装数据.tar
 /mnt/us/RUNME.sh
 /mnt/us/README.txt

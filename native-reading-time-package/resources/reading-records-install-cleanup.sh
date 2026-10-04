@@ -2,14 +2,22 @@
 # Name: 安装好之后，确认无误了再点这个
 # Author: Kindle Reading Records Enhanced
 BASE="/mnt/us/reading-time"
+# Literal child paths must not traverse a substituted parent into user data.
+[ ! -L /mnt/us ] && [ ! -L /mnt/us/documents ] && [ ! -L /mnt/us/extensions ] && [ ! -L /mnt/us/v4 ] || exit 1
 [ "$(cat "$BASE/VERSION" 2>/dev/null)" = 9.7.6-5.19-normal ] && [ -f "$BASE/activation-verified" ] || exit 1
 remove_owned() {
     [ -f "$1" ] && [ ! -L "$1" ] || return 0
     grep -Eq "$2" "$1" || return 0
-    rm -f "$1"
+    case "$1" in
+        /mnt/us/RUNME.sh) rm -f "/mnt/us/RUNME.sh";;
+        /mnt/us/README.txt) rm -f "/mnt/us/README.txt";;
+        /mnt/us/PACKAGE-MANIFEST.json) rm -f "/mnt/us/PACKAGE-MANIFEST.json";;
+        *) return 1;;
+    esac
 }
 # Deliberately literal, reviewable paths. No globs and no runtime/data removal.
 rm -f "/mnt/us/documents/reading-records-9.7.6-install.sh" || exit 1
+rm -f "/mnt/us/documents/reading-records-9.7.6-data.tar" || exit 1
 rm -f "/mnt/us/documents/阅读记录安装数据.tar" || exit 1
 remove_owned "/mnt/us/RUNME.sh" "native-reading-time-package|READING_RECORDS_V4_RUNME" || exit 1
 remove_owned "/mnt/us/README.txt" "Kindle 阅读记录|Kindle Reading Time|Kindle Reading Records" || exit 1

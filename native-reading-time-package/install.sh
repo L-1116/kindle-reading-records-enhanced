@@ -15,6 +15,7 @@ CONF="/etc/upstart/native-reading-time.conf"
 STAGE="$BASE/.install-9.7.6-normal.$$"
 LOCK="/tmp/reading-records-ui.lock"
 ROOT_RW=0; ACTIVATED=0; COMMITTED=0; LOCK_OWNED=0; SERVICE_WAS_RUNNING=0; HAD_RELEASE=0; ROLLBACK_FAILED=0
+JOURNAL_CKSUM=; SNAPSHOT_COUNT=0
 log() { echo "$(date): $*"; }
 toast() { lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; }
 fail() { log "ERROR: $1"; toast "$1"; exit 1; }
@@ -27,44 +28,80 @@ atomic_file() {
     cp "$af_src" "$af_tmp" && chmod "$af_mode" "$af_tmp" && mv "$af_tmp" "$af_dst" && return 0
     rm -f "$af_tmp"; return 1
 }
+stop_daemon() {
+    if ! /sbin/initctl stop native-reading-time >/dev/null 2>&1; then
+        [ "$SERVICE_WAS_RUNNING" -eq 0 ] || return 1
+    fi
+    stopped_state="$(/sbin/initctl status native-reading-time 2>/dev/null)" || {
+        # A fresh install can have no Upstart job yet. An existing job with
+        # unknown status must never be assumed stopped.
+        [ "$SERVICE_WAS_RUNNING" -eq 0 ] && [ ! -e "$CONF" ] && return 0
+        return 1
+    }
+    case "$stopped_state" in *stop/waiting*) return 0;; *) return 1;; esac
+}
 rollback() {
     log 'rolling back runtime transaction'
-    /sbin/initctl stop native-reading-time >/dev/null 2>&1 || true
+    if ! stop_daemon; then
+        log 'ERROR: daemon still running; refusing runtime rollback'; ROLLBACK_FAILED=1; return 1
+    fi
+    rollback_cksum="$(cksum < "$STAGE/journal" 2>/dev/null)" || rollback_cksum=
+    if [ -z "$JOURNAL_CKSUM" ] || [ "$rollback_cksum" != "$JOURNAL_CKSUM" ]; then
+        log 'ERROR: rollback journal missing or changed'; ROLLBACK_FAILED=1; return 1
+    fi
     if [ -d "$STAGE/old-release" ]; then
-        rm -rf "$RELEASE"; mv "$STAGE/old-release" "$RELEASE" || { log 'ERROR: release rollback failed'; ROLLBACK_FAILED=1; }
-    elif [ "$HAD_RELEASE" -eq 0 ]; then rm -rf "$RELEASE"; fi
+        rm -rf "$RELEASE" && mv "$STAGE/old-release" "$RELEASE" || { log 'ERROR: release rollback failed'; ROLLBACK_FAILED=1; }
+    elif [ "$HAD_RELEASE" -eq 0 ]; then
+        rm -rf "$RELEASE" || { log 'ERROR: new release removal failed'; ROLLBACK_FAILED=1; }
+    fi
     root_rw || { log 'ERROR: rootfs unavailable during rollback'; ROLLBACK_FAILED=1; }
-    while IFS="$(printf '\t')" read -r slot dst; do
-        rm -f "$dst.new.$$"
-        if [ -f "$STAGE/backup/$slot" ]; then
-            cp -p "$STAGE/backup/$slot" "$dst.rollback.$$" && mv "$dst.rollback.$$" "$dst" || { log "ERROR: rollback failed: $dst"; ROLLBACK_FAILED=1; }
-        else rm -f "$dst"; fi
+    rollback_records=0
+    while IFS="$(printf '\t')" read -r slot dst had_file; do
+        rollback_records=$((rollback_records+1))
+        rm -f "$dst.new.$$" || ROLLBACK_FAILED=1
+        if [ "$had_file" = 1 ]; then
+            # A missing/unreadable backup is never interpreted as a new file.
+            cp -p "$STAGE/backup/$slot" "$dst.rollback.$$" && cmp -s "$STAGE/backup/$slot" "$dst.rollback.$$" && mv "$dst.rollback.$$" "$dst" || { log "ERROR: rollback failed: $dst"; ROLLBACK_FAILED=1; }
+        elif [ "$had_file" = 0 ]; then
+            rm -f "$dst" || { log "ERROR: rollback removal failed: $dst"; ROLLBACK_FAILED=1; }
+        else log 'ERROR: invalid rollback journal'; ROLLBACK_FAILED=1; fi
     done < "$STAGE/journal"
-    /sbin/initctl reload-configuration >/dev/null 2>&1 || true
+    rollback_cksum="$(cksum < "$STAGE/journal" 2>/dev/null)" || rollback_cksum=
+    if [ "$rollback_records" -ne "$SNAPSHOT_COUNT" ] || [ "$rollback_cksum" != "$JOURNAL_CKSUM" ]; then
+        log 'ERROR: incomplete rollback journal read'; ROLLBACK_FAILED=1
+    fi
+    /sbin/initctl reload-configuration >/dev/null 2>&1 || { log 'ERROR: rollback service reload failed'; ROLLBACK_FAILED=1; }
     root_ro || ROLLBACK_FAILED=1
-    [ "$SERVICE_WAS_RUNNING" -eq 0 ] || /sbin/initctl start native-reading-time >/dev/null 2>&1 || true
+    if [ "$SERVICE_WAS_RUNNING" -eq 1 ] && [ "$ROLLBACK_FAILED" -eq 0 ]; then
+        /sbin/initctl start native-reading-time >/dev/null 2>&1 || ROLLBACK_FAILED=1
+        /sbin/initctl status native-reading-time 2>/dev/null | grep -q 'start/running' || { log 'ERROR: old daemon recovery failed'; ROLLBACK_FAILED=1; }
+    fi
     scan
 }
 finish() {
+    finish_status=$?
     trap '' INT TERM HUP
     if [ "$ACTIVATED" -eq 1 ] && [ "$COMMITTED" -eq 0 ]; then rollback; fi
-    root_ro || log "ERROR: manual rootfs recovery required"
+    root_ro || { log "ERROR: manual rootfs recovery required"; ROLLBACK_FAILED=1; }
     if [ "$ROLLBACK_FAILED" -eq 1 ]; then
-        log "ERROR: retained recovery backup: $STAGE"
+        log "RECOVERY_REQUIRED snapshot=$STAGE"
+        toast '安装恢复失败，已保留恢复快照，请保留安装文件。'
     else
         case "$STAGE" in /mnt/us/reading-time/.install-9.7.6-normal.[0-9]*) rm -rf "$STAGE";; esac
     fi
-    if [ "$LOCK_OWNED" -eq 1 ]; then rm -f "$LOCK/pid"; rmdir "$LOCK" 2>/dev/null || true; fi
+    if [ "$LOCK_OWNED" -eq 1 ]; then release_runtime_lock; fi
+    [ "$ROLLBACK_FAILED" -eq 0 ] || { [ "$finish_status" -ne 0 ] || exit 1; }
 }
 trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
 [ "$(id -u)" -eq 0 ] || fail '安装需要 Scriptlet 的系统权限'
-# Extract a dotted version, never confuse the build number with firmware.
+# Require one unique dotted version across both sources. Duplicate copies of
+# the same firmware are fine; conflicting versions and attached garbage fail.
 firmware="$(cat /etc/prettyversion.txt /etc/version.txt 2>/dev/null | awk '
-    {for(i=1;i<=NF;i++){v=$i;gsub(/^[^0-9]+|[^0-9.]+$/, "", v);n=split(v,a,".");
-     if(n>=3 && a[1]==5){valid=1;for(j=1;j<=n;j++)if(a[j]!~/^[0-9]+$/)valid=0;if(valid){print v;exit}}}}')"
+    {gsub(/[^[:alnum:].]+/, " ");for(i=1;i<=NF;i++)if($i~/^[0-9]+(\.[0-9]+)+$/ && !seen[$i]++){version=$i;count++}}
+    END {if(count==1)print version}')"
 case "$firmware" in 5.19.*) :;; *) fail '此安装包仅适用于 Kindle firmware 5.19.x，请使用对应版本安装包。';; esac
 # Exclude pen devices by capabilities and display class, without a Standard
 # serial/model allowlist. Unknown Standard marketing names are accepted.
@@ -87,14 +124,8 @@ esac
 existing="$(cat "$BASE/VERSION" "$BASE/PACKAGE_VARIANT" "$BASE/release-info" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
 if printf '%s\n' "$existing" | grep -Eq '(^|[^[:alnum:]])(ks|scribe)([^[:alnum:]]|$)'; then fail '检测到 KS 安装，请使用 KS 版本，禁止混装。'; fi
 [ -x /sbin/initctl ] || fail '缺少 Kindle Upstart 服务'
-if ! mkdir "$LOCK" 2>/dev/null; then
-    old_pid="$(cat "$LOCK/pid" 2>/dev/null)"
-    case "$old_pid" in ''|*[!0-9]*) fail '安装已经开始，请稍后重试';; esac
-    kill -0 "$old_pid" 2>/dev/null && fail '安装已经开始，请稍后重试'
-    rm -f "$LOCK/pid" "$LOCK/ui-start" "$LOCK/ui-cancel"; rmdir "$LOCK" 2>/dev/null || fail '无法清理旧安装锁'
-    mkdir "$LOCK" || fail '安装已经开始，请稍后重试'
-fi
-LOCK_OWNED=1; printf '%s\n' "$$" > "$LOCK/pid" || fail '无法写安装锁'
+. "$PKG/runtime-lock.sh" || fail '缺少安装锁模块'
+acquire_runtime_lock || fail '安装正在进行或阅读记录已经打开，请稍后重试'
 [ -s "$PKG/payload-manifest.tsv" ] && [ -s "$PKG/install-manifest.txt" ] || fail '缺少安装清单'
 while IFS="$(printf '\t')" read -r expected size file; do
     case "$file" in ''|/*|*'..'*) fail '非法 payload 路径';; esac
@@ -103,6 +134,27 @@ while IFS="$(printf '\t')" read -r expected size file; do
     set -- $actual
     [ "$1" = "$expected" ] && [ "$2" = "$size" ] || fail "安装资源损坏: $file"
 done < "$PKG/payload-manifest.tsv"
+# Before staging, snapshots, rootfs writes or daemon stop. Budget two payload
+# copies (staging/publication), every replaced old file/release, and 8 MiB slack.
+disk_kib() {
+    disk_usage="$(du -sk "$1" 2>/dev/null)" || return 1
+    printf '%s\n' "$disk_usage" | awk 'NR==1 && $1~/^[0-9]+$/ && $1<1073741824 {n=$1;ok=1} END {if(ok && NR==1)printf "%.0f\n",n;else exit 1}'
+}
+payload_kib="$(disk_kib "$PKG")" || fail '存储空间不足或无法确认安装大小，安装已停止。'
+[ "$payload_kib" -gt 0 ] || fail '存储空间不足或无法确认安装大小，安装已停止。'
+needed_kib=$((payload_kib*2+8192))
+for old in "$RELEASE" "$BASE/bin/native-reading-time-daemon.sh" "$BASE/fonts/NotoSansCJKsc-Regular.otf" "$BASE/fonts/FONT-LICENSE.txt" "$BASE/assets/launcher-icon.png" "$BASE/VERSION" "$BASE/activation-verified" "$DOCS/reading-records.sh" "$DOCS/reading-records-install-cleanup.sh" "$DOCS/阅读记录.sh" "$DOCS/阅读记录-optimized.sh" "$CONF"; do
+    [ -e "$old" ] || [ -L "$old" ] || continue
+    old_kib="$(disk_kib "$old")" || fail '存储空间不足或无法确认备份大小，安装已停止。'
+    needed_kib=$((needed_kib+old_kib))
+done
+space="$(LC_ALL=C df -Pk /mnt/us 2>/dev/null)" || fail '存储空间不足或无法确认 Kindle 安装空间，安装已停止。'
+printf '%s\n' "$space" | awk -v need="$needed_kib" '
+    NR==1 {if($0 !~ /(1024-blocks|1K-blocks)/)bad=1;next}
+    NR==2 {if(NF!=6 || $2!~/^[0-9]+$/ || $3!~/^[0-9]+$/ || $4!~/^[0-9]+$/ || $5!~/^[0-9]+%$/)bad=1;
+           if($2<=0 || $3>$2 || $4>$2 || $4<need || $5+0>100)bad=1;next}
+    {bad=1} END {exit (bad || NR!=2)}' || fail '存储空间不足或无法确认 Kindle 安装空间，安装已停止。'
+log "preflight us required_kib=$needed_kib"
 mkdir -p "$BASE" "$DOCS" "$BASE/releases" || fail '无法创建运行目录'
 umask 077
 mkdir "$STAGE" && mkdir "$STAGE/release" "$STAGE/backup" || fail '无法创建安装暂存目录'
@@ -110,11 +162,14 @@ mkdir "$STAGE" && mkdir "$STAGE/release" "$STAGE/backup" || fail '无法创建�
 slot=0
 snapshot() {
     slot=$((slot+1))
+    had_file=0
     if [ -e "$1" ] || [ -L "$1" ]; then
         [ -f "$1" ] && [ ! -L "$1" ] || fail "目标类型异常: $1"
         cp -p "$1" "$STAGE/backup/$slot" || fail '无法备份旧运行文件'
+        cmp -s "$1" "$STAGE/backup/$slot" || fail '旧运行文件备份校验失败'
+        had_file=1
     fi
-    printf '%s\t%s\n' "$slot" "$1" >> "$STAGE/journal" || fail '无法记录回滚清单'
+    printf '%s\t%s\t%s\n' "$slot" "$1" "$had_file" >> "$STAGE/journal" || fail '无法记录回滚清单'
 }
 while IFS="$(printf '\t')" read -r src category dst mode; do
     case "$src:$dst" in *'..'*|/*|*':/'*) fail '非法部署路径';; esac
@@ -134,12 +189,22 @@ while IFS="$(printf '\t')" read -r src category dst mode; do
     printf '%s\t%s\t%s\n' "$src" "$target" "$mode" >> "$STAGE/deploy" || fail '无法记录部署清单'
 done < "$PKG/install-manifest.txt"
 for dst in "$BASE/VERSION" "$BASE/activation-verified" "$DOCS/reading-records-install-cleanup.sh" "$DOCS/阅读记录.sh" "$DOCS/阅读记录-optimized.sh"; do snapshot "$dst"; done
+SNAPSHOT_COUNT=$slot
+JOURNAL_CKSUM="$(cksum < "$STAGE/journal")" || fail '无法校验回滚清单'
 [ ! -d "$RELEASE" ] || HAD_RELEASE=1
-/sbin/initctl status native-reading-time 2>/dev/null | grep -q 'start/running' && SERVICE_WAS_RUNNING=1
+prior_state="$(/sbin/initctl status native-reading-time 2>/dev/null)" || {
+    [ ! -e "$CONF" ] || fail '无法确认原阅读记录服务状态，安装已停止'
+    prior_state=absent
+}
+case "$prior_state" in
+    *start/running*) SERVICE_WAS_RUNNING=1;;
+    *stop/waiting*|absent) :;;
+    *) fail '无法确认原阅读记录服务状态，安装已停止';;
+esac
 # Validate rootfs access BEFORE stopping the known-good daemon or publishing UI.
 root_rw || fail '无法更新系统服务'
 ACTIVATED=1
-/sbin/initctl stop native-reading-time >/dev/null 2>&1 || true
+stop_daemon || fail '无法停止或确认原阅读记录服务状态，安装已停止'
 if [ "$HAD_RELEASE" -eq 1 ]; then mv "$RELEASE" "$STAGE/old-release" || fail '无法备份原运行版本'; fi
 mv "$STAGE/release" "$RELEASE" || fail '无法发布运行版本'
 while IFS="$(printf '\t')" read -r src dst mode; do
