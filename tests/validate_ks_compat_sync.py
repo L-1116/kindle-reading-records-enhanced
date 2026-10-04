@@ -88,7 +88,8 @@ exit 0
     (root / "geometry.txt").write_text(geometry + "\n", encoding="utf-8")
     for name in ("lipc-trace.txt", "fb-trace.txt"):
         (root / name).write_text("", encoding="utf-8")
-    for executable in (base / "bin/launch-ks.sh", release / "bin/reading-records-ks.sh"):
+    for executable in (base / "bin/launch-ks.sh", base / "bin/diagnostics-ks.sh",
+                       release / "bin/reading-records-ks.sh"):
         executable.chmod(0o755)
     env = {
         **os.environ,
@@ -218,7 +219,7 @@ def main() -> None:
         report = root / "documents/reading-records-ks-diagnostic.txt"
         result = subprocess.run([SH, (root / "install-ks.sh").as_posix(), "diagnostics"], env=env,
                                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15)
-        assert result.returncode == 0 and report.is_file() and "KS diagnostic" in report.read_text(encoding="utf-8")
+        assert result.returncode == 0 and report.is_file() and "KS diagnostic" in report.read_text(encoding="utf-8"), (result.returncode, result.stdout, result.stderr, report)
         print("S manual diagnostic export: PASS")
 
 

@@ -260,7 +260,7 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
         backup = session / "cleanup-copy.sh"
         backup.write_bytes((docs / CLEAN).read_bytes())
         if legacy_tag:
-            old_files = subprocess.check_output(["git", "ls-tree", "-r", "--name-only", legacy_tag, "native-reading-time-package"], cwd=ROOT).decode().splitlines()
+            old_files = subprocess.check_output(["git", "ls-tree", "-r", "--name-only", "-z", legacy_tag, "native-reading-time-package"], cwd=ROOT).decode("utf-8").rstrip("\0").split("\0")
             for name in old_files:
                 put(us / name, historical(legacy_tag, name))
             assert not (us / "PACKAGE-MANIFEST.json").exists()

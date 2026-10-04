@@ -57,3 +57,5 @@ Release 地址：[V4 Test 3](https://github.com/L-1116/kindle-reading-records-en
 首次 tag CI 暴露了测试环境缺陷，已停止公开发布并保持 Release 为 draft：Python mock 依赖 Windows py launcher、复制后的候选缺少 Linux 可执行位、KS 页面检查依赖未跟踪的本地 build 缓存、V4 安装测试固定 Windows shell 路径。
 
 测试 mock 现使用运行验收的同一 Python 解释器；复制候选保留执行权限；预览与 KS 导航 fixture 从源码在临时目录生成；V4 安装测试按平台寻找 shell 和转换路径。全部原有断言与场景保留，未修改生产代码、安装 payload 或用户包逻辑。开发分支开启与 tag 相同的完整 CI，最终 tag 和公开发布仅使用完整验收成功的最终 commit。
+
+后续干净环境重验确认：KS 诊断 fixture 也必须恢复 Linux 执行权限；历史包清理枚举改用 git ls-tree -z，直接读取中文原始路径而不依赖本机 core.quotepath=false 配置。未跳过诊断导出或历史清理断言，生产代码继续保持不变。
