@@ -35,7 +35,7 @@ def run_shell(code: str) -> str:
 
 
 viewer = (PKG / "阅读记录-optimized.sh").read_text(encoding="utf-8")
-definitions = viewer[: viewer.index("\ndetect_screen; find_touch_device")]
+definitions = viewer[: viewer.index("\n. ")]
 definitions = definitions.replace('exec >> "$LOG" 2>&1', "")
 definitions = definitions.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"', "")
 (OUT / "functions-period-details.sh").write_text(definitions, encoding="utf-8", newline="\n")
@@ -246,7 +246,7 @@ assert 'week_trend_back) mode=total' in viewer
 passed("return-state preservation", "Calendar month/date, historical annual year, period selector and historical week offset survive lazy opens, including December/January and leap-February targets.")
 
 # Startup/core isolation is structural and byte-checked against the stable payload.
-for unchanged in ("native-reading-time-daemon.sh", "native-reading-time.conf", "阅读记录.sh", "reading-insights-touch.lua"):
+for unchanged in ("native-reading-time-daemon.sh", "native-reading-time.conf", "reading-insights-touch.lua"):
     key = f"native-reading-time-package/{unchanged}"
     assert hashlib.sha256((PKG / unchanged).read_bytes()).hexdigest() == BASE_HASHES[key], unchanged
 startup = viewer[viewer.index("metric_begin first_open"):viewer.index("\n\nwhile :; do")]

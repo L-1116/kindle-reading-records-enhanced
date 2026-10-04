@@ -1,138 +1,173 @@
-"""Exercise the installer in a workspace sandbox with all device operations mocked."""
-from pathlib import Path
-import atexit, hashlib, json, shutil, subprocess, tempfile
+"""5.19 normal: bootstrap, firmware gates, transactional install/upgrade/repair."""
+from normal_fixture import *
+import json
 
-ROOT=Path(__file__).resolve().parents[1]
-PKG=ROOT/'native-reading-time-package'
-BASELINE=ROOT/'tests/baselines/v9.6.10'
-OUT=ROOT/'build/validation'; OUT.mkdir(parents=True,exist_ok=True)
-SANDBOX=Path(tempfile.mkdtemp(prefix='install-sandbox-',dir=OUT))
-assert SANDBOX.resolve().is_relative_to(OUT.resolve())
-atexit.register(shutil.rmtree,SANDBOX,ignore_errors=True)
-us=SANDBOX/'us'; state=us/'reading-time'; bin_dir=state/'bin'; docs=us/'documents'; assets=state/'assets'
-etc=SANDBOX/'etc/upstart'; mockbin=SANDBOX/'mockbin'
-for folder in (bin_dir,docs,etc,mockbin):folder.mkdir(parents=True,exist_ok=True)
-def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest()
-daemon=bin_dir/'native-reading-time-daemon.sh'
-viewer=docs/'阅读记录.sh'
-conf=etc/'native-reading-time.conf'
-data=state/'reading-time.tsv'
-data.write_text('date\tbook_id\tseconds\ttitle\n2026-09-05\tb1\t14760\tKeep reading history\n',encoding='utf-8')
-shutil.copy2(BASELINE/'阅读记录-optimized.sh',viewer)
-shutil.copy2(PKG/'native-reading-time.conf',conf)
-old_release=state/'releases/9.6.10-ui-layout-fix'; old_release.mkdir(parents=True)
-(old_release/'preserved-marker').write_text('old release stays available')
-before={str(p):digest(p) for p in (viewer,conf,data,old_release/'preserved-marker')}
-fake_ld=SANDBOX/'ld-linux-armhf.so.3'; fake_ld.write_bytes(b'test')
-initctl=mockbin/'initctl'
-initctl.write_text('''#!/bin/sh
-printf '%s\\n' "$*" >> "'''+(SANDBOX/'service-calls.log').as_posix()+'''"
-case "$1" in status) echo 'native-reading-time start/running, process 123';; esac
-exit 0
-''',encoding='utf-8',newline='\n')
-lipc=mockbin/'lipc-set-prop'
-lipc.write_text('''#!/bin/sh
-echo "$*" >> "'''+(SANDBOX/'lipc-calls.log').as_posix()+'''"
-if [ "$1" = com.lab126.scanner ]; then
-    if [ -f "'''+(assets/'launcher-icon.png').as_posix()+'''" ] && grep -q '^# Icon: /mnt/us/reading-time/assets/launcher-icon.png$' "'''+viewer.as_posix()+'''"; then
-        echo scanner-ready >> "'''+(SANDBOX/'scanner-calls.log').as_posix()+'''"
-    else
-        echo scanner-restored >> "'''+(SANDBOX/'scanner-calls.log').as_posix()+'''"
-    fi
-fi
-exit 0
-''',encoding='utf-8',newline='\n')
-raw_installer=(PKG/'Install-Native-Reading-Time-Optimized.sh').read_text(encoding='utf-8')
-def sandbox_installer(package: Path) -> str:
-    result=raw_installer.replace('/mnt/us',us.as_posix()).replace('/etc/upstart',etc.as_posix())
-    result=result.replace('/sbin/initctl','"'+initctl.as_posix()+'"').replace('/lib/ld-linux-armhf.so.3',fake_ld.as_posix())
-    result=result.replace('lipc-set-prop','"'+lipc.as_posix()+'"')
-    return result.replace('PKG="'+us.as_posix()+'/native-reading-time-package"','PKG="'+package.as_posix()+'"')
-installer=sandbox_installer(PKG)
-prelude='''#!/bin/sh
-export PATH="'''+mockbin.as_posix()+''':/usr/bin:$PATH"
-id() { echo 0; }
-mntroot() { return 0; }
-sleep() { return 0; }
-sync() { return 0; }
-'''
-script=SANDBOX/'installer-test.sh'; script.write_text(prelude+installer,encoding='utf-8',newline='\n')
-sh=shutil.which('sh') or 'C:/Program Files/Git/usr/bin/sh.exe'
-subprocess.run([sh,'-c','/usr/bin/chmod 755 "$1" "$2"','test',initctl.as_posix(),lipc.as_posix()],check=True)
-# RUNME retains the v9.7.1-install-fix fresh-install route: on an empty device
-# it runs base then optimized, while an existing daemon skips straight to optimized.
-route_us=SANDBOX/'runme-us'; route_pkg=route_us/'native-reading-time-package'; route_state=route_us/'reading-time'
-route_pkg.mkdir(parents=True)
-route_calls=SANDBOX/'runme-route.log'
-(route_pkg/'Install-Native-Reading-Time.sh').write_text('#!/bin/sh\nmkdir -p "'+(route_state/'bin').as_posix()+'"\nprintf daemon > "'+(route_state/'bin/native-reading-time-daemon.sh').as_posix()+'"\necho base >> "'+route_calls.as_posix()+'"\n',encoding='utf-8',newline='\n')
-(route_pkg/'Install-Native-Reading-Time-Optimized.sh').write_text('#!/bin/sh\necho optimized >> "'+route_calls.as_posix()+'"\n',encoding='utf-8',newline='\n')
-runme_source=(ROOT/'RUNME.sh').read_text(encoding='utf-8')
-route_script=SANDBOX/'runme-route.sh'; route_script.write_text('export PATH="/usr/bin:/bin:$PATH"\n'+runme_source.replace('/mnt/us',route_us.as_posix()),encoding='utf-8',newline='\n')
-p=subprocess.run([sh,route_script.as_posix()],capture_output=True)
-assert p.returncode==0,(p.stdout,p.stderr)
-assert route_calls.read_text().splitlines()==['base','optimized']
-p=subprocess.run([sh,route_script.as_posix()],capture_output=True)
-assert p.returncode==0 and route_calls.read_text().splitlines()==['base','optimized','optimized']
-assert 'continuing to optimized 9.7.5 test installation' in (route_state/'install.log').read_text(encoding='utf-8')
-# Missing launcher art is rejected by the pre-activation payload gate.
-missing_pkg=SANDBOX/'missing-icon-package'
-shutil.copytree(PKG,missing_pkg,ignore=shutil.ignore_patterns('launcher-icon.png'))
-missing_script=SANDBOX/'installer-missing-icon.sh'
-missing_script.write_text(prelude+sandbox_installer(missing_pkg),encoding='utf-8',newline='\n')
-p=subprocess.run([sh,missing_script.as_posix()],capture_output=True)
-assert p.returncode==1,(p.stdout,p.stderr)
-assert 'missing payload: launcher-icon.png' in (state/'install.log').read_text(encoding='utf-8')
-assert not (SANDBOX/'service-calls.log').exists()
-# The negative case must reject a changed daemon before activating anything.
-daemon.write_bytes(b'not the validated daemon\n')
-p=subprocess.run([sh,script.as_posix()],capture_output=True)
-assert p.returncode==1,(p.stdout,p.stderr)
-assert all(digest(Path(path))==sha for path,sha in before.items())
-assert 'payload daemon differs' in (state/'install.log').read_text(encoding='utf-8')
-assert not (SANDBOX/'service-calls.log').exists()
-shutil.copy2(PKG/'native-reading-time-daemon.sh',daemon)
-# A failure after publishing the icon but before replacing the launcher removes
-# the new shared icon and restores the previous launcher before rescanning.
-failed_installer=installer.replace(
-    'atomic_file "$STAGE/viewer" "$VIEWER" 755 || fail "cannot activate optimized dashboard"',
-    'false || fail "injected launcher activation failure"',
-)
-failed_script=SANDBOX/'installer-rollback-icon.sh'
-failed_script.write_text(prelude+failed_installer,encoding='utf-8',newline='\n')
-p=subprocess.run([sh,failed_script.as_posix()],capture_output=True)
-assert p.returncode==1,(p.stdout,p.stderr)
-assert digest(viewer)==before[str(viewer)] and not (assets/'launcher-icon.png').exists()
-assert not (state/'releases/9.7.5-test/assets/launcher-icon.png').exists()
-scanner_log=SANDBOX/'scanner-calls.log'
-assert scanner_log.exists(),((state/'install.log').read_text(encoding='utf-8'),(SANDBOX/'lipc-calls.log').read_text() if (SANDBOX/'lipc-calls.log').exists() else 'no lipc calls')
-assert digest(data)==before[str(data)] and 'scanner-restored' in scanner_log.read_text()
-p=subprocess.run([sh,script.as_posix()],capture_output=True)
-assert p.returncode==0,(p.stdout,p.stderr,(state/'install.log').read_text(encoding='utf-8'))
-release=state/'releases/9.7.5-test'
-assert digest(viewer)==digest(PKG/'阅读记录-optimized.sh')
-assert digest(daemon)==digest(PKG/'native-reading-time-daemon.sh')
-assert digest(conf)==digest(PKG/'native-reading-time.conf')
-assert digest(data)==before[str(data)]
-assert digest(state/'reading-time.tsv.bak')==before[str(data)]
-assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.7.5-test'
-assert digest(old_release/'preserved-marker')==before[str(old_release/'preserved-marker')]
-icon=assets/'launcher-icon.png'
-assert digest(icon)==digest(PKG/'launcher-icon.png')
-assert digest(release/'assets/launcher-icon.png')==digest(PKG/'launcher-icon.png')
-assert viewer.read_text(encoding='utf-8').splitlines()[:4]==[
-    '#!/bin/sh', '# Name: 阅读记录', '# Author: Kindle Reading Records Enhanced',
-    '# Icon: /mnt/us/reading-time/assets/launcher-icon.png',
-]
-assert 'scanner-ready' in (SANDBOX/'scanner-calls.log').read_text()
-assert raw_installer.index('atomic_file "$STAGE/release/assets/launcher-icon.png" "$LAUNCHER_ICON" 644') < raw_installer.index('atomic_file "$STAGE/viewer" "$VIEWER" 755') < raw_installer.index('com.lab126.scanner doFullScan 1',raw_installer.index('atomic_file "$STAGE/viewer" "$VIEWER" 755'))
-for f in ['reading-insights-touch-ui.lua','reading-insights-titles.lua','reading-insights-title-widths.lua','reading-insights-cache.awk','reading-insights-cover.lua','reading-insights-render.lua']:
-    assert digest(release/'bin'/f)==digest(PKG/f),f
-for f in ['daily.png','books.png','total.png','day_detail.png','month_detail.png','week_trend.png','book_detail.png']:
-    assert digest(release/'ui-calendar'/f)==digest(PKG/'ui-calendar'/f)
-for f in ['daily.png','books.png','total.png']:
-    assert digest(state/'ui'/f)==digest(PKG/'ui'/f)
-assert digest(state/'bin/reading-insights-touch.lua')==digest(PKG/'reading-insights-touch.lua')
-assert digest(release/'bin/reading-records-v9.6.3.sh')==digest(PKG/'阅读记录.sh')
-result={'result':'PASS','checks':['RUNME performs base then optimized installation on a fresh device and skips base when a daemon already exists.','Missing launcher icon and mismatched daemon are rejected before activation.','Launcher icon is staged in the self-contained release and atomically published before the launcher and scanner.','A post-icon/pre-launcher failure restores the prior launcher and removes newly introduced shared/release icon files before rescanning.','Daemon/config remain identical; reading history, backup and original release are preserved.'],'limitation':'Installer paths redirected into workspace; Kindle service/root/toaster commands mocked, not an on-device install.'}
-(OUT/'installer-results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
-print(json.dumps(result,indent=2))
+checks=[]
+def passed(name, detail=""):
+    checks.append({"check":name,"result":"PASS","detail":detail})
+    print("PASS: " + name, flush=True)
+
+with zipfile.ZipFile(ARCHIVE) as z:
+    assert z.namelist() == [BOOTSTRAP, PAYLOAD] and z.testzip() is None
+    boot=z.read(BOOTSTRAP); payload=z.read(PAYLOAD)
+    assert BOOTSTRAP.isascii() and boot.decode("utf-8").splitlines()[1]=='# Name: 安装阅读记录'
+    assert len(boot)<8192 and len(payload)>1_000_000
+    checksum,size=cksum(payload)
+    assert f"EXPECTED_CKSUM={checksum}".encode() in boot and f"EXPECTED_SIZE={size}".encode() in boot
+    assert python_cksum(b"test\n")==cksum(b"test\n")
+    with tarfile.open(fileobj=io.BytesIO(payload)) as t:
+        assert all(m.isfile() and m.name.startswith('native-reading-time-package/') and '..' not in m.name for m in t.getmembers())
+passed('ZIP two entries, short ASCII installer, Chinese display name, POSIX payload checksum and size')
+
+for mode in ('missing','corrupt','tar-failure','internal-failure'):
+    d=Device();d.seed('9.7.5-test');before=d.preserved();runtime=digest(d.base/'bin/native-reading-time-daemon.sh')
+    if mode=='missing':d.payload.unlink()
+    elif mode=='corrupt':d.payload.write_bytes(d.payload.read_bytes()[:-100])
+    elif mode=='tar-failure':
+        d.command('tar','exit 3');d.command('busybox','exit 4');d.chmod([d.mock/'tar',d.mock/'busybox'])
+    else:d.flag('fail-root')
+    d.install(ok=False)
+    assert d.preserved()==before and digest(d.base/'bin/native-reading-time-daemon.sh')==runtime
+    assert (d.docs/BOOTSTRAP).exists() and (mode=='missing' or d.payload.exists())
+    assert not (d.docs/'reading-records-install-cleanup.sh').exists()
+    if mode=='missing':assert '缺少阅读记录安装数据' in d.install_log()
+    if mode=='corrupt':assert '安装数据损坏' in d.install_log()
+    d.no_temporary();passed('bootstrap failure: '+mode)
+
+for firmware,model in [('5.19.0','Kindle 青春版'),('5.19.1','Paperwhite'),('5.19.6','KPW Signature'),('5.19.10','Unexpected Standard marketing name')]:
+    d=Device();d.firmware(firmware);write(d.root/'var/local/deviceType.txt',model)
+    d.install();d.no_temporary()
+    assert (d.docs/'reading-records.sh').exists()
+    assert '# Name: 阅读记录' in (d.docs/'reading-records.sh').read_text(encoding='utf-8')
+    assert (d.root/'running').exists()
+    assert (d.base/'VERSION').read_text().strip()=='9.7.6-5.19-normal'
+    release=d.base/'releases/9.7.6-5.19-normal'
+    assert all((release/path).is_file() for path in ['bin/reading-records-ui.sh','bin/reading-insights-touch-ui.lua','ui-calendar/book_detail.png','ui-calendar/daily.png'])
+    assert digest(d.base/'assets/launcher-icon.png')==digest(PKG/'launcher-icon.png')
+    assert digest(d.base/'bin/native-reading-time-daemon.sh')==hashlib.sha256(d.transform((PKG/'native-reading-time-daemon.sh').read_bytes())).hexdigest()
+    d.run(d.docs/'reading-records.sh');d.no_temporary()
+    passed('fresh install + real UI shell: '+firmware+' '+model)
+
+for firmware in ['5.17.1','5.18.1.1.1','5.18.10','5.20.0','5.190.1','unknown']:
+    d=Device();d.seed('9.7.4');d.firmware(firmware);before=d.preserved()
+    d.install(ok=False);assert '仅适用于 Kindle firmware 5.19.x' in d.install_log()
+    assert d.preserved()==before and not (d.docs/'reading-records.sh').exists()
+    d.no_temporary();passed('firmware rejected: '+firmware)
+
+for mode in ['name','pen','geometry','landscape-geometry','installed-ks']:
+    d=Device();d.seed('9.7.5-test');before=d.preserved()
+    if mode=='name':write(d.root/'var/local/deviceType.txt','Kindle Scribe')
+    if mode=='pen':write(d.sys/'class/input/event2/device/name','Wacom I2C Digitizer')
+    if 'geometry' in mode:d.flag('scribe-geometry')
+    if mode=='landscape-geometry':d.flag('orientation','R')
+    if mode=='installed-ks':write(d.base/'VERSION','v4-test.3-ks')
+    d.install(ok=False);assert 'KS' in d.install_log() or 'Scribe' in d.install_log()
+    assert d.preserved()==before;d.no_temporary();passed('Scribe/mixed install rejected: '+mode)
+
+for version in ['9.7.4','9.7.5-test','9.7.5-compat-v3-standard','V3 Standard','V4 Test 3','9.7.6-5.19-normal']:
+    d=Device();d.seed(version);before=d.preserved();d.install();d.no_temporary()
+    assert d.preserved()==before and (d.base/'releases/old/marker').read_text()=='old release'
+    assert not (d.docs/'阅读记录.sh').exists()
+    if version=='9.7.6-5.19-normal':
+        # Repair replaces corrupted runtime, while preserving data.
+        write(d.base/'releases/9.7.6-5.19-normal/bin/reading-records-ui.sh','broken runtime')
+        d.install();assert d.preserved()==before;d.no_temporary()
+    passed('upgrade/repair preserves history, backup, config, cover cache and statistics: '+version)
+    # Cleanup leaves exactly the formal entry and unrelated documents.
+    write(d.docs/'user-book.epub','user book')
+    write(d.us/'README.txt','personal README, must stay')
+    write(d.docs/'安装好之后，确认无误了再点这个.sh','old V4 cleanup')
+    write(d.docs/'reading-records-diagnostic.txt','old diagnostic')
+    write(d.us/'native-reading-time-package/stale.txt','old install data')
+    write(d.us/'extensions/reading-records-installer/menu.json','old installer')
+    runtime_before={p.relative_to(d.base).as_posix():digest(p) for p in d.base.rglob('*') if p.is_file()}
+    d.run(d.docs/'reading-records-install-cleanup.sh')
+    assert not (d.docs/BOOTSTRAP).exists() and not d.payload.exists()
+    assert not (d.docs/'reading-records-install-cleanup.sh').exists()
+    assert not (d.docs/'安装好之后，确认无误了再点这个.sh').exists()
+    assert not (d.docs/'reading-records-diagnostic.txt').exists()
+    assert (d.us/'README.txt').read_text()=='personal README, must stay'
+    assert (d.docs/'reading-records.sh').exists() and (d.docs/'user-book.epub').read_text()=='user book'
+    assert not (d.us/'native-reading-time-package').exists() and not (d.us/'extensions/reading-records-installer').exists()
+    assert {p.relative_to(d.base).as_posix():digest(p) for p in d.base.rglob('*') if p.is_file()}==runtime_before
+    d.flag('actions','exit');d.run(d.docs/'reading-records.sh');assert d.preserved()==before;d.no_temporary()
+    passed('cleanup whitelist, self-removal and working UI after cleanup: '+version)
+
+# Snapshot every active runtime entry and force a post-publication service failure.
+for version in ['9.7.5-test','9.7.6-5.19-normal']:
+    d=Device();d.seed(version)
+    if version=='9.7.6-5.19-normal':d.install()
+    before=d.preserved()
+    paths=[d.base/'VERSION',d.base/'bin/native-reading-time-daemon.sh',d.base/'fonts/NotoSansCJKsc-Regular.otf',d.base/'assets/launcher-icon.png',d.etc/'upstart/native-reading-time.conf']
+    if version=='9.7.6-5.19-normal':paths.extend([d.docs/'reading-records.sh',d.docs/'reading-records-install-cleanup.sh',d.base/'releases/9.7.6-5.19-normal/bin/reading-records-ui.sh'])
+    else:paths.append(d.docs/'阅读记录.sh')
+    hashes={str(p):digest(p) for p in paths}
+    d.flag('fail-service');d.install(ok=False)
+    assert all(digest(path)==sha for path,sha in hashes.items()) and d.preserved()==before
+    assert (d.root/'running').exists()
+    if version=='9.7.5-test':assert not (d.docs/'reading-records-install-cleanup.sh').exists() and not (d.base/'releases/9.7.6-5.19-normal').exists()
+    d.no_temporary();passed('post-activation rollback restores entire previous runtime: '+version)
+
+# Standard metadata may mention books; 'ks' must be a standalone variant token.
+d=Device();d.seed('9.7.5-compat-v3-standard');write(d.base/'release-info','variant=standard features=books calendar')
+d.install();d.no_temporary();passed('Standard release metadata containing books is not mistaken for KS')
+
+# Extraction failure, not merely listing failure, must leave no temporary files.
+d=Device();d.seed('9.7.5-test');before=d.preserved()
+d.command('tar','case "$1" in -xf) exit 5;; *) /usr/bin/tar "$@";; esac');d.command('busybox','exit 6');d.chmod([d.mock/'tar',d.mock/'busybox'])
+d.install(ok=False);assert d.preserved()==before;d.no_temporary();passed('tar extraction failure cleans tmp and preserves old installation')
+d=Device();d.command('tar','exit 3');d.chmod([d.mock/'tar']);d.install();d.no_temporary();passed('BusyBox tar fallback installs successfully')
+
+# Inner resource integrity is independent of the outer payload checksum.
+d=Device();d.seed('9.7.5-test');before=d.preserved()
+raw=d.payload.read_bytes();buffer=io.BytesIO()
+with tarfile.open(fileobj=io.BytesIO(raw)) as source, tarfile.open(fileobj=buffer,mode='w',format=tarfile.USTAR_FORMAT) as target:
+    for m in source.getmembers():
+        data=source.extractfile(m).read()
+        if m.name.endswith('/launcher-icon.png'):data+=b'corrupt'
+        m.size=len(data);target.addfile(m,io.BytesIO(data))
+raw=buffer.getvalue();d.payload.write_bytes(raw);checksum,size=cksum(raw)
+import re
+path=d.docs/BOOTSTRAP;script=path.read_text(encoding='utf-8')
+script=re.sub(r'EXPECTED_CKSUM=\d+',f'EXPECTED_CKSUM={checksum}',script)
+script=re.sub(r'EXPECTED_SIZE=\d+',f'EXPECTED_SIZE={size}',script);write(path,script)
+d.install(ok=False);assert '安装资源损坏' in d.install_log() and d.preserved()==before;d.no_temporary()
+passed('inner manifest detects corruption despite a valid outer cksum')
+
+for version in ['9.7.5-test','9.7.6-5.19-normal']:
+    d=Device();d.seed(version)
+    if version=='9.7.6-5.19-normal':d.install()
+    before=d.preserved()
+    old_release=d.base/'releases/9.7.6-5.19-normal'
+    release_hashes={p.relative_to(old_release).as_posix():digest(p) for p in old_release.rglob('*') if p.is_file()}
+    d.flag('fail-launcher-once')
+    d.command('mv',r'''case "$2" in */documents/reading-records.sh) if [ -f "$SIM/fail-launcher-once" ]; then rm -f "$SIM/fail-launcher-once"; exit 9; fi;; esac
+exec /usr/bin/mv "$@"
+''');d.chmod([d.mock/'mv'])
+    d.install(ok=False);assert d.preserved()==before
+    assert {p.relative_to(old_release).as_posix():digest(p) for p in old_release.rglob('*') if p.is_file()}==release_hashes
+    assert (d.root/'running').exists();d.no_temporary()
+    passed('atomic launcher failure restores all prior release bytes: '+version)
+
+# A signal during publication reaches installer rollback through the bootstrap.
+for signal in ['INT','TERM','HUP']:
+    d=Device();d.seed('9.7.5-test');before=d.preserved()
+    d.flag('interrupt-stop')
+    boot=d.docs/BOOTSTRAP
+    write(boot,boot.read_text(encoding='utf-8').replace('HERE=', 'echo "$$" > "$SIM/bootstrap-pid"\nHERE=',1))
+    path=d.mock/'initctl';script=path.read_text(encoding='utf-8')
+    script=script.replace('stop) rm -f', 'stop) if [ -f "$SIM/interrupt-stop" ]; then rm -f "$SIM/interrupt-stop"; kill -'+signal+' "$(cat "$SIM/bootstrap-pid")"; fi; rm -f')
+    write(path,script);d.chmod([path])
+    d.install(ok=False);assert d.preserved()==before and (d.docs/'阅读记录.sh').exists()
+    assert not (d.docs/'reading-records-install-cleanup.sh').exists();d.no_temporary()
+    passed('installer signal rolls back and bootstrap removes tmp: '+signal)
+
+for signal in ['INT','TERM','HUP']:
+    d=Device();d.seed('9.7.5-test');before=d.preserved()
+    path=d.docs/BOOTSTRAP;script=path.read_text(encoding='utf-8').replace('INSTALL_PID=$!', 'kill -'+signal+' "$$"\nINSTALL_PID=$!')
+    write(path,script);d.install(ok=False);assert d.preserved()==before
+    assert not (d.docs/'reading-records-install-cleanup.sh').exists();d.no_temporary()
+    passed('bootstrap signal between fork and installer PID assignment: '+signal)
+
+result={'result':'PASS','checks':checks,'case_count':len(checks),'limits':['Hardware commands are simulated. File deployments, checksums, archive extraction, rollback and real UI shell control flow execute offline. Real power button and e-ink interaction require KPW verification.']}
+write(OUT/'installer-results.json',json.dumps(result,ensure_ascii=False,indent=2))

@@ -1,80 +1,14 @@
-# Kindle Reading Records Enhanced
+# Kindle Reading Records Enhanced — 9.7.6-5.19-normal
 
-适用于越狱 Kindle 的原生阅读时长统计插件增强版。当前正式安装版为
-[`v9.7.4`](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.4)，
-当前仓库开发版本为 **9.7.5 测试版**，
-可在设备上查看月历、阅读热力、周/年统计、月份与最近 8 周趋势、当天阅读详情、
-本地书籍封面和单书阅读日历。
+这是从 `v9.7.5-测试版`（`e41707492b985284d77e0ec5ec5ceffe98209a89`）建立的独立 Standard 主线，仅面向 firmware 5.19.x 的 Kindle 青春版、Paperwhite/KPW 等普通 Kindle。Scribe/KS 和旧固件不适用。
 
-本项目基于 [Plutoill/kindle-reading-records](https://github.com/Plutoill/kindle-reading-records)
-的代码，经原作者授权后继续迭代。本仓库不是上游项目的官方版本；原始工作归
-Plutoill，本仓库中的后续增强和维护由 L-1116 完成。
+本地安装包：`ReadingTime-9.7.6-5.19-normal.zip`。解压一次，只会得到两个文件：
 
-> 这不是 Amazon 官方项目。安装前请确认 Kindle 已越狱，并能运行
-> `;log runme`。操作前建议备份 `/mnt/us/reading-time/`。
+- `reading-records-9.7.6-install.sh`
+- `阅读记录安装数据.tar`
 
-## 功能
+将两个文件一起复制到 Kindle 的 `documents/`，在书库点击“安装阅读记录”。安装后先打开“阅读记录”确认运行正常，再点击“安装好之后，确认无误了再点这个”。清理仅删除安装残留，长期保留正式“阅读记录”入口及所有用户数据。沿用原版本的越狱、Véra/KPM Scriptlet、FBInk/Lua 环境，不要求用户选择 runtime 或执行命令。
 
-- 原生阅读器处于前台且屏幕亮起时统计阅读时长，锁屏或离开阅读器后停止。
-- 月历按日展示阅读热力，可进入当天书籍明细并分页查看。
-- 累计页支持本周、年度与全部历史统计，书籍页支持 7 天、月度、年度和全部历史筛选、本地封面与单书阅读日历。
-- 保留真实书籍进度读取、跨午夜拆分、历史数据保护和兼容模式回退。
-- 逻辑画布为 1272×1696，并提供等比例缩放和触摸坐标转换。
+保留周统计、每日/月历、阅读书籍、累计时长，日期/月/最近 8 周/书籍详情及单书日历，最近 7 天/本月/今年/全部筛选，Kindle 阅读进度、每页 3 本和原封面提取/fallback。原始 TSV 格式、计时/session/book ID 模型不变。
 
-## 当前正式版本
-
-`9.7.4` 是 9.7.1 之后多轮二级统计、单书分析、封面显示、界面完善和启动器体验升级的正式整合版本，并吸收了 9.7.2 / 9.7.3 测试阶段的功能。月份详情、最近 8 周趋势与单书详情均按需读取 Dashboard 会话缓存；不新增常驻进程，不改变 `reading-time.tsv`，也不联网获取封面。
-
-## 当前开发测试版
-
-`9.7.5 测试版` 在 9.7.4 上只增加三项：EPUB/MOBI 本体封面按需提取（PDF 仍只复用 Kindle 缩略图）、阅读书籍与累计时长的“全部”范围，以及 600×960 的 5:8 竖版启动器封面。封面成功和失败结果均缓存；全部统计只读取启动时生成的小型会话缓存，不重复扫描 `reading-time.tsv`。此版本尚待 Kindle 实机验证，不作为正式稳定版发布说明。
-
-## 界面预览
-
-| 每日时长 | 阅读书籍 | 当天详情 |
-|---|---|---|
-| ![每日时长](docs/images/daily.png) | ![阅读书籍](docs/images/books.png) | ![当天详情](docs/images/day-detail.png) |
-
-## 安装与回滚
-
-> **安装请务必选对文件：**请从
-> [`v9.7.4` Release](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.4)
-> 的 **Assets** 下载 **`kindle-reading-records-v9.7.4.zip`**。
-> **不要下载 GitHub 自动生成的 `Source code (zip)` 或 `Source code (tar.gz)`**，它们不是 Kindle 安装包。
-
-1. 下载并解压 [`kindle-reading-records-v9.7.4.zip`](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.4/kindle-reading-records-v9.7.4.zip)。
-2. 将 `RUNME.sh` 和完整的 `native-reading-time-package/` 复制到 Kindle USB 根目录。
-3. 安全弹出并断开 USB，在 Kindle 搜索栏执行 `;log runme`。
-
-这是完整安装包，同时支持全新安装和旧版原地升级；脚本会自动判断安装路径。9.7.1 用户无需依次安装 9.7.2、9.7.3，也无需重新安装 SH_Integration。
-
-升级和回滚不会主动替换 `reading-time.tsv`。完整步骤和注意事项见
-[安装与回滚说明](docs/安装与回滚.md)。
-
-当前 9.7.4 安装包已完成 Kindle 实机测试；此前重点验证机型为 Kindle Paperwhite 6 / 固件 5.19.6，其他机型和固件仍建议自行复核。
-
-## 开发与验证
-
-需要 Python 3.11+、POSIX `sh`/`dash`，以及：
-
-```sh
-python -m pip install -r requirements-dev.txt
-python scripts/validate_all.py
-```
-
-验证结果写入 `build/validation/`，安装包写入 `dist/`，两者均不提交到 Git。
-`RUNME.sh` 与 `native-reading-time-package/` 始终保持可直接打包的设备目录结构。
-
-## 版本历史
-
-仓库早期历史由本地发布快照按继承关系重建，每个正式或测试快照都有对应 Git 标签。
-提交时间取自原快照目录的修改时间，只用于恢复时间顺序，并非原始开发提交记录。
-版本摘要见 [CHANGELOG.md](CHANGELOG.md)。
-
-## 授权说明
-
-本仓库不附加通用软件许可证，也不应被视为向第三方授予复制、修改或再发布代码
-的许可。上游代码经原作者明确授权在此发布；如需复用，请分别联系相关权利人。
-
-随包 `NotoSansCJKsc-Regular.otf` 字体仍按 SIL Open Font License 1.1 分发，完整
-条款见 `native-reading-time-package/FONT-LICENSE.txt`。
+本轮没有公开发布。横屏方向恢复与实体电源键必须先完成 KPW 5.19 真机验证；真机清单见 `docs/5.19-normal-kpw-checklist.md`。后台完整离线验证：`python scripts/validate_all.py`。`dist/` 为本地用户包，`build/validation/` 为开发验证报告，均不会成为额外用户安装文件。基线旧 RUNME/installer 源文件仅供历史审计，不进入新 payload，也不参与新安装路径。

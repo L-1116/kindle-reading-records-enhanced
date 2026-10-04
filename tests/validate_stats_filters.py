@@ -57,7 +57,6 @@ record("syntax", "All shipped shell files pass sh/dash parsing; all Lua files pa
 protected = [
     "native-reading-time-daemon.sh",
     "native-reading-time.conf",
-    "阅读记录.sh",
     "reading-insights-touch.lua",
     "ui-calendar/daily.png",
 ]
@@ -65,7 +64,7 @@ for relative in protected:
     key = f"native-reading-time-package/{relative}"
     assert hashlib.sha256((PKG / relative).read_bytes()).hexdigest() == BASE_HASHES[key], relative
 assert not list(PKG.rglob("*.db"))
-record("protected core", "Daemon, Upstart config, legacy viewer/touch and daily background are byte-identical to v9.6.7; no database is shipped.")
+record("protected core", "Daemon, Upstart config, original touch readers and daily background are byte-identical to v9.6.7; no database is shipped.")
 
 viewer = (PKG / "阅读记录-optimized.sh").read_text(encoding="utf-8")
 baseline_viewer = (BASE / "阅读记录-optimized.sh").read_text(encoding="utf-8")
@@ -77,7 +76,7 @@ assert "p_percentFinished" in old_progress and "sqlite3 -readonly" in old_progre
 record("progress safety", "Progress and thumbnails share one delayed read-only cc.db snapshot; reliable cdeKey matching is tried first with exact-title progress fallback, with no database writes or directory scan.")
 
 # Extract function definitions only; hardware startup and cleanup never run.
-definitions = viewer[: viewer.index("\ndetect_screen; find_touch_device")]
+definitions = viewer[: viewer.index("\n. ")]
 definitions = definitions.replace('exec >> "$LOG" 2>&1', "")
 definitions = definitions.replace('\ntrap cleanup EXIT INT TERM HUP\n', "\n")
 definitions = definitions.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"', "")

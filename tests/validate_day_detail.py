@@ -31,7 +31,7 @@ def run_shell(code: str) -> str:
 
 
 viewer = (PKG / "阅读记录-optimized.sh").read_text(encoding="utf-8")
-definitions = viewer[: viewer.index("\ndetect_screen; find_touch_device")]
+definitions = viewer[: viewer.index("\n. ")]
 definitions = definitions.replace('exec >> "$LOG" 2>&1', "")
 definitions = definitions.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"', "")
 (OUT / "functions-day-detail.sh").write_text(definitions, encoding="utf-8", newline="\n")
@@ -234,11 +234,11 @@ assert viewer.index("day_detail_back)") < day_route
 assert 'week_offset=0' not in next(line for line in viewer.splitlines() if line.strip().startswith("day_detail_back)"))
 passed("return state", "Opening from calendar preserves selected_date/month; opening from a historical week preserves week_offset. Back restores the recorded source mode without resetting either context.")
 
-for unchanged in ("native-reading-time-daemon.sh", "native-reading-time.conf", "阅读记录.sh", "reading-insights-touch.lua"):
+for unchanged in ("native-reading-time-daemon.sh", "native-reading-time.conf", "reading-insights-touch.lua"):
     key = f"native-reading-time-package/{unchanged}"
     assert hashlib.sha256((PKG / unchanged).read_bytes()).hexdigest() == BASE_HASHES[key], unchanged
 assert "$DATA" not in viewer[viewer.index("get_day_detail()"):viewer.index("prepare_daily_view()")]
-passed("data/core isolation", "Day detail reads the launch-time DAY_BOOKS identity columns for covers without touching persisted data; daemon, TSV format, fallback viewer and legacy touch reader remain byte-identical to v9.6.10.")
+passed("data/core isolation", "Day detail reads the launch-time DAY_BOOKS identity columns for covers without touching persisted data; daemon, TSV format, legacy touch reader remain byte-identical to v9.6.10.")
 
 result = {"result": "PASS", "check_count": len(checks), "checks": checks}
 (OUT / "day-detail-results.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")

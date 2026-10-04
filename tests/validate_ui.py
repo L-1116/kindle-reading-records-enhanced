@@ -41,7 +41,7 @@ for file in sorted(PKG.rglob('*')):
         rel=file.relative_to(ROOT).as_posix()
         if STABLE_HASHES.get(rel)!=hashlib.sha256(file.read_bytes()).hexdigest():
             stable_payload_changes.append(file.relative_to(ROOT).as_posix())
-assert stable_payload_changes==[
+assert sorted(stable_payload_changes)==sorted([
     'native-reading-time-package/Install-Native-Reading-Time-Optimized.sh',
     'native-reading-time-package/launcher-icon.png',
     'native-reading-time-package/reading-insights-cache.awk',
@@ -56,10 +56,18 @@ assert stable_payload_changes==[
     'native-reading-time-package/ui-calendar/total.png',
     'native-reading-time-package/ui-calendar/week_trend.png',
     'native-reading-time-package/阅读记录-optimized.sh',
-]
+    'native-reading-time-package/阅读记录.sh',
+    'native-reading-time-package/reading-insights-title-widths.lua',
+    'native-reading-time-package/launch.sh',
+    'native-reading-time-package/runtime-child.sh',
+    'native-reading-time-package/install.sh',
+    'native-reading-time-package/install-manifest.txt',
+    'native-reading-time-package/cleanup-manifest.txt',
+    'native-reading-time-package/resources/reading-records-install-cleanup.sh',
+])
 record('stable payload scope','Against v9.6.10, changes stay within the optimized viewer/touch map, cover helper, launcher cover, total-page navigation shell, secondary-page backgrounds/glyphs and versioned installer payload.')
 
-unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-touch.lua','阅读记录.sh','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
+unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-touch.lua','Install-Native-Reading-Time.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:
     key=f'native-reading-time-package/{rel}'
     assert hashlib.sha256((PKG/rel).read_bytes()).hexdigest()==STABLE_HASHES[key],rel
@@ -67,19 +75,21 @@ for folder in ('ui',):
     for file in (PKG/folder).iterdir():
         key=f'native-reading-time-package/{folder}/{file.name}'
         assert hashlib.sha256(file.read_bytes()).hexdigest()==STABLE_HASHES[key]
-record('preserved core','Daemon, Upstart, legacy viewer/touch, legacy ui/ assets and font remain byte-identical to v9.6.10; cache changes are limited to identity/range aggregation and exclude future-dated rows from the new all-time summary.')
+record('preserved core','Daemon, Upstart, original touch readers, legacy ui/ assets and font remain byte-identical to v9.6.10; cache changes are limited to identity/range aggregation and exclude future-dated rows from the new all-time summary.')
 
 viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
 old=STABLE_VIEWER.read_text(encoding='utf-8')
 for start,end in [('detect_screen()','time_text()'),('refresh_region()','dashboard_active=0')]:
-    assert viewer[viewer.index(start):viewer.index(end)]==old[old.index(start):old.index(end)]
+    current_block=viewer[viewer.index(start):viewer.index(end)]
+    current_block=current_block.replace(' || fail "FBInk 显示操作失败"', '').replace(' || fail "FBInk 刷新失败"', '')
+    assert current_block==old[old.index(start):old.index(end)]
 for name in ('page_prev)','page_next)'):
     assert next(x for x in viewer.splitlines() if x.strip().startswith(name))==next(x for x in old.splitlines() if x.strip().startswith(name))
 assert 'mode=daily; view_year=' in viewer
 record('interaction invariants','Default daily, page navigation branches and refresh policy remain stable; v9.7.5-test extends only filters, local cover fallback and release metadata.')
 
 # Extract definitions only: never run startup, hardware access, or EXIT cleanup.
-defs=viewer[:viewer.index('\ndetect_screen; find_touch_device')]
+defs=viewer[:viewer.index('\n. "$RELEASE/bin/runtime-child.sh"')]
 defs=defs.replace('exec >> "$LOG" 2>&1','').replace('\ntrap cleanup EXIT INT TERM HUP\n','\n')
 defs=defs.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"','')
 (OUT/'functions.sh').write_text(defs,encoding='utf-8',newline='\n')
@@ -453,7 +463,8 @@ record('weekly plot layout','Monday at 0, 35, 120 and 210 min uses one measured 
 # existing single region refresh; total-period code is covered by its own suite.
 stable_viewer=STABLE_VIEWER.read_text(encoding='utf-8')
 for start,end in [('refresh_region()','dashboard_active=0')]:
-    assert viewer[viewer.index(start):viewer.index(end)]==stable_viewer[stable_viewer.index(start):stable_viewer.index(end)]
+    current_block=viewer[viewer.index(start):viewer.index(end)].replace(' || fail "FBInk 刷新失败"', '')
+    assert current_block==stable_viewer[stable_viewer.index(start):stable_viewer.index(end)]
 daily_block=viewer[viewer.index('render_daily()'):viewer.index('active_books()')]
 assert daily_block.count('canvas calendar ')==1 and daily_block.count('swrite calendar')==1
 assert daily_block.count('image "$SESSION_DIR/daily-calendar.pgm"')==1 and 'refresh_region' not in daily_block

@@ -35,7 +35,7 @@ def run_shell(code: str) -> str:
 
 
 viewer = (PKG / "阅读记录-optimized.sh").read_text(encoding="utf-8")
-definitions = viewer[: viewer.index("\ndetect_screen; find_touch_device")]
+definitions = viewer[: viewer.index("\n. ")]
 definitions = definitions.replace('exec >> "$LOG" 2>&1', "")
 definitions = definitions.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"', "")
 (OUT / "functions-book-detail.sh").write_text(definitions, encoding="utf-8", newline="\n")
@@ -282,15 +282,16 @@ startup = viewer[viewer.index("metric_begin first_open") : viewer.index("\n\nwhi
 assert "get_book_detail" not in startup and "render_book_detail" not in startup
 assert hashlib.sha256((PKG / "native-reading-time-daemon.sh").read_bytes()).hexdigest() == BASE_HASHES["native-reading-time-package/native-reading-time-daemon.sh"]
 assert "reading-time.tsv" not in (PKG / "reading-insights-cache.awk").read_text(encoding="utf-8")
-installer = (PKG / "Install-Native-Reading-Time-Optimized.sh").read_text(encoding="utf-8")
-assert "9.7.5-test" in installer and "book_detail.png" in installer and "reading-insights-cover.lua" in installer
-assert "9.7.5-test" in viewer and "book_detail.png" in viewer
+installer = (PKG / "install.sh").read_text(encoding="utf-8")
+manifest = (PKG / "install-manifest.txt").read_text(encoding="utf-8")
+assert "9.7.6-5.19-normal" in installer and "book_detail.png" in manifest and "reading-insights-cover.lua" in manifest
+assert "9.7.6-5.19-normal" in viewer and "book_detail.png" in viewer
 assert viewer.splitlines()[:4] == ["#!/bin/sh", "# Name: 阅读记录", "# Author: Kindle Reading Records Enhanced", "# Icon: /mnt/us/reading-time/assets/launcher-icon.png"]
 for lua_file in PKG.glob("*.lua"):
     LuaRuntime().execute("assert(loadstring(...))", lua_file.read_text(encoding="utf-8"))
 for shell_file in [ROOT / "RUNME.sh", *PKG.glob("*.sh")]:
     subprocess.run([SH, "-n", str(shell_file)], check=True, capture_output=True)
-passed("performance and release guardrails", "Book detail is absent from startup, uses only small unsorted DAY_BOOKS scans and never names DATA; daemon bytes and persisted format stay protected, release/resource checks are v9.7.5-test, and shipped shell/Lua syntax passes.")
+passed("performance and release guardrails", "Book detail is absent from startup, uses only small unsorted DAY_BOOKS scans and never names DATA; daemon bytes and persisted format stay protected, release/resource checks are v9.7.6-5.19-normal, and shipped shell/Lua syntax passes.")
 
 
 result = {"result": "PASS", "check_count": len(checks), "checks": checks}
