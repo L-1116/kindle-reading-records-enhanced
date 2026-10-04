@@ -138,5 +138,5 @@ cp "$TMP/v4/cleanup.sh" "$CLEANUP.new.$$" && chmod 755 "$CLEANUP.new.$$" && mv "
 COMMITTED=1
 result 0 none
 note "verified activation complete version=$version"
-toast '安装完成，请先打开阅读记录测试，确认正常后再清理安装文件'
+toast '安装完成，请打开阅读记录，确认正常后可清理安装文件'
 exit 0

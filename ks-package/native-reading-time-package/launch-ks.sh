@@ -12,6 +12,8 @@ FALLBACK_USED=0
 SELECTED_LUA=none
 SELECTED_FBINK=none
 PROBE_PID=
+UI_PID=
+UI_CHILD_PENDING=0
 
 mkdir -p "$BASE" 2>/dev/null || exit 1
 : > "$LOG" 2>/dev/null || exit 1
@@ -21,11 +23,11 @@ printf 'timestamp=%s\nreader_error=touch_preflight_not_reached\n' "$(date '+%Y-%
 : > "$BASE/last-launch.stderr" 2>/dev/null || true
 exec >> "$LOG" 2>&1
 printf 'timestamp=%s\nui_entry=%s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z' 2>/dev/null || echo unknown)" "$MAIN"
-printf 'package=V3-KS-touch-compat-hotfix\n'
+printf 'package=V4-KS\n'
 printf 'firmware=unknown\nkernel=unknown\nmachine=unknown\narch=unknown\ndetected_env=unknown\nhard_float=unknown\n'
-printf 'selected_runtime=none\nselected_lua=none\nselected_fbink=none\n'
+printf 'selected_runtime=none\nselected_lua=none\nselected_fbink=pending_actual_use\n'
 printf 'screen_width=unknown\nscreen_height=unknown\norientation=unknown\n'
-printf 'launch_command=none\nprimary_probe_result=not_run\nfallback_used=0\nexit_code=pending\nerror_stage=none\n'
+printf 'launch_command=pending\nprimary_probe_result=not_run\nfallback_used=0\nexit_code=pending\nerror_stage=none\n'
 
 write_status() {
     status_tmp="${STATUS}.new.$$"
@@ -46,15 +48,27 @@ restore_native() {
         lipc-set-prop com.lab126.powerd preventScreenSaver 0 >/dev/null 2>&1 || true
         lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
     fi
-    [ "$UI_ENTERED" = 1 ] && [ -x "$SELECTED_FBINK" ] && \
-        "$SELECTED_FBINK" -q -W GC16 -s >/dev/null 2>&1 || true
+    # Recovery never depends on FBInk. The native Library owns its refresh;
+    # a failing runtime must not be invoked again here.
 }
 fail() {
     failure_code="$1"; shift
     trap - INT TERM HUP
     cleanup_probe
+    if [ "$UI_CHILD_PENDING" = 1 ]; then UI_PID=$!; fi
+    if [ -n "$UI_PID" ]; then
+        kill -TERM "$UI_PID" 2>/dev/null || true
+        wait "$UI_PID" 2>/dev/null || true
+        UI_PID=
+    fi
     printf 'error=%s\nerror_stage=%s\nexit_code=%s\n' "$*" "$STAGE" "$failure_code"
     write_status "$failure_code" "$*"
+    # Keep normal support to one file without changing touch selection/reader.
+    if [ "$UI_ENTERED" = 1 ] && [ -r "$BASE/touch-last.log" ]; then
+        printf 'touch_support_begin\n'
+        cat "$BASE/touch-last.log" 2>/dev/null || true
+        printf 'touch_support_end\n'
+    fi
     restore_native
     command -v lipc-set-prop >/dev/null 2>&1 && \
         lipc-set-prop com.lab126.system toasterMessage '阅读记录启动失败，请查看 launch-last.log' >/dev/null 2>&1 || true
@@ -79,7 +93,6 @@ case "$HARD_FLOAT:$COMPAT_PROFILE:$ARCH" in
     0:default:*|1:default:*|0:fw518:*|1:fw518:*) :;;
     *) fail 21 'environment detector returned invalid ABI/profile';;
 esac
-[ "$ARCH" != unknown ] || fail 21 'machine architecture is unknown'
 printf 'firmware=%s\nkernel=%s\nmachine=%s\narch=%s\ndetected_env=%s\nhard_float=%s\n' \
     "$FIRMWARE_FULL" "${KERNEL:-unknown}" "${MACHINE:-unknown}" "$ARCH" "$COMPAT_PROFILE" "$HARD_FLOAT"
 
@@ -119,16 +132,50 @@ case "$SCREEN_W:$SCREEN_H" in
 esac
 printf 'screen_width=%s\nscreen_height=%s\norientation=%s\n' "$SCREEN_W" "$SCREEN_H" "$ORIENTATION"
 
-# This package has Lua source and shell UI, but no Lua or FBInk binaries.
-# FBInk -e initializes and reports state without drawing to the framebuffer.
+# Keep the historical KMC -> libkh -> PATH preference. ABI-specific KMC is
+# an additional fallback, after the previously preferred libkh executable.
 LUA_PRIMARY="$(command -v lua 2>/dev/null || true)"
-FBINK_PRIMARY="${READING_FBINK:-}"
-[ -n "$FBINK_PRIMARY" ] || {
-    for candidate in /var/local/kmc/bin/fbink /mnt/us/libkh/bin/fbink; do
-        [ -x "$candidate" ] && { FBINK_PRIMARY="$candidate"; break; }
-    done
+READING_FBINK_CANDIDATES=
+FBINK_IDENTITIES=
+fbink_candidate_add() {
+    fc_path=$1
+    [ -n "$fc_path" ] || return 0
+    [ -f "$fc_path" ] && [ -x "$fc_path" ] || {
+        printf 'fbink_candidate=%s result=not_executable\n' "$fc_path"; return 0;
+    }
+    fc_real=$(realpath "$fc_path" 2>/dev/null || readlink -f "$fc_path" 2>/dev/null || printf '%s' "$fc_path")
+    fc_inode=$(stat -Lc '%d:%i' "$fc_path" 2>/dev/null || true)
+    fc_sum=$(cksum < "$fc_path" 2>/dev/null || true)
+    while IFS="$(printf '\t')" read -r fc_old fc_old_real fc_old_inode fc_old_sum; do
+        [ -n "$fc_old" ] || continue
+        if [ "$fc_path" = "$fc_old" ] || [ "$fc_real" = "$fc_old_real" ] ||
+            { [ "$fc_inode" != - ] && [ -n "$fc_inode" ] && [ "$fc_inode" = "$fc_old_inode" ]; } ||
+            { [ "$fc_sum" != - ] && [ -n "$fc_sum" ] && [ "$fc_sum" = "$fc_old_sum" ] &&
+                { ! command -v cmp >/dev/null 2>&1 || cmp -s "$fc_path" "$fc_old"; }; } ||
+            { [ -z "$fc_sum" ] && command -v cmp >/dev/null 2>&1 && cmp -s "$fc_path" "$fc_old"; }; then
+            printf 'fbink_candidate=%s duplicate_of=%s\n' "$fc_path" "$fc_old"
+            return 0
+        fi
+    done <<EOF
+$FBINK_IDENTITIES
+EOF
+    printf 'fbink_candidate=%s identity_real=%s identity_inode=%s identity_cksum=%s\n' "$fc_path" "$fc_real" "${fc_inode:--}" "${fc_sum:--}"
+    if [ -z "$READING_FBINK_CANDIDATES" ]; then READING_FBINK_CANDIDATES=$fc_path
+    else READING_FBINK_CANDIDATES="$READING_FBINK_CANDIDATES
+$fc_path"; fi
+    fc_identity=$(printf '%s\t%s\t%s\t%s' "$fc_path" "$fc_real" "${fc_inode:--}" "${fc_sum:--}")
+    FBINK_IDENTITIES="$FBINK_IDENTITIES
+$fc_identity"
 }
-[ -n "$FBINK_PRIMARY" ] || FBINK_PRIMARY="$(command -v fbink 2>/dev/null || true)"
+fbink_candidate_add "${READING_FBINK:-}"
+fbink_candidate_add /var/local/kmc/bin/fbink
+fbink_candidate_add /mnt/us/libkh/bin/fbink
+if [ "$HARD_FLOAT" = 1 ]; then fbink_candidate_add /var/local/kmc/armhf/bin/fbink
+else fbink_candidate_add /var/local/kmc/armel/bin/fbink; fi
+fbink_candidate_add "$(command -v fbink 2>/dev/null || true)"
+export READING_FBINK_CANDIDATES
+FBINK_PRIMARY=${READING_FBINK_CANDIDATES%%
+*}
 printf 'primary_lua=%s\nprimary_fbink=%s\n' "${LUA_PRIMARY:-missing}" "${FBINK_PRIMARY:-missing}"
 
 STAGE=runtime_probe
@@ -188,20 +235,6 @@ probe_lua() {
     printf 'probe_phase=lua_%s_end\nlua_%s_result=%s\n' "$probe_label" "$probe_label" "$PROBE_RESULT"
     [ "$PROBE_RESULT" = ok ]
 }
-probe_fbink() {
-    probe_candidate=$1; probe_label=$2
-    printf 'probe_phase=fbink_%s_begin\nprobe_candidate=%s\n' "$probe_label" "${probe_candidate:-missing}"
-    if [ -z "$probe_candidate" ]; then PROBE_RESULT=missing
-    elif [ ! -x "$probe_candidate" ]; then PROBE_RESULT=not_executable
-    else
-        printf 'fbink_probe_init_begin=%s\n' "$probe_candidate"
-        probe_process "$probe_candidate" -e
-        printf 'fbink_probe_init_result=%s\nfbink_probe_init_exit_code=%s\n' "$PROBE_RESULT" "${PROBE_EXIT_CODE:-none}"
-        [ "$PROBE_RESULT" != nonzero_exit ] || PROBE_RESULT=fbink_init_failed
-    fi
-    printf 'probe_phase=fbink_%s_end\nfbink_%s_result=%s\n' "$probe_label" "$probe_label" "$PROBE_RESULT"
-    [ "$PROBE_RESULT" = ok ]
-}
 
 lua_result=not_run; fbink_result=not_run
 if probe_lua "$LUA_PRIMARY" primary; then SELECTED_LUA=$LUA_PRIMARY; lua_result=ok
@@ -220,40 +253,25 @@ else
         fi
     done
 fi
-if probe_fbink "$FBINK_PRIMARY" primary; then SELECTED_FBINK=$FBINK_PRIMARY; fbink_result=ok
-else
-    fbink_result=$PROBE_RESULT
-    seen_fbink=":$FBINK_PRIMARY:"
-    fbink_fallback=0
-    for candidate in /var/local/kmc/bin/fbink /mnt/us/libkh/bin/fbink "$(command -v fbink 2>/dev/null || true)"; do
-        [ -n "$candidate" ] || continue
-        case "$seen_fbink" in *:"$candidate":*) continue;; esac
-        seen_fbink="$seen_fbink$candidate:"
-        fbink_fallback=$((fbink_fallback + 1))
-        if probe_fbink "$candidate" "fallback_$fbink_fallback"; then
-            SELECTED_FBINK=$candidate; FALLBACK_USED=1
-            printf 'fbink_fallback_reason=primary FBInk init probe failed; candidate passed framebuffer init\n'
-            break
-        fi
-    done
-fi
+fbink_result=deferred_actual_use
 printf 'primary_probe_result=lua:%s,fbink:%s\nfallback_used=%s\n' "$lua_result" "$fbink_result" "$FALLBACK_USED"
-printf 'selected_lua=%s\nselected_fbink=%s\n' "$SELECTED_LUA" "$SELECTED_FBINK"
+printf 'selected_lua=%s\n' "$SELECTED_LUA"
 [ "$SELECTED_LUA" != none ] || fail 32 'no Lua runtime passed execution and syntax probes'
-[ "$SELECTED_FBINK" != none ] || fail 31 'no FBInk runtime passed framebuffer initialization probe'
-printf 'selected_runtime=external-lua+external-fbink\nselected_lua=%s\nselected_fbink=%s\n' "$SELECTED_LUA" "$SELECTED_FBINK"
+[ -n "$READING_FBINK_CANDIDATES" ] || fail 31 'no executable FBInk candidate found'
+printf 'selected_runtime=external-lua+external-fbink\nselected_lua=%s\nfbink_selection=deferred_actual_use\n' "$SELECTED_LUA"
 
 # The UI calls "lua"; prioritize the probed executable without changing UI logic.
 PATH="${SELECTED_LUA%/*}:$PATH"; export PATH
-READING_FBINK="$SELECTED_FBINK"; export READING_FBINK
+READING_FBINK="$FBINK_PRIMARY"; export READING_FBINK
 READING_LUA_BINARY="$SELECTED_LUA"; export READING_LUA_BINARY
 READING_LAUNCHER_CAPTURE=1; export READING_LAUNCHER_CAPTURE
 STAGE=ui
 printf 'launch_command=%s\n' "$MAIN"
 write_status 0 starting
 UI_ENTERED=1
-"$MAIN"
-launch_code=$?
+UI_CHILD_PENDING=1
+"$MAIN" & UI_PID=$!; UI_CHILD_PENDING=0
+wait "$UI_PID"; launch_code=$?; UI_PID=
 if [ "$launch_code" -ne 0 ]; then
     grep -q '^error_stage=touch$' "$LOG" 2>/dev/null && STAGE=touch
     fail "$launch_code" 'UI process exited unexpectedly'

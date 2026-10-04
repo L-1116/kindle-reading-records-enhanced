@@ -155,6 +155,7 @@ cat() {
 }
 sleep() {
     printf 'SLEEP %s\n' "$*" >> "$TRACE"
+    case "$1" in 0.*) command sleep "$@"; return;; esac
     [ -z "$WAIT_SIGNAL" ] || kill -"$WAIT_SIGNAL" "$$"
 }
 find_touch_device() { TOUCH="$READING_TOUCH_DEVICE"; }
@@ -173,7 +174,7 @@ lua() {
 '''
     # Actual UI resource checks, first refresh, listener boundary and exit.
     # Function overrides bypass statistics/rendering, never real hardware.
-    relocated = prefix.replace('BASE="/mnt/us/reading-time"', f"BASE={quote(base)}")
+    relocated = prefix.replace('BASE="${READING_BASE:-/mnt/us/reading-time}"', f"BASE={quote(base)}")
     relocated = relocated.replace('SESSION_DIR="/tmp/native-reading-dashboard.$$"', f"SESSION_DIR={quote(session / 'cache')}")
     source = setup + relocated + mocks
     source += "\ndetect_screen; find_touch_device" + startup.replace(
@@ -255,8 +256,7 @@ lua() {
                 for index, row in enumerate(rows):
                     if row == "LIPC com.lab126.appmgrd start app://com.lab126.KPPMainApp?view=KPP_LIBRARY":
                         restore_refresh = next((item for item in rows[index + 1:] if item.startswith("FB ")), None)
-                        expected_refresh = "FB -q -W GC16 -s" if firmware.startswith("5.18.") else "FB -q -f -W GC16 -s"
-                        assert restore_refresh == expected_refresh, (label, firmware, restore_refresh, rows)
+                        assert restore_refresh is None, (label, firmware, restore_refresh, rows)
                 assert canary.poll() is None, (label, "unrelated process was terminated")
                 if len(expected_sets) == 2:
                     expected_restored = "U" if overrides.get("RESTORE_FAIL") == "1" else expected_sets[-1]

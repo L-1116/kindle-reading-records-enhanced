@@ -13,6 +13,9 @@ import shutil
 import subprocess
 import time
 
+from legacy_runtime_contract import assert_legacy_core
+assert_legacy_core()
+
 from PIL import Image, ImageDraw, ImageFont
 from lupa.lua51 import LuaRuntime
 
@@ -57,7 +60,6 @@ record("syntax", "All shipped shell files pass sh/dash parsing; all Lua files pa
 protected = [
     "native-reading-time-daemon.sh",
     "native-reading-time.conf",
-    "阅读记录.sh",
     "reading-insights-touch.lua",
     "ui-calendar/daily.png",
 ]
@@ -65,7 +67,7 @@ for relative in protected:
     key = f"native-reading-time-package/{relative}"
     assert hashlib.sha256((PKG / relative).read_bytes()).hexdigest() == BASE_HASHES[key], relative
 assert not list(PKG.rglob("*.db"))
-record("protected core", "Daemon, Upstart config, legacy viewer/touch and daily background are byte-identical to v9.6.7; no database is shipped.")
+record("protected core", "Daemon, Upstart config, legacy touch and daily background are byte-identical to v9.6.7; no database is shipped.")
 
 viewer = (PKG / "阅读记录-optimized.sh").read_text(encoding="utf-8")
 baseline_viewer = (BASE / "阅读记录-optimized.sh").read_text(encoding="utf-8")

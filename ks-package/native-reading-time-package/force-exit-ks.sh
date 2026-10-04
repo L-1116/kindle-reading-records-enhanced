@@ -34,10 +34,6 @@ lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true
 lipc-set-prop com.lab126.powerd preventScreenSaver 0 >/dev/null 2>&1 || true
 lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
 sleep 1
-FBINK="${READING_FBINK:-}"
-[ -x "$FBINK" ] || FBINK=/var/local/kmc/bin/fbink
-[ -x "$FBINK" ] || FBINK=/mnt/us/libkh/bin/fbink
-[ -x "$FBINK" ] && "$FBINK" -q -f -W GC16 -s >/dev/null 2>&1 || true
 note "finished targets=${targets:-none}"
 lipc-set-prop com.lab126.system toasterMessage "阅读统计 KS 已退出" >/dev/null 2>&1 || true
 exit 0

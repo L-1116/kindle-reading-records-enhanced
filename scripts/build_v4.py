@@ -125,8 +125,8 @@ def build(variant: str) -> dict:
     bootstrap = (ROOT / "v4/bootstrap.template.sh").read_text(encoding="utf-8")
     bootstrap = bootstrap.replace("@VARIANT@", variant).replace("@SIZE@", str(len(tar_bytes))).replace("@CKSUM@", cksum).encode("utf-8")
     label = "V4" if variant == "standard" else "V4-KS"
-    simple = DIST / f"ReadingTime-{label}-Test2.zip"
-    full = DIST / f"ReadingTime-{label}-Full-Compatibility-Test2.zip"
+    simple = DIST / f"ReadingTime-{label}.zip"
+    full = DIST / f"ReadingTime-{label}-Full-Compatibility.zip"
     make_zip(simple, {BOOT_NAME: bootstrap, TAR_NAME: tar_bytes})
     full_files = dict(payload_files)
     full_files[f"documents/{BOOT_NAME}"] = bootstrap

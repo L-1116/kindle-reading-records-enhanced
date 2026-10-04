@@ -69,10 +69,11 @@ assert stable_payload_changes==[
     'native-reading-time-package/uninstall.sh',
     'native-reading-time-package/阅读记录-entry.sh',
     'native-reading-time-package/阅读记录-optimized.sh',
+    'native-reading-time-package/阅读记录.sh',
 ]
 record('stable payload scope','Against v9.6.10, statistics/daemon/data paths stay stable; additions include the compatibility detector, launcher, installer/cleanup entries and manifests, and the 9.7.5 UI/cover payload.')
 
-unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-touch.lua','阅读记录.sh','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
+unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-touch.lua','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:
     key=f'native-reading-time-package/{rel}'
     assert hashlib.sha256((PKG/rel).read_bytes()).hexdigest()==STABLE_HASHES[key],rel
@@ -80,12 +81,16 @@ for folder in ('ui',):
     for file in (PKG/folder).iterdir():
         key=f'native-reading-time-package/{folder}/{file.name}'
         assert hashlib.sha256(file.read_bytes()).hexdigest()==STABLE_HASHES[key]
-record('preserved core','Daemon, Upstart, legacy viewer/touch, legacy ui/ assets and font remain byte-identical to v9.6.10; cache changes are limited to identity/range aggregation and exclude future-dated rows from the new all-time summary.')
+from legacy_runtime_contract import assert_legacy_core
+assert_legacy_core()
+record('preserved core','Daemon, Upstart, legacy touch, legacy ui/ assets and font remain byte-identical to v9.6.10; cache changes are limited to identity/range aggregation and exclude future-dated rows from the new all-time summary.')
 
 viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
 old=STABLE_VIEWER.read_text(encoding='utf-8')
-for start,end in [('find_touch_device()','time_text()')]:
-    assert viewer[viewer.index(start):viewer.index(end)]==old[old.index(start):old.index(end)]
+# Preserve device selection/scaling and actual drawing argv. The FBInk wrapper
+# intentionally changes from unchecked execution to actual-use fallback.
+for start,end in [('find_touch_device()', 'fbink_calls=0'), ('ot() {', 'time_text()')]:
+    assert viewer[viewer.index(start):viewer.index(end)] == old[old.index(start):old.index(end)]
 # Orientation recovery may precede screen validation; the viewport transform
 # that controls layout and hitboxes must remain exactly the original code.
 screen=viewer[viewer.index('detect_screen()'):viewer.index('find_touch_device()')]

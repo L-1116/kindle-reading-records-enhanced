@@ -26,7 +26,6 @@ lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true
 lipc-set-prop com.lab126.powerd preventScreenSaver 0 >/dev/null 2>&1 || true
 
 [ -x /sbin/initctl ] || fail "Upstart not found"
-[ -f /lib/ld-linux-armhf.so.3 ] || fail "not a kindlehf device"
 [ -f "$PKG/native-reading-time-daemon.sh" ] || fail "missing daemon payload"
 [ -f "$PKG/native-reading-time.conf" ] || fail "missing Upstart payload"
 [ -f "$PKG/阅读记录.sh" ] || fail "missing dashboard launcher"

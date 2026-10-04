@@ -14,7 +14,7 @@ case "$ACTION" in
         exec /bin/sh "$PKG/force-exit-ks.sh"
         ;;
     cleanup|uninstall-keep-data)
-        echo "KS test package does not expose an active-app uninstall action."
+        echo "KS package does not expose an active-app uninstall action."
         echo "Reinstall/upgrade in place; reading-time.tsv is preserved."
         exit 2
         ;;

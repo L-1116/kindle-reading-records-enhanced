@@ -84,7 +84,7 @@ trap 'root_ro' EXIT
 atomic_file() { src="$1"; dst="$2"; mode="$3"; tmp="${dst}.new.$$"; cp "$src" "$tmp" || return 1; chmod "$mode" "$tmp" || { rm -f "$tmp"; return 1; }; mv "$tmp" "$dst"; }
 
 [ "$(id -u)" -eq 0 ] || [ "${READING_ALLOW_NONROOT_TEST:-0}" = 1 ] || fail "not running as root; use ;log runme"
-[ -x /sbin/initctl ] || fail "Upstart not found"; [ -f /lib/ld-linux-armhf.so.3 ] || fail "not a kindlehf device"
+[ -x /sbin/initctl ] || fail "Upstart not found"
 command -v cmp >/dev/null 2>&1 || fail "cmp unavailable"
 for f in native-reading-time-daemon.sh native-reading-time.conf 阅读记录.sh 阅读记录-entry.sh 阅读记录-optimized.sh launch.sh diagnostics.sh uninstall.sh install-manifest.txt cleanup-manifest.txt compat/detect_env.sh reading-insights-touch.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-cover.lua reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt launcher-icon.png; do [ -f "$PKG/$f" ] || fail "missing payload: $f"; done
 for f in resources/reading-records-uninstall.sh resources/kual/reading-records-installer/bin/action.sh resources/kual/reading-records-installer/config.xml resources/kual/reading-records-installer/menu.json; do [ -f "$PKG/$f" ] || fail "missing lifecycle resource: $f"; done
@@ -196,5 +196,5 @@ echo "$(date): final sanity resolver=ok launcher=ok entry=ok helpers=ok history=
 printf '9.7.5-test\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
 
 ACTIVATED=0; cleanup_stage; trap - INT TERM HUP; root_ro; sync
-echo "$(date): 9.7.5 test installed and running, daemon_cmp=identical"
-toast "Reading records 9.7.5 test installed"; exit 0
+echo "$(date): V4 installed and running, daemon_cmp=identical"
+toast "阅读记录 V4 安装完成"; exit 0

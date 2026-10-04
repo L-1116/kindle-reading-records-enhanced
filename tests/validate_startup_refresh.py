@@ -67,7 +67,9 @@ FBINK=mock_fbink
 scale_x() {{ echo $((ORIGIN_X+$1*SCALE_NUM/SCALE_DEN)); }}
 scale_y() {{ echo $((ORIGIN_Y+$1*SCALE_NUM/SCALE_DEN)); }}
 scale_len() {{ echo $(($1*SCALE_NUM/SCALE_DEN)); }}
-{viewer[viewer.index('fb()'):viewer.index('ot()')]}
+# Capture raw argv here to isolate waveform/cadence policy. The production
+# runtime wrapper is exercised by validate_fbink_actual_use/resolver.
+fb() {{ fbink_calls=$((fbink_calls+1)); "$FBINK" "$@"; }}
 mock_fbink() {{
     printf '%s\\n' "$*" >> "$COMMANDS"
     [ "${{STOP_REFRESH:-0}}" = 1 ] && exit 88

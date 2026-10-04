@@ -47,7 +47,7 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
     tmp = session / "tmp"
     for folder in (docs, upstart, mock, tmp):
         folder.mkdir(parents=True, exist_ok=True)
-    zip_name = "ReadingTime-V4-Test2.zip" if variant == "standard" else "ReadingTime-V4-KS-Test2.zip"
+    zip_name = "ReadingTime-V4.zip" if variant == "standard" else "ReadingTime-V4-KS.zip"
     with zipfile.ZipFile(ROOT / "dist" / zip_name) as archive:
         assert set(archive.namelist()) == {BOOT, TAR}
         archive.extractall(docs)
@@ -81,14 +81,14 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
             put(base / "VERSION", b"9.7.5-ks-test1-touch-compat\n")
             put(base / "bin/launch-ks.sh", b"old KS launcher")
             put(base / "releases/9.7.5-ks-test1/bin/reading-records-ks.sh", (ROOT / "ks-package/native-reading-time-package/阅读记录-ks.sh").read_bytes())
-        elif previous == "V4-KS":
+        elif previous in {"V4-KS", "V4-KS Test1", "V4-KS Test2"}:
             put(base / "VERSION", b"V4-KS\n")
             put(base / "release-info", b"release_family=V4\nvariant=ks\n")
             put(base / "bin/launch-ks.sh", b"old KS launcher")
             put(base / "releases/9.7.5-ks-test1/bin/reading-records-ks.sh", (ROOT / "ks-package/native-reading-time-package/阅读记录-ks.sh").read_bytes())
         else:
-            put(base / "VERSION", ("V4\n" if previous == "V4" else f"{previous}\n").encode())
-            if previous == "V4":
+            put(base / "VERSION", ("V4\n" if previous in {"V4", "V4 Test1", "V4 Test2"} else f"{previous}\n").encode())
+            if previous in {"V4", "V4 Test1", "V4 Test2"}:
                 put(base / "release-info", b"release_family=V4\nvariant=standard\n")
             put(base / "bin/launch.sh", b"old standard launcher")
             resolver_source = historical(tag, "native-reading-time-package/阅读记录-optimized.sh") if tag else (ROOT / "native-reading-time-package/阅读记录-optimized.sh").read_bytes()
@@ -103,6 +103,14 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
         put(base / "ui/old-ui.png", b"old UI asset")
         put(base / "fonts/old-font.otf", b"old font asset")
         put(base / "assets/old-icon.png", b"old icon")
+    previous_checkpoint = {"V4 Test1": "88164e9", "V4 Test2": "0dc8c1b", "V4-KS Test1": "88164e9", "V4-KS Test2": "0dc8c1b"}.get(previous)
+    if previous_checkpoint:
+        if variant == "standard":
+            put(base / "bin/launch.sh", historical(previous_checkpoint, "native-reading-time-package/launch.sh"))
+            put(base / "releases/9.7.5-test/bin/reading-records.sh", historical(previous_checkpoint, "native-reading-time-package/阅读记录-optimized.sh"))
+        else:
+            put(base / "bin/launch-ks.sh", historical(previous_checkpoint, "ks-package/native-reading-time-package/launch-ks.sh"))
+            put(base / "releases/9.7.5-ks-test1/bin/reading-records-ks.sh", historical(previous_checkpoint, "ks-package/native-reading-time-package/阅读记录-ks.sh"))
     protected = {str(path): digest(path) for path in (base / "reading-time.tsv", base / "reading-time.tsv.bak", base / "阅读时长统计.txt", base / "user.conf", base / "book-cover-cache.tsv", base / "launch-last.log", base / "touch-last.log") if path.is_file()}
     if (base / "book-covers").is_dir():
         protected.update({str(path): digest(path) for path in (base / "book-covers").rglob("*") if path.is_file()})
@@ -136,6 +144,9 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
     device = session / "deviceType.txt"
     device.write_text("KindleScribe\n" if variant == "ks" or mutation == "wrong_device" else "KindlePaperwhite\n", encoding="ascii")
     env = {**os.environ, "PATH": msys(mock) + ":/usr/bin:/bin", "READING_MNT_US": us.as_posix(), "READING_BASE": base.as_posix(), "READING_DOCUMENTS": docs.as_posix(), "READING_TMPDIR": tmp.as_posix(), "READING_UPSTART_DIR": upstart.as_posix(), "READING_DEVICETYPE_PATH": device.as_posix(), "READING_ARMHF_LOADER_PATH": loader.as_posix(), "READING_ARCH_OVERRIDE": "armhf", "READING_ALLOW_NONROOT_TEST": "1"}
+    if mutation == "soft_float":
+        loader.unlink()
+        env["READING_ARCH_OVERRIDE"] = "armv7l"
     # Relocate the device-only absolute paths in the packaged installer scripts
     # after extraction. Runtime payload files are left byte-identical.
     if mutation not in {"missing_payload", "bad_checksum", "bad_tar", "temp_failure", "tar_unavailable"}:
@@ -193,7 +204,7 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
         return {"returncode": before.returncode, "result": "early cleanup refused", "protected_hashes": protected}
     result = subprocess.run([SHELL, script.as_posix()], env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90)
     details = (docs / "reading-records-v4-install-result.txt").read_text(encoding="utf-8") if (docs / "reading-records-v4-install-result.txt").exists() else ""
-    expected_failure = bool(mutation and mutation != "busybox_fallback")
+    expected_failure = bool(mutation and mutation not in {"busybox_fallback", "soft_float"})
     if expected_failure:
         assert result.returncode != 0, (mutation, result.stdout, result.stderr, details)
         assert not (docs / CLEAN).exists()
@@ -256,7 +267,7 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
             with zipfile.ZipFile(ROOT / "dist" / legacy_archive) as archive:
                 archive.extractall(us)
         else:
-            full_name = "ReadingTime-V4-Full-Compatibility-Test2.zip" if variant == "standard" else "ReadingTime-V4-KS-Full-Compatibility-Test2.zip"
+            full_name = "ReadingTime-V4-Full-Compatibility.zip" if variant == "standard" else "ReadingTime-V4-KS-Full-Compatibility.zip"
             with zipfile.ZipFile(ROOT / "dist" / full_name) as archive:
                 archive.extractall(us)
         leftovers = {
@@ -291,7 +302,7 @@ def run(session: Path, variant: str, previous: str | None, *, mutation: str = ""
 def main() -> None:
     import sys
     sys.path.insert(0, str(ROOT / "scripts"))
-    matrix = [("standard", None), ("standard", "9.7.4"), ("standard", "9.7.5"), ("standard", "V1"), ("standard", "V2"), ("standard", "V3"), ("standard", "V4"), ("ks", None), ("ks", "V3-KS"), ("ks", "V4-KS")]
+    matrix = [("standard", None), ("standard", "9.7.4"), ("standard", "9.7.5"), ("standard", "V1"), ("standard", "V2"), ("standard", "V3"), ("standard", "V4"), ("standard", "V4 Test1"), ("standard", "V4 Test2"), ("ks", None), ("ks", "V3-KS"), ("ks", "V4-KS"), ("ks", "V4-KS Test1"), ("ks", "V4-KS Test2")]
     selected = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("READING_V4_TEST_FILTER", "")
     if selected:
         matrix = [case for case in matrix if case[0] == selected]
@@ -301,13 +312,16 @@ def main() -> None:
             key = f"{previous or 'empty'} -> {'V4-KS' if variant == 'ks' else 'V4'}"
             report[key] = run(Path(name), variant, previous)
             print(key, "PASS", flush=True)
-    for mutation in (() if selected else ("missing_payload", "bad_checksum", "bad_tar", "tar_unavailable", "tar_extract_failure", "temp_failure", "core_failure", "staging_failure", "activation_failure", "verified_failure", "early_cleanup", "busybox_fallback", "cross_variant", "wrong_device")):
+    for mutation in (() if selected else ("missing_payload", "bad_checksum", "bad_tar", "tar_unavailable", "tar_extract_failure", "temp_failure", "core_failure", "staging_failure", "activation_failure", "verified_failure", "early_cleanup", "busybox_fallback", "soft_float", "cross_variant", "wrong_device")):
         with tempfile.TemporaryDirectory(prefix="v4-fail-", dir=OUT) as name:
             test_variant = "ks" if mutation == "cross_variant" else "standard"
-            old = "V4" if mutation == "cross_variant" else "V3"
+            old = "V4" if mutation == "cross_variant" else None if mutation == "soft_float" else "V3"
             report[mutation] = run(Path(name), test_variant, old, mutation=mutation)
             print(mutation, "PASS", flush=True)
     if not selected:
+        with tempfile.TemporaryDirectory(prefix="v4-ks-soft-float-", dir=OUT) as name:
+            report["ks soft_float fresh"] = run(Path(name), "ks", None, mutation="soft_float")
+            print("ks soft_float fresh PASS", flush=True)
         for mutation in ("staging_failure", "activation_failure", "verified_failure"):
             with tempfile.TemporaryDirectory(prefix="v4-ks-fail-", dir=OUT) as name:
                 report[f"ks {mutation}"] = run(Path(name), "ks", "V3-KS", mutation=mutation)

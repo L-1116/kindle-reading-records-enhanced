@@ -246,12 +246,10 @@ broken = mockbin / "broken-fbink"
 broken.write_text("#!/bin/sh\necho primary-probe-error >&2\nexit 6\n", encoding="utf-8", newline="\n")
 subprocess.run([SH, "-c", '/usr/bin/chmod 755 "$1"', "test", broken.as_posix()], check=True)
 code, log = launch({"READING_FBINK": broken.as_posix()})
-assert code == 7 and "fbink_fallback_reason=" in log and "fallback_used=1" in log
-assert any(line.startswith("selected_fbink=") and line.endswith("/mockbin/fbink") for line in log.splitlines()) and "primary-probe-error" in log, log
-
+assert code == 7 and "fbink_selection=deferred_actual_use" in log and "primary-probe-error" not in log, log
 fbink.rename(fbink.with_suffix(".missing"))
 code, log = launch({"READING_FBINK": broken.as_posix()})
-assert code == 31 and "error_stage=runtime_probe" in log
+assert code == 7 and "primary-probe-error" not in log, log
 fbink.with_suffix(".missing").rename(fbink)
 
 main.write_text('#!/bin/sh\necho run-marker\nexit 0\n', encoding="utf-8", newline="\n")

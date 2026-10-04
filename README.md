@@ -14,6 +14,10 @@ Plutoill，本仓库中的后续增强和维护由 L-1116 完成。
 > SH Integration、KUAL 或 `;log runme` 中的一种可用入口。操作前建议备份
 > `/mnt/us/reading-time/`。
 
+## V4 Test 3 兼容性更新
+
+[V4 Test 3 Pre-release](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v4-test.3) 是面向正常使用的兼容性更新。普通 Kindle 下载 `ReadingTime-V4.zip`，Kindle Scribe 下载 `ReadingTime-V4-KS.zip`。只解压外层 ZIP 一次，将短文件名安装脚本与安装 tar 一起复制到 `documents`，无需解压 tar；已有用户直接覆盖升级，不要先卸载。V4 修复 FBInk 启动检查误判，使用真实绘制自动选择可用 runtime，并保留数据保护、rollback、5.18.x 刷新和 KS 触摸修复。安装说明见 [V4 Test 3](docs/releases/v4-test3.md)，工程说明见 [V4 安装与运行系统](docs/v4-install-system.md)。
+
 ## 功能
 
 - 原生阅读器处于前台且屏幕亮起时统计阅读时长，锁屏或离开阅读器后停止。

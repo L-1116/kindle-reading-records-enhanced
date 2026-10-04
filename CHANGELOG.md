@@ -1,5 +1,15 @@
 # 版本记录
 
+## V4 Test 3 — 2026-10-04
+
+- 移除 FBInk `-e` 启动硬门禁，恢复历史路径优先级，增加 ABI 候选、内容去重及真实绘制 fallback。
+- 成功后锁定 runtime；全部真实命令失败时非零退出，通过 LIPC 恢复书库及输入/休眠状态。
+- Standard、KS 和旧兼容渲染入口同步保护；保留 5.18.x GC16 与 KS 5.19.6 touch 修复。
+- 移除源码包安装器的 loader 推测门禁，保留事务、rollback、repair、两文件安装与历史数据。
+- 删除 KS 独立强制退出入口中的旧 FBInk 直接调用，恢复路径统一使用 LIPC。
+- 作为兼容性更新发布 Pre-release，用户包为 ReadingTime-V4.zip / ReadingTime-V4-KS.zip；仅提供这两个手动资产。
+
+
 此记录根据整理前的版本目录和发布说明汇总。详细实现可检出对应 Git 标签查看。
 
 ## v9.7.5-compat-v3-fw518-hotfix — 2026-10-02

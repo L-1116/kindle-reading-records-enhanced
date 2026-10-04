@@ -55,6 +55,7 @@ def main() -> None:
     assert "reading-time-ks-ui.pid" in main_sh and "reading-time-ks-ui.pid" in force_exit
     assert "kill -TERM" in force_exit and "kill -KILL" in force_exit
     assert "KPP_LIBRARY" in force_exit and "preventScreenSaver 0" in force_exit
+    assert "fbink" not in force_exit.lower(), "force-exit must recover through LIPC without an unchecked runtime"
     assert "9.7.5-ks-test1" in installer and "9.7.5-test" not in installer
     assert 'compat/detect_env.sh' in installer and '"$DETECTOR"' in installer
     assert "reading-time.tsv" in installer and '>' + ' "$BASE/reading-time.tsv"' not in installer

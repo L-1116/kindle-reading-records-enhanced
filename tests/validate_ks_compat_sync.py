@@ -121,7 +121,7 @@ def run_case(label: str, *, version: str = "5.18.1", geometry: str = "1860 2480"
         env.update(overrides or {})
         canary = None
         if env.get("KS_SIM_TOUCH_BLOCK") == "1":
-            canary = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"],
+            canary = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"],
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
             result = subprocess.run([SH, (base / "bin/launch-ks.sh").as_posix()], env=env,

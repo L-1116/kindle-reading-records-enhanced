@@ -22,8 +22,12 @@ EXCLUDED = {
     "native-reading-time-package/resources/kual/reading-records-installer/bin/action.sh",
 }
 ALLOWED_CHANGED = {
+    "native-reading-time-package/阅读记录.sh",
+    "native-reading-time-package/阅读记录-optimized.sh",
+    "ks-package/native-reading-time-package/阅读记录-ks.sh",
     "native-reading-time-package/launch.sh",
     "ks-package/native-reading-time-package/launch-ks.sh",
+    "ks-package/native-reading-time-package/force-exit-ks.sh",
 }
 BOOT_TAR = "阅读记录安装数据.tar"
 
@@ -46,7 +50,7 @@ def main() -> None:
             entry = {"file": name, "checkpoint_sha256": sha(baseline), "current_sha256": sha(current)}
             (allowed_changed if name in ALLOWED_CHANGED else changed).append(entry)
     packaged = {}
-    for variant, archive_name in (("standard", "ReadingTime-V4-Test2.zip"), ("ks", "ReadingTime-V4-KS-Test2.zip")):
+    for variant, archive_name in (("standard", "ReadingTime-V4.zip"), ("ks", "ReadingTime-V4-KS.zip")):
         with zipfile.ZipFile(ROOT / "dist" / archive_name) as outer:
             tar_bytes = outer.read(BOOT_TAR)
         with tarfile.open(fileobj=io.BytesIO(tar_bytes)) as archive:

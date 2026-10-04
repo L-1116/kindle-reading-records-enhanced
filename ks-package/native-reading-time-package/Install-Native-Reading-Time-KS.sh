@@ -103,6 +103,6 @@ atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot install version
 grep -Fq 'LAYOUT_PROFILE=scribe' "$RELEASE/bin/reading-records-ks.sh" || fail "KS layout marker missing"
 lipc-set-prop com.lab126.scanner doFullScan 1 >/dev/null 2>&1 || lipc-set-prop com.lab126.scanner triggerUpdate 1 >/dev/null 2>&1 || true
 cleanup_stage; trap - INT TERM HUP; sync
-echo "$(date): KS touch compatibility hotfix installed; reading history preserved"
-toast "阅读统计 KS 触摸兼容热修安装完成"
+echo "$(date): V4-KS installed; reading history preserved"
+toast "阅读记录 V4-KS 安装完成"
 exit 0

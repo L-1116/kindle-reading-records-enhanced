@@ -83,20 +83,22 @@ esac
 
 STAGE=environment
 [ "$(id -u)" -eq 0 ] || [ "${READING_ALLOW_NONROOT_TEST:-0}" = 1 ] || fail "installer must run as root (Scriptlet, KUAL or ;log runme)"
-if [ "$COMPAT_PROFILE" = fw518 ] && [ "$HARD_FLOAT" != 1 ]; then fail "5.18.x detected without kindlehf loader"; fi
-[ "$HARD_FLOAT" = 1 ] || fail "9.7.5 requires a kindlehf runtime"
-[ -x /sbin/initctl ] || fail "Upstart initctl not found; service backend requires true-device verification"
+# This payload is shell/Lua source. ABI detection orders external runtime
+# candidates; a loader heuristic is not evidence that the UI cannot run.
+[ -x /sbin/initctl ] || fail "Upstart initctl not found; service backend is unavailable"
 
 STAGE=dependency
 for install_cmd in sh awk sed sort grep date cp mv mkdir chmod cmp lua lipc-get-prop lipc-set-prop; do
     command -v "$install_cmd" >/dev/null 2>&1 || fail "missing required command: $install_cmd"
 done
 fbink_found=0
-for fbink_candidate in /var/local/kmc/bin/fbink /mnt/us/libkh/bin/fbink; do
+if [ "$HARD_FLOAT" = 1 ]; then fbink_abi_path=/var/local/kmc/armhf/bin/fbink
+else fbink_abi_path=/var/local/kmc/armel/bin/fbink; fi
+for fbink_candidate in "${READING_FBINK:-}" /var/local/kmc/bin/fbink /mnt/us/libkh/bin/fbink "$fbink_abi_path"; do
     [ -x "$fbink_candidate" ] && fbink_found=1
 done
 if [ "$fbink_found" -eq 0 ] && command -v fbink >/dev/null 2>&1; then fbink_found=1; fi
-[ "$fbink_found" -eq 1 ] || fail "FBInk not found; install a kindlehf-compatible KMC/hotfix environment"
+[ "$fbink_found" -eq 1 ] || fail "FBInk executable not found in the Kindle runtime environment"
 
 STAGE=payload
 for required_file in Install-Native-Reading-Time.sh Install-Native-Reading-Time-Optimized.sh launch.sh diagnostics.sh uninstall.sh install-manifest.txt cleanup-manifest.txt 阅读记录-entry.sh resources/reading-records-uninstall.sh resources/kual/reading-records-installer/bin/action.sh resources/kual/reading-records-installer/config.xml resources/kual/reading-records-installer/menu.json; do
@@ -113,5 +115,5 @@ log "running optimized 9.7.5 installer"
 
 STAGE=complete
 log "core installation completed"
-toast "阅读记录 9.7.5 安装完成"
+toast "阅读记录 V4 安装完成"
 exit 0

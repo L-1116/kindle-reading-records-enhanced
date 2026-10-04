@@ -3,7 +3,7 @@
 # Author: Kindle Reading Records Enhanced
 # Icon: /mnt/us/reading-time/assets/launcher-icon.png
 
-# Kindle Scribe 原生阅读记录 9.7.5-KS-test1.  This process exists only while the
+# Kindle Scribe 原生阅读记录 V4-KS.  This process exists only while the
 # dashboard is open.  The tracker daemon and reading-time.tsv are untouched.
 BASE="${READING_BASE:-/mnt/us/reading-time}"
 DATA="$BASE/reading-time.tsv"
@@ -172,7 +172,82 @@ scale_x() { echo $((ORIGIN_X+$1*SCALE_NUM/SCALE_DEN)); }
 scale_y() { echo $((ORIGIN_Y+$1*SCALE_NUM/SCALE_DEN)); }
 scale_right() { echo $((SCREEN_W-ORIGIN_X-VIEW_W+$1*SCALE_NUM/SCALE_DEN)); }
 fbink_calls=0
-fb() { fbink_calls=$((fbink_calls+1)); "$FBINK" "$@"; }
+# Candidate resolution belongs to the launcher; compatibility is established
+# only by executing the command the UI actually needs, with unchanged argv.
+FBINK_LOCKED=0; FBINK_FAILED=0; FBINK_CHILD=; FBINK_CHILD_PENDING=0
+fbink_stop_child() {
+    [ "$FBINK_CHILD_PENDING" = 0 ] || FBINK_CHILD=$!
+    [ -n "$FBINK_CHILD" ] || return 0
+    kill -TERM "$FBINK_CHILD" 2>/dev/null || true
+    kill -KILL "$FBINK_CHILD" 2>/dev/null || true
+    wait "$FBINK_CHILD" 2>/dev/null || true
+    FBINK_CHILD=; FBINK_CHILD_PENDING=0
+}
+fbink_first_attempt() {
+    # Bound initial selection only. Locked draws retain the old direct-call
+    # cost: no polling process, daemon or repeated resolver per draw.
+    FBINK_CHILD_PENDING=1
+    "$fb_candidate" "$@" & FBINK_CHILD=$!; FBINK_CHILD_PENDING=0
+    fb_ticks=0
+    while kill -0 "$FBINK_CHILD" 2>/dev/null; do
+        if [ "$fb_ticks" -ge "$fb_max_ticks" ]; then
+            fbink_stop_child; fb_rc=124; return 0
+        fi
+        sleep "$fb_sleep"; fb_ticks=$((fb_ticks+1))
+    done
+    wait "$FBINK_CHILD"; fb_rc=$?; FBINK_CHILD=
+}
+fbink_abort() {
+    FBINK_FAILED=1
+    printf 'fbink_runtime_failure=1\nerror_stage=fbink_actual_use\nfailing_command='
+    printf ' <%s>' "$@"
+    printf '\ncandidate=%s\nfbink_exit_code=%s\nexit_code=31\n' "${fb_candidate:-none}" "${fb_rc:-127}"
+    # exit, rather than return: callers using || renderer fallback must never
+    # continue rendering after an actual runtime failure.
+    exit 31
+}
+fb() {
+    fbink_calls=$((fbink_calls+1))
+    if [ "$FBINK_LOCKED" = 1 ]; then
+        fb_candidate=$FBINK
+        FBINK_CHILD_PENDING=1
+        "$FBINK" "$@" & FBINK_CHILD=$!; FBINK_CHILD_PENDING=0
+        wait "$FBINK_CHILD"; fb_rc=$?; FBINK_CHILD=
+        [ "$fb_rc" -ne 0 ] || return 0
+        printf 'fbink_actual_failure candidate=%s exit_code=%s\n' "$FBINK" "$fb_rc"
+        # Preserve the existing supported-waveform downgrade. A crash or
+        # unavailable executable never qualifies as a waveform rejection.
+        if [ "$fb_rc" -gt 0 ] && [ "$fb_rc" -lt 126 ] && [ "$fb_rc" != 124 ]; then
+            for fb_arg in "$@"; do
+                [ "$fb_arg" != GC16_FAST ] || { printf 'fbink_waveform_fallback=GC16\n'; return "$fb_rc"; }
+            done
+        fi
+        fbink_abort "$@"
+    fi
+    if sleep 0.01 2>/dev/null; then fb_sleep=0.05; fb_max_ticks=60
+    else fb_sleep=1; fb_max_ticks=3; fi
+    printf 'actual_fbink_first_command='
+    printf ' <%s>' "$@"; printf '\n'
+    fb_attempts=0
+    while IFS= read -r fb_candidate; do
+        [ -n "$fb_candidate" ] || continue
+        fb_attempts=$((fb_attempts+1))
+        printf 'fbink_actual_attempt candidate=%s\n' "$fb_candidate"
+        fbink_first_attempt "$@"
+        printf 'fbink_actual_result candidate=%s exit_code=%s\n' "$fb_candidate" "$fb_rc"
+        if [ "$fb_rc" -eq 0 ]; then
+            FBINK=$fb_candidate; FBINK_LOCKED=1
+            READING_FBINK=$FBINK; export READING_FBINK
+            printf 'selected_candidate=%s\nselected_fbink=%s\nFBINK_LOCKED=1\nactual_fbink_first_command_result=ok\n' "$FBINK" "$FBINK"
+            if [ "$fb_attempts" -gt 1 ]; then printf 'fallback_used=1\nfbink_fallback_reason=actual UI command failed on earlier candidate\n'; fi
+            return 0
+        fi
+    done <<EOF
+${READING_FBINK_CANDIDATES:-$FBINK}
+EOF
+    printf 'actual_fbink_first_command_result=failed\n'
+    fbink_abort "$@"
+}
 ot() {
     s="$(scale_len "$1")"; t="$(scale_y "$2")"; l="$(scale_x "$3")"; r="$(scale_right "$4")"; st="$5"; msg="$6"
     fb -q -b -t "regular=$RFONT,bold=$RFONT,px=$s,top=$t,left=$l,right=$r,style=$st" "$msg"
@@ -1332,6 +1407,7 @@ cleanup() {
     [ "$cleanup_done" = 0 ] || return 0
     cleanup_done=1
     trap '' INT TERM HUP
+    fbink_stop_child
     ks_log "[EXIT] cleanup entered code=$cleanup_code reason=${EXIT_REASON:-normal}"
     if [ -n "${TOUCH_PID:-}" ]; then kill "$TOUCH_PID" 2>/dev/null || true; fi
     rm -f "$SESSION_ROOT/reading-touch-events.$$" "$SESSION_ROOT/reading-touch-probe.$$" 2>/dev/null || true
@@ -1340,9 +1416,8 @@ cleanup() {
     if [ "$dashboard_active" -eq 1 ]; then
         ks_log "[EXIT] closing UI"
         lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
-        sleep 1
-        if [ "${COMPAT_PROFILE:-default}" = fw518 ]; then "$FBINK" -q -W GC16 -s >/dev/null 2>&1 || true
-        else "$FBINK" -q -f -W GC16 -s >/dev/null 2>&1 || true; fi
+        # Library owns its refresh; recovery never executes a runtime
+        # that may just have failed or been interrupted.
     fi
     if [ "$ORIENTATION_CHANGED" = 1 ]; then restore_orientation
     else ks_log "[EXIT] restoring orientation action=none initial_accelerometer=${INITIAL_ACCELEROMETER:-unknown}"; fi
@@ -1416,7 +1491,7 @@ ks_log "[DEVICE] framebuffer=$(fbset 2>/dev/null | tr '\n' ';' || echo unavailab
 ks_log "[DEVICE] framebuffer_rotate=$(cat /sys/class/graphics/fb0/rotate 2>/dev/null || echo unavailable)"
 ks_log "[DEVICE] touch_device=${TOUCH:-none} touch_name=$([ -n "${TOUCH:-}" ] && cat "/sys/class/input/${TOUCH##*/}/device/name" 2>/dev/null || echo unavailable)"
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
-    [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] && [ -f "$UI_DIR/month_detail.png" ] && [ -f "$UI_DIR/week_trend.png" ] && [ -f "$UI_DIR/book_detail.png" ] || fail "缺少 KS 界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -n "${TOUCH:-}" ] && [ -r "$TOUCH" ] || fail "无法识别 KS 触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少 KS 触摸监听器"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
+    [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] && [ -f "$UI_DIR/month_detail.png" ] && [ -f "$UI_DIR/week_trend.png" ] && [ -f "$UI_DIR/book_detail.png" ] || fail "缺少 KS 界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -n "${TOUCH:-}" ] && [ -r "$TOUCH" ] || fail "无法识别 KS 触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少 KS 触摸监听器"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
     printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nlayout_profile=scribe\nrelease=9.7.5-ks-test1\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout-ks.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
