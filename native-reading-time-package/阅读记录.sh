@@ -4,11 +4,13 @@ BASE="/mnt/us/reading-time"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="/var/local/kmc/bin/fbink"
-UI_DIR="$BASE/ui"
-TOUCH_READER="$BASE/bin/reading-insights-touch.lua"
+RELEASE="$BASE/releases/9.7.6-5.19-normal"
+UI_DIR="$RELEASE/ui"
+TOUCH_READER="$RELEASE/bin/reading-insights-touch.lua"
 CC_DB="/var/local/cc.db"
-PROGRESS_DB="$BASE/cc-progress-viewer.db"
-PROGRESS_CACHE="$BASE/book-progress.tsv"
+SESSION_DIR="/tmp/native-reading-legacy.$$"
+PROGRESS_DB="$SESSION_DIR/cc-progress-viewer.db"
+PROGRESS_CACHE="$SESSION_DIR/book-progress.tsv"
 LOGICAL_W=1272
 LOGICAL_H=1696
 CLEAN_REFRESH_INTERVAL=6
@@ -81,6 +83,14 @@ scale_x() { printf '%s\n' $((ORIGIN_X+$1*SCALE_NUM/SCALE_DEN)); }
 scale_y() { printf '%s\n' $((ORIGIN_Y+$1*SCALE_NUM/SCALE_DEN)); }
 scale_right() { printf '%s\n' $((SCREEN_W-ORIGIN_X-VIEW_W+$1*SCALE_NUM/SCALE_DEN)); }
 
+. "$RELEASE/bin/runtime-child.sh" || fail "缺少运行清理模块"
+cleanup() { stop_ui_child; case "$SESSION_DIR" in /tmp/native-reading-legacy.[0-9]*) rm -rf "$SESSION_DIR";; esac; }
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+mkdir -p "$SESSION_DIR" || fail "无法创建后备界面缓存"
+chmod 700 "$SESSION_DIR" || fail "无法保护后备界面缓存"
 detect_screen
 find_touch_device
 echo "$(date): adaptive layout screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, touch=$TOUCH"
@@ -103,25 +113,25 @@ ot() {
     ot_size="$1"; ot_top="$2"; ot_left="$3"; ot_right="$4"; ot_style="$5"; ot_msg="$6"
     ot_size="$(scale_len "$ot_size")"; ot_top="$(scale_y "$ot_top")"
     ot_left="$(scale_x "$ot_left")"; ot_right="$(scale_right "$ot_right")"
-    "$FBINK" -q -b -t "regular=$RFONT,bold=$BFONT,px=$ot_size,top=$ot_top,left=$ot_left,right=$ot_right,style=$ot_style" "$ot_msg"
+    "$FBINK" -q -b -t "regular=$RFONT,bold=$BFONT,px=$ot_size,top=$ot_top,left=$ot_left,right=$ot_right,style=$ot_style" "$ot_msg" || fail "FBInk 显示或刷新失败"
 }
 ot_white() {
     ow_size="$1"; ow_top="$2"; ow_left="$3"; ow_right="$4"; ow_style="$5"; ow_msg="$6"
     ow_size="$(scale_len "$ow_size")"; ow_top="$(scale_y "$ow_top")"
     ow_left="$(scale_x "$ow_left")"; ow_right="$(scale_right "$ow_right")"
-    "$FBINK" -q -b -m -C WHITE -B BLACK -t "regular=$RFONT,bold=$BFONT,px=$ow_size,top=$ow_top,left=$ow_left,right=$ow_right,style=$ow_style" "$ow_msg"
+    "$FBINK" -q -b -m -C WHITE -B BLACK -t "regular=$RFONT,bold=$BFONT,px=$ow_size,top=$ow_top,left=$ow_left,right=$ow_right,style=$ow_style" "$ow_msg" || fail "FBInk 显示或刷新失败"
 }
 ot_center() {
     oc_size="$1"; oc_top="$2"; oc_left="$3"; oc_right="$4"; oc_style="$5"; oc_msg="$6"
     oc_size="$(scale_len "$oc_size")"; oc_top="$(scale_y "$oc_top")"
     oc_left="$(scale_x "$oc_left")"; oc_right="$(scale_right "$oc_right")"
-    "$FBINK" -q -b -m -t "regular=$RFONT,bold=$BFONT,px=$oc_size,top=$oc_top,left=$oc_left,right=$oc_right,style=$oc_style" "$oc_msg"
+    "$FBINK" -q -b -m -t "regular=$RFONT,bold=$BFONT,px=$oc_size,top=$oc_top,left=$oc_left,right=$oc_right,style=$oc_style" "$oc_msg" || fail "FBInk 显示或刷新失败"
 }
 rect() {
     rect_top="$1"; rect_left="$2"; rect_width="$3"; rect_height="$4"; rect_color="$5"
     rect_top="$(scale_y "$rect_top")"; rect_left="$(scale_x "$rect_left")"
     rect_width="$(scale_len "$rect_width")"; rect_height="$(scale_len "$rect_height")"
-    "$FBINK" -q -b -B "$rect_color" -k "top=$rect_top,left=$rect_left,width=$rect_width,height=$rect_height"
+    "$FBINK" -q -b -B "$rect_color" -k "top=$rect_top,left=$rect_left,width=$rect_width,height=$rect_height" || fail "FBInk 显示或刷新失败"
 }
 # Continuous, gap-free rounded rectangle approximation using horizontal
 # bands. Unlike the old clipped-line outline, this has no broken corners.
@@ -261,7 +271,7 @@ draw_daily() {
         if [ "$day" -eq "$selected_day" ]; then
             day_x="$(scale_x $((x-20)))"; day_y="$(scale_y $((y-14)))"
             day_w="$(scale_len 105)"; day_h="$(scale_len 78)"
-            "$FBINK" -q -b -g "file=$UI_DIR/day-${day}.png,x=$day_x,y=$day_y,w=$day_w,h=$day_h"
+            "$FBINK" -q -b -g "file=$UI_DIR/day-${day}.png,x=$day_x,y=$day_y,w=$day_w,h=$day_h" || fail "FBInk 显示或刷新失败"
         else
             ot 31 $((y-2)) "$x" $((1272-x-70)) BOLD "$day"
         fi
@@ -348,7 +358,7 @@ draw() {
     # physical panel again on every tab switch doubled the framebuffer work;
     # only the first frame needs to initialize the surrounding margins.
     if [ "$draw_count" -eq 0 ]; then
-        "$FBINK" -q -b -B WHITE -k "top=0,left=0,width=$SCREEN_W,height=$SCREEN_H"
+        "$FBINK" -q -b -B WHITE -k "top=0,left=0,width=$SCREEN_W,height=$SCREEN_H" || fail "FBInk 显示或刷新失败"
     fi
     "$FBINK" -q -b -g "file=$UI_DIR/${mode}.png,x=$ORIGIN_X,y=$ORIGIN_Y,w=$VIEW_W,h=$VIEW_H" || fail "无法显示 PNG 界面"
     case "$mode" in total) draw_total;; daily) draw_daily;; books) draw_books;; esac
@@ -357,24 +367,14 @@ draw() {
     # A flashing GC16 pass on launch and every few redraws clears accumulated
     # ghosting without imposing the three-second full-clean cost on every tap.
     if [ "$draw_count" -eq 1 ] || [ $((draw_count%CLEAN_REFRESH_INTERVAL)) -eq 0 ]; then
-        "$FBINK" -q -f -W GC16 -s
+        "$FBINK" -q -f -W GC16 -s || fail "FBInk 显示或刷新失败"
     else
         "$FBINK" -q -W GC16_FAST -s "top=$ORIGIN_Y,left=$ORIGIN_X,width=$VIEW_W,height=$VIEW_H" || \
-            "$FBINK" -q -W GC16 -s "top=$ORIGIN_Y,left=$ORIGIN_X,width=$VIEW_W,height=$VIEW_H"
+            "$FBINK" -q -W GC16 -s "top=$ORIGIN_Y,left=$ORIGIN_X,width=$VIEW_W,height=$VIEW_H" || fail "FBInk 显示或刷新失败"
     fi
 }
 
-# Safety invariant: never disable or exclusively own touch input.
-lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true
-lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true
-cleanup() {
-    lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true
-    lipc-set-prop com.lab126.powerd preventScreenSaver 0 >/dev/null 2>&1 || true
-    lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
-    sleep 1
-    "$FBINK" -q -f -W GC16 -s >/dev/null 2>&1 || true
-}
-trap cleanup EXIT INT TERM HUP
+# System properties are owned and restored by launch.sh.
 
 mode="total"; view_year="$(date +%Y)"; daily_y="$(date +%Y)"; draw_count=0
 # Normalize leading zeroes portably for BusyBox arithmetic.
@@ -382,10 +382,10 @@ daily_m="$(date +%m | sed 's/^0//')"; selected_day="$(date +%d | sed 's/^0//')";
 refresh_progress_cache
 
 while :; do
-    draw
+    draw || fail "FBInk 显示或刷新失败"
     dim="$(days_in_month "$daily_y" "$daily_m")"; offset="$(weekday_offset "$daily_y" "$daily_m")"
-    action="$(lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" \
-        "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H")" || action="exit"
+    read_touch_action "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" \
+        "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H"
     echo "$(date): dashboard action=$action mode=$mode"
     case "$action" in
         exit) break;;

@@ -9,7 +9,7 @@ BASE="/mnt/us/reading-time"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="/var/local/kmc/bin/fbink"
-RELEASE="$BASE/releases/9.7.5-test"
+RELEASE="$BASE/releases/9.7.6-5.19-normal"
 UI_DIR="$RELEASE/ui-calendar"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch-ui.lua"
 RENDERER="$RELEASE/bin/reading-insights-render.lua"
@@ -91,15 +91,15 @@ fbink_calls=0
 fb() { fbink_calls=$((fbink_calls+1)); "$FBINK" "$@"; }
 ot() {
     s="$(scale_len "$1")"; t="$(scale_y "$2")"; l="$(scale_x "$3")"; r="$(scale_right "$4")"; st="$5"; msg="$6"
-    fb -q -b -t "regular=$RFONT,bold=$RFONT,px=$s,top=$t,left=$l,right=$r,style=$st" "$msg"
+    fb -q -b -t "regular=$RFONT,bold=$RFONT,px=$s,top=$t,left=$l,right=$r,style=$st" "$msg" || fail "FBInk 显示操作失败"
 }
 rect() {
     t="$(scale_y "$1")"; l="$(scale_x "$2")"; w="$(scale_len "$3")"; h="$(scale_len "$4")"
-    fb -q -b -B "$5" -k "top=$t,left=$l,width=$w,height=$h"
+    fb -q -b -B "$5" -k "top=$t,left=$l,width=$w,height=$h" || fail "FBInk 显示操作失败"
 }
 image() {
     p="$1"; x="$(scale_x "$2")"; y="$(scale_y "$3")"; w="$(scale_len "$4")"; h="$(scale_len "$5")"
-    fb -q -b -g "file=$p,x=$x,y=$y,w=$w,h=$h"
+    fb -q -b -g "file=$p,x=$x,y=$y,w=$w,h=$h" || fail "FBInk 显示操作失败"
 }
 
 time_text() { v="$1"; h=$((v/3600)); m=$(((v%3600)/60)); s=$((v%60)); if [ "$h" -gt 0 ]; then printf '%s小时%s分钟' "$h" "$m"; elif [ "$m" -gt 0 ]; then printf '%s分钟%s秒' "$m" "$s"; else printf '%s秒' "$s"; fi; }
@@ -264,10 +264,22 @@ catalog_row_for_book() {
     [ -r "$CATALOG" ] || return 1
     awk -F '\t' -v id="$1" -v title="$2" '
         function norm(s){s=tolower(s);sub(/\.(epub|mobi|pdf)$/, "", s);return s}
-        id!="" && id!="unknown" && $3==id {print; found=1; exit}
-        !fallback && norm($2)==norm(title) {fallback=$0}
-        END{if(!found && fallback)print fallback}
-    ' "$CATALOG"
+        id!="" && id!="unknown" {if($3==id)print;next}
+        title!="" && norm($2)==norm(title) {print}
+    ' "$CATALOG" | {
+        best_rank=-1; best_row=''
+        while IFS= read -r candidate_row; do
+            candidate_thumb="$(printf '%s\n' "$candidate_row" | awk -F '\t' '{print $4}')"
+            candidate_source="$(printf '%s\n' "$candidate_row" | awk -F '\t' '{print $5}')"
+            case "$candidate_source" in file://*) candidate_source="${candidate_source#file://}";; esac
+            candidate_rank=0
+            if book_path_allowed "$candidate_source"; then candidate_rank=1; fi
+            if cover_path_allowed "$candidate_thumb"; then candidate_rank=$((candidate_rank+2)); fi
+            if [ "$candidate_rank" -gt "$best_rank" ]; then best_rank="$candidate_rank"; best_row="$candidate_row"; fi
+        done
+        [ "$best_rank" -ge 0 ] || return 1
+        printf '%s\n' "$best_row"
+    }
 }
 
 extract_epub_cover() {
@@ -1136,24 +1148,21 @@ draw_dynamic() { case "$mode" in total) render_total;; daily) if [ "$1" = 2 ]; t
 draw_count=0; refresh_kind=none
 refresh_region() {
     rx="$1"; ry="$2"; rw="$3"; rh="$4"; draw_count=$((draw_count+1))
-    if [ "$draw_count" -eq 1 ] || [ $((draw_count%CLEAN_REFRESH_INTERVAL)) -eq 0 ]; then fb -q -f -W GC16 -s; refresh_kind=GC16
-    else px="$(scale_x "$rx")"; py="$(scale_y "$ry")"; pw="$(scale_len "$rw")"; ph="$(scale_len "$rh")"; fb -q -W GC16_FAST -s "top=$py,left=$px,width=$pw,height=$ph" || fb -q -W GC16 -s "top=$py,left=$px,width=$pw,height=$ph"; refresh_kind=GC16_FAST; fi
+    if [ "$draw_count" -eq 1 ] || [ $((draw_count%CLEAN_REFRESH_INTERVAL)) -eq 0 ]; then fb -q -f -W GC16 -s || fail "FBInk 刷新失败"; refresh_kind=GC16
+    else px="$(scale_x "$rx")"; py="$(scale_y "$ry")"; pw="$(scale_len "$rw")"; ph="$(scale_len "$rh")"; fb -q -W GC16_FAST -s "top=$py,left=$px,width=$pw,height=$ph" || fb -q -W GC16 -s "top=$py,left=$px,width=$pw,height=$ph" || fail "FBInk 刷新失败"; refresh_kind=GC16_FAST; fi
 }
 
 dashboard_active=0
 remove_session() { case "$SESSION_DIR" in /tmp/native-reading-dashboard.[0-9]*) rm -rf "$SESSION_DIR";; esac; }
-cleanup() {
-    lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 0 >/dev/null 2>&1 || true; remove_session
-    if [ "$dashboard_active" -eq 1 ]; then lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true; sleep 1; "$FBINK" -q -f -W GC16 -s >/dev/null 2>&1 || true; fi
-}
-trap cleanup EXIT INT TERM HUP
+cleanup() { stop_ui_child; remove_session; }
 
 fallback_to_legacy() {
-    echo "$(date): renderer failed; switching to byte-preserved 9.6.3 dashboard"
-    lipc-set-prop com.lab126.system toasterMessage "优化渲染异常，已切换兼容模式" >/dev/null 2>&1 || true
-    metric_end legacy 1 1; remove_session; trap - EXIT INT TERM HUP
-    exec /bin/sh "$LEGACY"
-    trap cleanup EXIT INT TERM HUP; fail "无法启动原始 9.6.3 后备界面"
+    echo "$(date): renderer failed; switching to original dashboard"
+    metric_end legacy 1 1
+    /bin/sh "$LEGACY" &
+    UI_CHILD=$!
+    wait "$UI_CHILD"; legacy_result=$?; UI_CHILD=
+    exit "$legacy_result"
 }
 
 perform_draw() {
@@ -1201,13 +1210,18 @@ EOF
     perform_draw book_detail_open 1 0 0 0 1272 1696
 }
 
+. "$RELEASE/bin/runtime-child.sh" || fail "缺少运行清理模块"
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 detect_screen; find_touch_device
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
     [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] && [ -f "$UI_DIR/month_detail.png" ] && [ -f "$UI_DIR/week_trend.png" ] && [ -f "$UI_DIR/book_detail.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
-    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.7.5-test\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
+    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.7.6-5.19-normal\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
-lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true; dashboard_active=1
+dashboard_active=1
 
 mode=daily; view_year="$(date +%Y)"; total_period=week; week_offset=0; book_filter=7d; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; today_date="$(date +%Y-%m-%d)"; selected_date="$today_date"; book_page=1; detail_page=1; detail_pages=1; day_detail_page=1; day_detail_pages=1; day_detail_source=daily; month_detail_source=daily; book_detail_filter=7d; book_detail_page=1
 metric_begin first_open; build_cache || fallback_to_legacy; selected_date="$today_date"; draw_background || fallback_to_legacy; draw_dynamic 1 || fallback_to_legacy; refresh_region 0 0 1272 1696; metric_end optimized 0 1
@@ -1215,7 +1229,7 @@ metric_begin first_open; build_cache || fallback_to_legacy; selected_date="$toda
 while :; do
     if [ "$mode" = book_detail ]; then offset="$book_calendar_offset"; dim="$book_calendar_dim"; else offset="$(weekday_offset "$daily_y" "$daily_m")"; dim="$(days_in_month "$daily_y" "$daily_m")"; fi
     if [ "$mode" = day_detail ]; then touch_pages="$day_detail_pages"; touch_page="$day_detail_page"; touch_pager_y=$((DAY_DETAIL_LIST_TOP+DAY_DETAIL_PAGER_Y)); else touch_pages="$detail_pages"; touch_page="$detail_page"; touch_pager_y=$((DETAIL_TOP+DETAIL_H-DETAIL_PAGER_H)); fi
-    action="$(lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter")" || action=exit
+    read_touch_action "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter"
     echo "$(date): dashboard action=$action mode=$mode"
     case "$action" in
       exit) break;;
