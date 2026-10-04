@@ -1,0 +1,14 @@
+/mnt/us/documents/reading-records-9.7.6-install.sh
+/mnt/us/documents/阅读记录安装数据.tar
+/mnt/us/RUNME.sh
+/mnt/us/README.txt
+/mnt/us/PACKAGE-MANIFEST.json
+/mnt/us/native-reading-time-package
+/mnt/us/documents/reading-records-install.sh
+/mnt/us/documents/reading-records-v4-install.sh
+/mnt/us/documents/reading-records-uninstall.sh
+/mnt/us/documents/reading-records-diagnostic.sh
+/mnt/us/documents/reading-records-force-exit.sh
+/mnt/us/documents/reading-records-cover-debug.sh
+/mnt/us/extensions/reading-records-installer
+/mnt/us/install-reading-records.log
