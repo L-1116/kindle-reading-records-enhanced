@@ -13,7 +13,7 @@ if sys.argv[1:2] == ["-e"]:
 
 
 def native_path(value: str) -> Path:
-    if len(value) > 3 and value[0] == "/" and value[2] == "/" and value[1].isalpha():
+    if os.name == "nt" and len(value) > 3 and value[0] == "/" and value[2] == "/" and value[1].isalpha():
         return Path(f"{value[1].upper()}:{value[2:]}")
     return Path(value)
 if target == "reading-insights-touch-ks.lua":

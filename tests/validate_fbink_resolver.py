@@ -35,7 +35,7 @@ if __name__ == "__main__":
         a, b, copied, linked = [root / x for x in ("A", "B", "copy-A", "hardlink-A")]
         executable(a, 'echo "A $*" >> "$TRACE"\ncase "$*" in *GC16_FAST*) exit 6;; esac\nexit 0\n')
         executable(b, 'echo "B $*" >> "$TRACE"\nexit 0\n')
-        shutil.copyfile(a, copied)
+        shutil.copy2(a, copied)
         os.link(a, linked)
         prelude = 'READING_FBINK_CANDIDATES=\n' + resolver + "\n"
         additions = "\n".join(f'fbink_candidate_add "{shell_path(p)}"' for p in (a, b, copied, linked, a))

@@ -51,3 +51,9 @@ GitHub Actions checkout 设置 fetch-depth: 0，使完整回归可读取它明�
 发布流程在完整验收通过后执行：提交 → push 分支 → 创建并 push 指向最终 commit 的 tag → 创建 draft prerelease → 上传并下载验证两个资产 → 公开 prerelease → 再读取 API 和下载资产，确认名称、类型、数量、顶层文件与哈希。发布后验证结果保存在 build/validation/v4-test3-post-release-verification.json。
 
 Release 地址：[V4 Test 3](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v4-test.3)。
+
+## GitHub 干净环境验收修正
+
+首次 tag CI 暴露了测试环境缺陷，已停止公开发布并保持 Release 为 draft：Python mock 依赖 Windows py launcher、复制后的候选缺少 Linux 可执行位、KS 页面检查依赖未跟踪的本地 build 缓存、V4 安装测试固定 Windows shell 路径。
+
+测试 mock 现使用运行验收的同一 Python 解释器；复制候选保留执行权限；预览与 KS 导航 fixture 从源码在临时目录生成；V4 安装测试按平台寻找 shell 和转换路径。全部原有断言与场景保留，未修改生产代码、安装 payload 或用户包逻辑。开发分支开启与 tag 相同的完整 CI，最终 tag 和公开发布仅使用完整验收成功的最终 commit。

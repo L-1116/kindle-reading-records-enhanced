@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+from runtime_fixture import install_python_fixture
 import subprocess
 import sys
 import tempfile
@@ -122,7 +123,7 @@ def run_case(name: str, history: str, actions: tuple[str, ...] = ("tab_books", "
             target = base / "bin" / utility
             shutil.copy2(FIXTURES / utility, target)
             target.chmod(0o755)
-        shutil.copy2(FIXTURES / "lua", base / "bin/lua-fake")
+        install_python_fixture(FIXTURES / "lua", base / "bin/lua-fake")
         (base / "fonts/NotoSansCJKsc-Regular.otf").write_bytes(b"")
         shutil.copy2(KS, release / "bin/reading-records-ks.sh")
         shutil.copy2(ROOT / "ks-package/native-reading-time-package/reading-insights-touch-ks.lua",
@@ -138,8 +139,7 @@ def run_case(name: str, history: str, actions: tuple[str, ...] = ("tab_books", "
         for image in (ROOT / "ks-package/native-reading-time-package/ui-scribe").glob("*.png"):
             shutil.copy2(image, release / "ui-scribe" / image.name)
         lua_command = base / "bin/lua"
-        shutil.copy2(ROOT / "tests/ks_real_renderer_lua.py", lua_command)
-        lua_command.chmod(0o755)
+        install_python_fixture(ROOT / "tests/ks_real_renderer_lua.py", lua_command)
         (base / "reading_time_ks_debug.log").write_text("", encoding="utf-8")
         (base / "reading-time.tsv").write_text(history, encoding="utf-8")
         (base / "actions.txt").write_text("\n".join(actions) + "\n", encoding="utf-8")

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import shutil
+from runtime_fixture import install_python_fixture
 import subprocess
 import tempfile
 
@@ -38,8 +39,7 @@ def check(variant: str) -> None:
             shutil.copyfile(ROOT / "native-reading-time-package" / helper, release / "bin" / helper)
         (release / "bin/reading-records-v9.6.3.sh").write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
         fake_lua = root / "mockbin/lua-fake"
-        shutil.copyfile(ROOT / "tests/fixtures/ks-runtime/lua", fake_lua)
-        fake_lua.chmod(0o755)
+        install_python_fixture(ROOT / "tests/fixtures/ks-runtime/lua", fake_lua)
         executable(root / "mockbin/lua", '[ -z "${READING_PROBE_SOURCE:-}" ] || [ -r "$READING_PROBE_SOURCE" ] || exit 2\n'
                    'case "$1" in *reading-insights-touch-ui.lua) echo exit; exit 0;; esac\n'
                    'exec "${0%/*}/lua-fake" "$@"\n')

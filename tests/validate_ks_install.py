@@ -6,6 +6,7 @@ import hashlib
 import os
 from pathlib import Path
 import shutil
+from runtime_fixture import install_python_fixture
 import subprocess
 import tempfile
 import zipfile
@@ -48,7 +49,10 @@ with tempfile.TemporaryDirectory(prefix="ks-install-", dir=ROOT / "build") as na
     history_before = digest(history)
     fixtures = ROOT / "tests/fixtures/ks-runtime"
     for utility in ("lua", "fbset", "fbink", "lipc-get-prop", "lipc-set-prop"):
-        shutil.copy2(fixtures / utility, mockbin / utility)
+        if utility == "lua":
+            install_python_fixture(fixtures / utility, mockbin / utility)
+        else:
+            shutil.copy2(fixtures / utility, mockbin / utility)
     subprocess.run(
         [SHELL, "-c", '/usr/bin/chmod 755 "$@"', "test", daemon.as_posix(), *(path.as_posix() for path in mockbin.iterdir())],
         check=True,

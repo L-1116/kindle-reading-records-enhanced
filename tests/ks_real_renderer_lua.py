@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import csv
+import os
 import runpy
 import sys
 
@@ -13,13 +14,13 @@ from lupa.lua51 import LuaRuntime
 
 def native_path(value: str) -> Path:
     # Git Bash passes Windows drive paths as /d/path/to/file.
-    if len(value) > 3 and value[0] == "/" and value[2] == "/" and value[1].isalpha():
+    if os.name == "nt" and len(value) > 3 and value[0] == "/" and value[2] == "/" and value[1].isalpha():
         return Path(f"{value[1].upper()}:{value[2:]}")
     return Path(value)
 
 
 if Path(sys.argv[1]).name != "reading-insights-render.lua":
-    runpy.run_path(str(Path(__file__).with_name("lua-fake")), run_name="__main__")
+    runpy.run_path(str(Path(__file__).with_name("lua-fake.py")), run_name="__main__")
 else:
     renderer = native_path(sys.argv[1])
     assets = native_path(sys.argv[2])

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import shutil
+from runtime_fixture import install_python_fixture
 import subprocess
 import sys
 import tempfile
@@ -43,7 +44,7 @@ def setup(root: Path, *, version: str, geometry: str, lock: str, actions: str = 
         shutil.copy2(COMMON / "render-assets" / asset, release / "render-assets" / asset)
     for image in (KS / "ui-scribe").glob("*.png"):
         shutil.copy2(image, release / "ui-scribe" / image.name)
-    shutil.copy2(FIXTURES / "lua", base / "bin/lua-fake")
+    install_python_fixture(FIXTURES / "lua", base / "bin/lua-fake")
     script(base / "bin/lua", '''
 case "$1" in
     *reading-insights-render.lua) [ "${KS_SIM_RENDER_FAIL:-0}" = 1 ] && exit 9;;

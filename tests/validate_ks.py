@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
+import tempfile
 import json
 from pathlib import Path
 import re
@@ -114,11 +116,21 @@ def main() -> None:
         "daily.png", "books.png", "total.png", "day_detail.png",
         "month_detail.png", "week_trend.png", "book_detail.png",
     }
-    for path in (ROOT / "build/ks-preview").glob("ks-*-preview.png"):
-        assert Image.open(path).size == (1860, 2480)
-    for path in (ROOT / "build/ks-preview").glob("standard-*-preview.png"):
-        assert Image.open(path).size == (1272, 1696)
-    assert len(list((ROOT / "build/ks-preview").glob("ks-*-preview.png"))) == 5
+    # Generate previews from source; a fresh checkout has no ignored build cache.
+    spec = importlib.util.spec_from_file_location("ks_preview_builder", ROOT / "scripts/build_ks_ui.py")
+    builder = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(builder)
+    with tempfile.TemporaryDirectory(prefix="ks-preview-") as directory:
+        builder.OUT = Path(directory) / "ui"
+        builder.PREVIEWS = Path(directory) / "previews"
+        builder.build()
+        for path in builder.PREVIEWS.glob("ks-*-preview.png"):
+            with Image.open(path) as image:
+                assert image.size == (1860, 2480)
+        for path in builder.PREVIEWS.glob("standard-*-preview.png"):
+            with Image.open(path) as image:
+                assert image.size == (1272, 1696)
+        assert len(list(builder.PREVIEWS.glob("ks-*-preview.png"))) == 5
 
     # Geometry invariants shared by renderer and hit testing.
     assert "local logical_w, logical_h = 1860, 2480" in touch

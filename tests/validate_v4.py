@@ -15,7 +15,8 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "build/validation"
 OUT.mkdir(parents=True, exist_ok=True)
-SHELL = r"C:\Program Files\Git\bin\sh.exe"
+SHELL = next(path for path in (shutil.which("sh"), r"C:\Program Files\Git\bin\sh.exe")
+             if path and Path(path).is_file())
 BOOT = "reading-records-v4-install.sh"
 TAR = "阅读记录安装数据.tar"
 CLEAN = "安装好之后，确认无误了再点这个.sh"
@@ -31,7 +32,7 @@ def put(path: Path, data: bytes) -> None:
 
 
 def msys(path: Path) -> str:
-    return f"/{path.drive[0].lower()}{path.as_posix()[2:]}"
+    return f"/{path.drive[0].lower()}{path.as_posix()[2:]}" if path.drive else path.as_posix()
 
 
 def historical(tag: str, path: str) -> bytes:

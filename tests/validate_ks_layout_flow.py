@@ -3,54 +3,34 @@
 from __future__ import annotations
 
 from datetime import date
-import os
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 
 
+from validate_ks_compat_sync import setup
+
+
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "build/ks-runtime-sim2"
-KS = ROOT / "ks-package/native-reading-time-package"
 SHELL = next(
     path for path in (shutil.which("sh"), r"C:\Program Files\Git\bin\sh.exe")
     if path and Path(path).is_file()
 )
 
 with tempfile.TemporaryDirectory(prefix="ks-layout-flow-", dir=ROOT / "build") as directory:
-    base = Path(directory) / "reading-time"
-    shutil.copytree(SOURCE, base)
-    shutil.copy2(ROOT / "tests/fixtures/ks-runtime/lua", base / "bin/lua")
-    (base / "reading_time_ks_debug.log").write_text("", encoding="utf-8")
-    release = base / "releases/9.7.5-ks-test1"
-    shutil.copy2(KS / "阅读记录-ks.sh", release / "bin/reading-records-ks.sh")
-    shutil.copy2(KS / "reading-insights-touch-ks.lua", release / "bin/reading-insights-touch-ks.lua")
-    shutil.copy2(KS / "reading-insights-touch-probe-ks.lua", release / "bin/reading-insights-touch-probe-ks.lua")
-    for image in (KS / "ui-scribe").glob("*.png"):
-        shutil.copy2(image, release / "ui-scribe" / image.name)
-    today = date.today().isoformat()
-    with (base / "reading-time.tsv").open("a", encoding="utf-8") as history:
-        for index in range(1, 8):
-            history.write(f"{today}\tKSBOOK{index}\t{index * 600}\tKS Test Book {index}\n")
     actions = (
         "tab_books\nbooks_all\nbook_row_6\nbook_detail_back\n"
         "tab_total\nweek_trend_open\nweek_trend_back\n"
         "tab_daily\nexit\n"
     )
-    (base / "actions.txt").write_text(actions, encoding="utf-8", newline="\n")
-    touch = base / "touch-device"
-    touch.write_bytes(b"")
-    environment = {
-        **os.environ,
-        "PATH": (base / "bin").as_posix() + ":/usr/bin:/bin:" + os.environ.get("PATH", ""),
-        "READING_BASE": base.as_posix(),
-        "READING_FBINK": (base / "bin/fbink").as_posix(),
-        "READING_TOUCH_DEVICE": touch.as_posix(),
-        "READING_TMPDIR": (base / "tmp").as_posix(),
-        "KS_SIM_ACTIONS_FILE": (base / "actions.txt").as_posix(),
-        "READING_EVENT_STRUCT_SIZE": "16",
-    }
+    base, environment = setup(Path(directory), version="5.19.6", geometry="1860 2480", lock="U", actions=actions)
+    release = base / "releases/9.7.5-ks-test1"
+    environment["READING_EVENT_STRUCT_SIZE"] = "16"
+    today = date.today().isoformat()
+    with (base / "reading-time.tsv").open("a", encoding="utf-8") as history:
+        for index in range(1, 8):
+            history.write(f"{today}\tKSBOOK{index}\t{index * 600}\tKS Test Book {index}\n")
     result = subprocess.run(
         [SHELL, (release / "bin/reading-records-ks.sh").as_posix()],
         env=environment,
