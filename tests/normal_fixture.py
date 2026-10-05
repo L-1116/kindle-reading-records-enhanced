@@ -123,6 +123,18 @@ esac
 
     def transform(self, raw):
         text = raw.decode("utf-8")
+        if 'stop_daemon() {' in text:
+            # Explicitly mock the simulator's synthetic Upstart PID only.
+            # All other PID checks, including the owned real-process test,
+            # execute the shell builtin against actual host processes.
+            text = text.replace('#!/bin/sh\n', '''#!/bin/sh
+kill() {
+    case "$1:${2:-}" in -0:123)
+        [ -f "$SIM/running" ] || [ -f "$SIM/daemon-survives-stop" ];;
+        *) command kill "$@";;
+    esac
+}
+''', 1)
         replacements = {"/mnt/us": self.us.as_posix(), "/tmp": self.tmp.as_posix(), "/etc/upstart": (self.etc / "upstart").as_posix(),
                         "/etc/prettyversion.txt": (self.etc / "prettyversion.txt").as_posix(), "/etc/version.txt": (self.etc / "version.txt").as_posix(),
                         "/var/local/deviceType.txt": (self.root / "var/local/deviceType.txt").as_posix(),

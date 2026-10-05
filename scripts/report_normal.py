@@ -15,11 +15,12 @@ def git(*args):
 
 def main():
     execution = json.loads((OUT / "suite-results.json").read_text(encoding="utf-8"))
-    assert execution["result"] == "PASS" and execution["complete"] and len(execution["stages"]) == 11
+    assert execution["result"] == "PASS" and execution["complete"] and len(execution["stages"]) == 12
     package = json.loads((OUT / 'package-results.json').read_text(encoding='utf-8'))
     names = ['results.json', 'stats-filters-results.json', 'day-detail-results.json',
              'period-detail-results.json', 'book-detail-results.json', 'cover-fallback-results.json',
-             'audit-results.json', 'installer-results.json', 'runtime-results.json', 'pre-hardware-results.json']
+             'audit-results.json', 'installer-results.json', 'runtime-results.json', 'pre-hardware-results.json',
+             'final-freeze-results.json']
     suites = {}
     for name in names:
         result = json.loads((OUT / name).read_text(encoding='utf-8'))
@@ -41,7 +42,7 @@ def main():
     lines = [
         '# 9.7.6-5.19-normal 本地交付报告',
         '',
-        '结论：**A. 当前代码已经达到“除真机物理行为外，无已知代码 blocker”。** 尚无 Kindle 真机验证；横屏完整链路、电源键、触摸与实际 e-ink 刷新仍须按清单验收。没有 push、tag 或发布 Release。静态问题证据与本轮修改见 `docs/5.19-normal-pre-hardware-audit.md`。',
+        '结论：**A. 当前代码已经达到“除真机物理行为外，无已知代码 blocker”。** 尚无 Kindle 真机验证；横屏完整链路、电源键、触摸与实际 e-ink 刷新仍须按清单验收。这是 push 前的离线报告；远程核对结果由 final freeze 单独记录。没有 tag 或发布 Release。最新审计见 `docs/5.19-normal-final-freeze-audit.md`，上一轮记录保留在 `docs/5.19-normal-pre-hardware-audit.md`。',
         '',
         f'1. **Baseline SHA：** `{BASELINE}`，tag `v9.7.5-测试版`。第一个空提交与该 tag 的 Git tree 相同；初始字节核对发现宽度表原 blob 为 CRLF，之后在运行修复提交中明确规范化为 LF，数值未改。',
         f'2. **分支与工作树：** `{branch}`，`{ROOT}`。原 V4 工作树及其未提交修改保留。',
@@ -74,7 +75,7 @@ def main():
         '16. **Cleanup 精确白名单：** 以下路径仅指安装残留；最后删除 `/mnt/us/documents/reading-records-install-cleanup.sh`，之后触发 scanner。RUNME/README/PACKAGE-MANIFEST 需满足已知安装器内容标记才删。',
         '', '```text', whitelist.rstrip(), '/mnt/us/documents/reading-records-install-cleanup.sh  (最后删除自身)', '```', '',
         '17. **永久保护：** `reading-time.tsv`、`.bak`、用户历史/history、`user.conf`、`book-cover-cache.tsv`、`book-cover-misses.tsv`、`book-covers/`、封面缓存、统计缓存/数据、正式 runtime/release/launcher、daemon、service、正式“阅读记录”入口及核心日志。cleanup 不进入 reading-time 数据目录删除任何文件。',
-        '18. **Firmware：** 合并 `/etc/prettyversion.txt`、`/etc/version.txt`，要求只有一个唯一纯数字 dotted version；相同版本重复可接受，不同版本歧义拒绝。仅 `5.19.*`（至少含 patch，允许更多数字 patch levels）允许。引号、Kindle/build/Firmware Version 前缀、空白、LF/CRLF 覆盖；旧固件、5.190、空值/garbage、畸形 patch 与附着乱码拒绝。',
+        '18. **Firmware：** `/etc/prettyversion.txt` 唯一解析成功即优先；不存在、读取失败或无法解析才 fallback `/etc/version.txt`。被选中来源内多版本歧义直接拒绝，primary 歧义不能借 fallback 绕过；有效 primary 不要求独立 fallback 同意。仅纯数字 `5.19.*`（至少含 patch，允许更多 patch levels）允许。',
         '19. **KS 排除：** 名称含 Scribe/KS，sysfs 输入名称带 Wacom/stylus/digitizer/hanvon，或 framebuffer 短边 ≥1500 的大屏设备拒绝；检测已有 VERSION/PACKAGE_VARIANT/release-info 的 KS 标记防混装。没有 Standard 型号/序列号白名单。笔输入作为 KS 排除依据参考 [KOReader Kindle 设备实现](https://github.com/koreader/koreader/blob/master/frontend/device/kindle/device.lua)；大屏阈值是本包保守排除策略，需真机确认各目标设备识别结果。',
         '20. **ZIP 顶层：** 恰好 `reading-records-9.7.6-install.sh` 和 `reading-records-9.7.6-data.tar`，无其他文件/目录。两个 USB/MTP 物理文件名均为短 ASCII，中文仅作 Scriptlet 显示名。旧中文 tar 只保留为历史 cleanup 白名单条目。',
         f'21. **ZIP 大小：** {package["zip_bytes"]:,} bytes。',
@@ -101,7 +102,7 @@ def main():
                'baseline_sha': BASELINE, 'branch': branch, 'head_sha': head,
                'suite_counts': suites, 'checks': sum(suites.values()), 'package': package,
                'hardening_start_sha': HARDENING_START, 'new_checks': sum(suites.values())-172, 'hardening_diff_stat': hardening_diff,
-               'release_published': False, 'push_performed': False, 'tag_created': False}
+               'report_phase': 'offline-before-push', 'release_published': False, 'push_performed': False, 'tag_created': False}
     (OUT / 'normal-final-results.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps({'report': str(report), 'checks': summary['checks'], 'head': head}, ensure_ascii=True))
 

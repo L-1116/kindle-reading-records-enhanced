@@ -20,6 +20,7 @@ CHECKS = [
     ROOT / "tests/validate_install.py",
     ROOT / "tests/validate_normal_runtime.py",
     ROOT / "tests/validate_pre_hardware.py",
+    ROOT / "tests/validate_final_freeze.py",
 ]
 
 

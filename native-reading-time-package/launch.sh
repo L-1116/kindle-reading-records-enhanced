@@ -7,6 +7,7 @@ RELEASE="$BASE/releases/9.7.6-5.19-normal"
 MAIN="$RELEASE/bin/reading-records-ui.sh"
 LOG="$BASE/dashboard-launch.log"
 LOCK="/tmp/reading-records-ui.lock"
+INSTALL_LOCK="/tmp/reading-records-9.7.6-install.lock"
 UI_PID=; SPAWNING=0; SIGNAL_STATUS=0; LOCK_OWNED=0; ORIENTATION_PENDING=0; EAT_PENDING=0; POWER_PENDING=0
 ORIGINAL_ORIENTATION=; ORIGINAL_EAT=; ORIGINAL_POWER=; UI_ENTERED=0; CLEANED=0
 exec >> "$LOG" 2>&1
@@ -39,8 +40,70 @@ trap 'on_signal 130' INT
 trap 'on_signal 143' TERM
 trap 'on_signal 129' HUP
 # Reject concurrent sessions before taking any system-state snapshot.
-. "$RELEASE/bin/runtime-lock.sh" || fail "缺少会话锁模块，请重新安装"
+# BEGIN runtime-lock.sh
+# Shared UI/transaction mutex. mkdir + PID-specific owner directories only;
+# no flock, recursive deletion, timeout, probe or background process.
+acquire_runtime_lock() {
+    LOCK_OWNER="$LOCK/owner.$$"
+    [ ! -L "$LOCK" ] || return 1
+    mkdir "$LOCK" 2>/dev/null || [ -d "$LOCK" ] || return 1
+    LOCK_OWNED=1
+    # Claim before reaping. A competing live claimant is never removed; both
+    # may refuse, but cannot both enter. No stale root rename/delete ABA window.
+    mkdir "$LOCK_OWNER" 2>/dev/null || return 1
+    lock_had_dead_owner=0
+    for lock_owner in "$LOCK"/owner.*; do
+        [ "$lock_owner" != "$LOCK_OWNER" ] || continue
+        lock_pid="${lock_owner##*.}"
+        case "$lock_pid" in ''|0|*[!0-9]*) return 1;; esac
+        kill -0 "$lock_pid" 2>/dev/null && return 1
+        lock_had_dead_owner=1
+        rm -f "$lock_owner/ui-start" "$lock_owner/ui-cancel" || return 1
+        rmdir "$lock_owner" 2>/dev/null || return 1
+    done
+    set -- "$LOCK"/owner.*
+    [ "$#" -eq 1 ] && [ "$1" = "$LOCK_OWNER" ] || return 1
+    # Old PID-layout sessions remain excluded. Never guess that an unowned,
+    # empty PID file is stale; an interrupted modern write has a dead owner.
+    lock_pid="$(cat "$LOCK/pid" 2>/dev/null)"
+    case "$lock_pid" in
+        '') if [ -e "$LOCK/pid" ]; then
+                [ "$lock_had_dead_owner" -eq 1 ] || return 1
+                rm -f "$LOCK/pid" || return 1
+            fi;;
+        0|*[!0-9]*) return 1;;
+        *) kill -0 "$lock_pid" 2>/dev/null && return 1
+           rm -f "$LOCK/pid" "$LOCK/ui-start" "$LOCK/ui-cancel" || return 1;;
+    esac
+    # Kept for an already installed older launcher, which checks a live PID.
+    printf '%s\n' "$$" > "$LOCK/pid" || return 1
+}
+release_runtime_lock() {
+    [ "$LOCK_OWNED" -eq 1 ] || return 0
+    rm -f "$LOCK_OWNER/ui-start" "$LOCK_OWNER/ui-cancel"
+    if [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ]; then rm -f "$LOCK/pid"; fi
+    rmdir "$LOCK_OWNER" 2>/dev/null || true
+    rmdir "$LOCK" 2>/dev/null || true
+}
+# END runtime-lock.sh
+# Observe only: UI never acquires the bootstrap lock (no reverse lock order).
+# An empty private lock is the creator handoff window, not permission to start.
+installer_busy() {
+    [ -e "$INSTALL_LOCK" ] || [ -L "$INSTALL_LOCK" ] || return 1
+    [ -d "$INSTALL_LOCK" ] && [ ! -L "$INSTALL_LOCK" ] || return 0
+    set -- "$INSTALL_LOCK"/owner.*
+    [ "$1" != "$INSTALL_LOCK/owner.*" ] || return 0
+    for install_owner in "$@"; do
+        [ -d "$install_owner" ] && [ ! -L "$install_owner" ] || return 0
+        install_pid="${install_owner##*.}"
+        case "$install_pid" in ''|0|*[!0-9]*) return 0;; esac
+        kill -0 "$install_pid" 2>/dev/null && return 0
+    done
+    return 1
+}
+installer_busy && fail "安装正在进行，请稍后再打开阅读记录"
 acquire_runtime_lock || fail "阅读记录已经打开或安装正在进行，请稍后重试"
+installer_busy && fail "安装正在进行，请稍后再打开阅读记录"
 [ -r "$MAIN" ] || fail "缺少阅读记录运行文件，请重新安装"
 /bin/sh -n "$MAIN" || fail "阅读记录运行文件损坏"
 read_geometry() {

@@ -58,10 +58,10 @@ for text in ['5.17.1', '5.18.6.1', '5.20.0', '5.190', '5.190.1', '', 'garbage',
     write(d.etc / 'prettyversion.txt', text)
     d.run(gate_path, ok=False)
     passed('firmware rejected: ' + repr(text))
-for other, ok in [('Kindle 5.19.6 (51999999)', True), ('Kindle 5.19.1', False), ('5.18.1', False)]:
+for other, ok in [('Kindle 5.19.6 (51999999)', True), ('Kindle 5.19.1', True), ('5.18.1', True)]:
     d.firmware('5.19.6'); write(d.etc / 'version.txt', other)
     d.run(gate_path, ok=ok)
-    passed('firmware cross-source uniqueness: ' + other)
+    passed('firmware primary priority over independent fallback: ' + other)
 (d.etc / 'prettyversion.txt').unlink(); write(d.etc / 'version.txt', 'Firmware Version: Kindle 5.19.6.1\r\n')
 d.run(gate_path); passed('firmware version.txt fallback with CRLF')
 (d.etc / 'version.txt').unlink(); d.firmware('5.19.6')

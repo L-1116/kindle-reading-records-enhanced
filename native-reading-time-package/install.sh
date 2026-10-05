@@ -14,8 +14,8 @@ RELEASE="$BASE/releases/9.7.6-5.19-normal"
 CONF="/etc/upstart/native-reading-time.conf"
 STAGE="$BASE/.install-9.7.6-normal.$$"
 LOCK="/tmp/reading-records-ui.lock"
-ROOT_RW=0; ACTIVATED=0; COMMITTED=0; LOCK_OWNED=0; SERVICE_WAS_RUNNING=0; HAD_RELEASE=0; ROLLBACK_FAILED=0
-JOURNAL_CKSUM=; SNAPSHOT_COUNT=0
+ROOT_RW=0; ACTIVATED=0; COMMITTED=0; LOCK_OWNED=0; STAGE_OWNED=0; SERVICE_WAS_RUNNING=0; HAD_RELEASE=0; ROLLBACK_FAILED=0
+JOURNAL_CKSUM=; SNAPSHOT_COUNT=0; DAEMON_PID=
 log() { echo "$(date): $*"; }
 toast() { lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; }
 fail() { log "ERROR: $1"; toast "$1"; exit 1; }
@@ -28,9 +28,29 @@ atomic_file() {
     cp "$af_src" "$af_tmp" && chmod "$af_mode" "$af_tmp" && mv "$af_tmp" "$af_dst" && return 0
     rm -f "$af_tmp"; return 1
 }
+remember_daemon_pid() {
+    # Only this exact Upstart job may supply a PID. Never search by name or
+    # kill an unrelated process; PID reuse conservatively refuses deployment.
+    case "$1" in 'native-reading-time start/running, process '*) DAEMON_PID="${1#native-reading-time start/running, process }";; *) return 1;; esac
+    case "$DAEMON_PID" in ''|0|*[!0-9]*) return 1;; esac
+    [ "$DAEMON_PID" -gt 0 ] 2>/dev/null
+}
+verify_running_daemon() {
+    running_state="$(/sbin/initctl status native-reading-time 2>/dev/null)" || return 1
+    remember_daemon_pid "$running_state" || return 1
+    kill -0 "$DAEMON_PID" 2>/dev/null
+}
 stop_daemon() {
+    daemon_before_stopped=0
+    daemon_before="$(/sbin/initctl status native-reading-time 2>/dev/null)" || daemon_before=
+    case "$daemon_before" in
+        'native-reading-time start/running, process '*) remember_daemon_pid "$daemon_before" || return 1;;
+        'native-reading-time stop/waiting') daemon_before_stopped=1;;
+        '') :;;
+        *) return 1;;
+    esac
     if ! /sbin/initctl stop native-reading-time >/dev/null 2>&1; then
-        [ "$SERVICE_WAS_RUNNING" -eq 0 ] || return 1
+        [ "$daemon_before_stopped" -eq 1 ] || [ "$SERVICE_WAS_RUNNING" -eq 0 ] || return 1
     fi
     stopped_state="$(/sbin/initctl status native-reading-time 2>/dev/null)" || {
         # A fresh install can have no Upstart job yet. An existing job with
@@ -38,12 +58,16 @@ stop_daemon() {
         [ "$SERVICE_WAS_RUNNING" -eq 0 ] && [ ! -e "$CONF" ] && return 0
         return 1
     }
-    case "$stopped_state" in *stop/waiting*) return 0;; *) return 1;; esac
+    case "$stopped_state" in 'native-reading-time stop/waiting') :;; *) return 1;; esac
+    # A successful stop and stop/waiting alone cannot prove a previously
+    # reported process has exited (including on rollback after activation).
+    [ -z "$DAEMON_PID" ] || ! kill -0 "$DAEMON_PID" 2>/dev/null || return 1
+    return 0
 }
 rollback() {
     log 'rolling back runtime transaction'
     if ! stop_daemon; then
-        log 'ERROR: daemon still running; refusing runtime rollback'; ROLLBACK_FAILED=1; return 1
+        log 'ERROR: daemon stop unverified; refusing runtime rollback'; ROLLBACK_FAILED=1; return 1
     fi
     rollback_cksum="$(cksum < "$STAGE/journal" 2>/dev/null)" || rollback_cksum=
     if [ -z "$JOURNAL_CKSUM" ] || [ "$rollback_cksum" != "$JOURNAL_CKSUM" ]; then
@@ -74,7 +98,7 @@ rollback() {
     root_ro || ROLLBACK_FAILED=1
     if [ "$SERVICE_WAS_RUNNING" -eq 1 ] && [ "$ROLLBACK_FAILED" -eq 0 ]; then
         /sbin/initctl start native-reading-time >/dev/null 2>&1 || ROLLBACK_FAILED=1
-        /sbin/initctl status native-reading-time 2>/dev/null | grep -q 'start/running' || { log 'ERROR: old daemon recovery failed'; ROLLBACK_FAILED=1; }
+        verify_running_daemon || { log 'ERROR: old daemon recovery failed'; ROLLBACK_FAILED=1; }
     fi
     scan
 }
@@ -86,7 +110,7 @@ finish() {
     if [ "$ROLLBACK_FAILED" -eq 1 ]; then
         log "RECOVERY_REQUIRED snapshot=$STAGE"
         toast '安装恢复失败，已保留恢复快照，请保留安装文件。'
-    else
+    elif [ "$STAGE_OWNED" -eq 1 ]; then
         case "$STAGE" in /mnt/us/reading-time/.install-9.7.6-normal.[0-9]*) rm -rf "$STAGE";; esac
     fi
     if [ "$LOCK_OWNED" -eq 1 ]; then release_runtime_lock; fi
@@ -97,11 +121,19 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
 [ "$(id -u)" -eq 0 ] || fail '安装需要 Scriptlet 的系统权限'
-# Require one unique dotted version across both sources. Duplicate copies of
-# the same firmware are fine; conflicting versions and attached garbage fail.
-firmware="$(cat /etc/prettyversion.txt /etc/version.txt 2>/dev/null | awk '
-    {gsub(/[^[:alnum:].]+/, " ");for(i=1;i<=NF;i++)if($i~/^[0-9]+(\.[0-9]+)+$/ && !seen[$i]++){version=$i;count++}}
-    END {if(count==1)print version}')"
+# Prefer prettyversion; the independent fallback is not a consensus vote.
+# A readable source containing conflicting versions must never be bypassed.
+read_firmware() {
+    firmware_text="$(cat "$1" 2>/dev/null)" || return 1
+    printf '%s\n' "$firmware_text" | awk '
+        {gsub(/[^[:alnum:].]+/, " ");for(i=1;i<=NF;i++)if($i~/^[0-9]+(\.[0-9]+)+$/ && !seen[$i]++){version=$i;count++}}
+        END {if(count>1)exit 2;if(count==1)print version;else exit 1}'
+}
+firmware="$(read_firmware /etc/prettyversion.txt)"; firmware_status=$?
+[ "$firmware_status" -ne 2 ] || fail '系统固件版本信息不明确，安装已停止。'
+if [ "$firmware_status" -ne 0 ]; then
+    firmware="$(read_firmware /etc/version.txt)" || fail '此安装包仅适用于 Kindle firmware 5.19.x，无法唯一确认系统固件版本，安装已停止。'
+fi
 case "$firmware" in 5.19.*) :;; *) fail '此安装包仅适用于 Kindle firmware 5.19.x，请使用对应版本安装包。';; esac
 # Exclude pen devices by capabilities and display class, without a Standard
 # serial/model allowlist. Unknown Standard marketing names are accepted.
@@ -125,7 +157,7 @@ existing="$(cat "$BASE/VERSION" "$BASE/PACKAGE_VARIANT" "$BASE/release-info" 2>/
 if printf '%s\n' "$existing" | grep -Eq '(^|[^[:alnum:]])(ks|scribe)([^[:alnum:]]|$)'; then fail '检测到 KS 安装，请使用 KS 版本，禁止混装。'; fi
 [ -x /sbin/initctl ] || fail '缺少 Kindle Upstart 服务'
 . "$PKG/runtime-lock.sh" || fail '缺少安装锁模块'
-acquire_runtime_lock || fail '安装正在进行或阅读记录已经打开，请稍后重试'
+acquire_runtime_lock || fail '阅读记录正在运行，请先退出后再安装'
 [ -s "$PKG/payload-manifest.tsv" ] && [ -s "$PKG/install-manifest.txt" ] || fail '缺少安装清单'
 while IFS="$(printf '\t')" read -r expected size file; do
     case "$file" in ''|/*|*'..'*) fail '非法 payload 路径';; esac
@@ -157,7 +189,9 @@ printf '%s\n' "$space" | awk -v need="$needed_kib" '
 log "preflight us required_kib=$needed_kib"
 mkdir -p "$BASE" "$DOCS" "$BASE/releases" || fail '无法创建运行目录'
 umask 077
-mkdir "$STAGE" && mkdir "$STAGE/release" "$STAGE/backup" || fail '无法创建安装暂存目录'
+mkdir "$STAGE" || fail '无法创建安装暂存目录，已有恢复材料未被覆盖'
+STAGE_OWNED=1
+mkdir "$STAGE/release" "$STAGE/backup" || fail '无法创建安装暂存目录'
 : > "$STAGE/journal"; : > "$STAGE/deploy"
 slot=0
 snapshot() {
@@ -197,7 +231,7 @@ prior_state="$(/sbin/initctl status native-reading-time 2>/dev/null)" || {
     prior_state=absent
 }
 case "$prior_state" in
-    *start/running*) SERVICE_WAS_RUNNING=1;;
+    *start/running*) SERVICE_WAS_RUNNING=1; remember_daemon_pid "$prior_state" || fail '无法确认原阅读记录服务 PID，安装已停止';;
     *stop/waiting*|absent) :;;
     *) fail '无法确认原阅读记录服务状态，安装已停止';;
 esac
@@ -215,7 +249,7 @@ done < "$STAGE/deploy"
 root_ro || fail '无法恢复系统只读状态'
 /sbin/initctl start native-reading-time >/dev/null 2>&1 || fail '阅读记录服务启动失败'
 sleep 2
-/sbin/initctl status native-reading-time 2>/dev/null | grep -q 'start/running' || fail '阅读记录服务未运行'
+verify_running_daemon || fail '阅读记录服务未运行'
 # Activation checks code, resources and service; actual UI interaction is the
 # user's next step, never falsely treated as on-device UI verification here.
 [ -s "$BASE/reading-time.tsv" ] || fail '阅读记录服务未初始化数据'

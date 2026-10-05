@@ -48,6 +48,11 @@ def main() -> dict:
         assert not Path(src).is_absolute() and ".." not in Path(src).parts
         files.add(src)
     sources = {name: (PKG / name).read_bytes() for name in sorted(files)}
+    # The formal launcher must acquire its lock before reading a versioned
+    # release. Keep its self-contained copy identical to the installer helper.
+    lock_body = sources['runtime-lock.sh'].decode('utf-8').split('\n', 1)[1]
+    launcher = sources['launch.sh'].decode('utf-8')
+    assert launcher.split('# BEGIN runtime-lock.sh\n', 1)[1].split('# END runtime-lock.sh', 1)[0] == lock_body
     for name, raw in sources.items():
         if name.endswith((".sh", ".lua", ".awk", ".txt", ".tsv", ".conf")):
             assert b"\r\n" not in raw and not raw.startswith(b"\xef\xbb\xbf"), name
