@@ -3,7 +3,7 @@
 # Author: Kindle Reading Records Enhanced
 # Icon: /mnt/us/reading-time/assets/launcher-icon.png
 BASE="/mnt/us/reading-time"
-RELEASE="$BASE/releases/9.7.6-5.19-normal"
+RELEASE="$BASE/releases/9.7.6-5.18-vera"
 MAIN="$RELEASE/bin/reading-records-ui.sh"
 LOG="$BASE/dashboard-launch.log"
 LOCK="/tmp/reading-records-ui.lock"

@@ -1,4 +1,4 @@
-"""5.19 normal: bootstrap, firmware gates, transactional install/upgrade/repair."""
+"""5.18 Vera: bootstrap, firmware gates, transactional install/upgrade/repair."""
 from normal_fixture import *
 import json
 
@@ -34,23 +34,23 @@ for mode in ('missing','corrupt','tar-failure','internal-failure'):
     if mode=='corrupt':assert '安装数据损坏' in d.install_log()
     d.no_temporary();passed('bootstrap failure: '+mode)
 
-for firmware,model in [('5.19.0','Kindle 青春版'),('5.19.1','Paperwhite'),('5.19.6','KPW Signature'),('5.19.10','Unexpected Standard marketing name'),('5.19.6.1','Unknown Standard')]:
+for firmware,model in [('5.18.0','Kindle 青春版'),('5.18.1','Paperwhite'),('5.18.4','KPW Signature'),('5.18.10','Unexpected Standard marketing name'),('5.18.4.1','Unknown Standard')]:
     d=Device();d.firmware(firmware);write(d.root/'var/local/deviceType.txt',model)
     d.install();d.no_temporary()
     assert (d.docs/'reading-records.sh').exists()
     assert '# Name: 阅读记录' in (d.docs/'reading-records.sh').read_text(encoding='utf-8')
     assert (d.root/'running').exists()
-    assert (d.base/'VERSION').read_text().strip()=='9.7.6-5.19-normal'
-    release=d.base/'releases/9.7.6-5.19-normal'
+    assert (d.base/'VERSION').read_text().strip()=='9.7.6-5.18-vera'
+    release=d.base/'releases/9.7.6-5.18-vera'
     assert all((release/path).is_file() for path in ['bin/reading-records-ui.sh','bin/reading-insights-touch-ui.lua','ui-calendar/book_detail.png','ui-calendar/daily.png'])
     assert digest(d.base/'assets/launcher-icon.png')==digest(PKG/'launcher-icon.png')
     assert digest(d.base/'bin/native-reading-time-daemon.sh')==hashlib.sha256(d.transform((PKG/'native-reading-time-daemon.sh').read_bytes())).hexdigest()
     d.run(d.docs/'reading-records.sh');d.no_temporary()
     passed('fresh install + real UI shell: '+firmware+' '+model)
 
-for firmware in ['5.17.1','5.18.1.1.1','5.18.10','5.20.0','5.190.1','unknown']:
+for firmware in ['5.17.1','5.19.1.1.1','5.19.10','5.20.0','5.180.1','unknown']:
     d=Device();d.seed('9.7.4');d.firmware(firmware);before=d.preserved()
-    d.install(ok=False);assert '仅适用于 Kindle firmware 5.19.x' in d.install_log()
+    d.install(ok=False);assert '仅适用于 Kindle firmware 5.18.x' in d.install_log()
     assert d.preserved()==before and not (d.docs/'reading-records.sh').exists()
     d.no_temporary();passed('firmware rejected: '+firmware)
 
@@ -64,13 +64,13 @@ for mode in ['name','pen','geometry','landscape-geometry','installed-ks']:
     d.install(ok=False);assert 'KS' in d.install_log() or 'Scribe' in d.install_log()
     assert d.preserved()==before;d.no_temporary();passed('Scribe/mixed install rejected: '+mode)
 
-for version in ['9.7.4','9.7.5-test','9.7.5-compat-v3-standard','V3 Standard','V4 Test 3','9.7.6-5.19-normal']:
+for version in ['9.7.4','9.7.5-test','9.7.5-compat-v3-standard','V3 Standard','V4 Test 3','9.7.6-5.18-vera']:
     d=Device();d.seed(version);before=d.preserved();d.install();d.no_temporary()
     assert d.preserved()==before and (d.base/'releases/old/marker').read_text()=='old release'
     assert not (d.docs/'阅读记录.sh').exists()
-    if version=='9.7.6-5.19-normal':
+    if version=='9.7.6-5.18-vera':
         # Repair replaces corrupted runtime, while preserving data.
-        write(d.base/'releases/9.7.6-5.19-normal/bin/reading-records-ui.sh','broken runtime')
+        write(d.base/'releases/9.7.6-5.18-vera/bin/reading-records-ui.sh','broken runtime')
         d.install();assert d.preserved()==before;d.no_temporary()
     passed('upgrade/repair preserves history, backup, config, cover cache and statistics: '+version)
     # Cleanup leaves exactly the formal entry and unrelated documents.
@@ -94,18 +94,18 @@ for version in ['9.7.4','9.7.5-test','9.7.5-compat-v3-standard','V3 Standard','V
     passed('cleanup whitelist, self-removal and working UI after cleanup: '+version)
 
 # Snapshot every active runtime entry and force a post-publication service failure.
-for version in ['9.7.5-test','9.7.6-5.19-normal']:
+for version in ['9.7.5-test','9.7.6-5.18-vera']:
     d=Device();d.seed(version)
-    if version=='9.7.6-5.19-normal':d.install()
+    if version=='9.7.6-5.18-vera':d.install()
     before=d.preserved()
     paths=[d.base/'VERSION',d.base/'bin/native-reading-time-daemon.sh',d.base/'fonts/NotoSansCJKsc-Regular.otf',d.base/'assets/launcher-icon.png',d.etc/'upstart/native-reading-time.conf']
-    if version=='9.7.6-5.19-normal':paths.extend([d.docs/'reading-records.sh',d.docs/'reading-records-install-cleanup.sh',d.base/'releases/9.7.6-5.19-normal/bin/reading-records-ui.sh'])
+    if version=='9.7.6-5.18-vera':paths.extend([d.docs/'reading-records.sh',d.docs/'reading-records-install-cleanup.sh',d.base/'releases/9.7.6-5.18-vera/bin/reading-records-ui.sh'])
     else:paths.append(d.docs/'阅读记录.sh')
     hashes={str(p):digest(p) for p in paths}
     d.flag('fail-service');d.install(ok=False)
     assert all(digest(path)==sha for path,sha in hashes.items()) and d.preserved()==before
     assert (d.root/'running').exists()
-    if version=='9.7.5-test':assert not (d.docs/'reading-records-install-cleanup.sh').exists() and not (d.base/'releases/9.7.6-5.19-normal').exists()
+    if version=='9.7.5-test':assert not (d.docs/'reading-records-install-cleanup.sh').exists() and not (d.base/'releases/9.7.6-5.18-vera').exists()
     d.no_temporary();passed('post-activation rollback restores entire previous runtime: '+version)
 
 # Standard metadata may mention books; 'ks' must be a standalone variant token.
@@ -134,11 +134,11 @@ script=re.sub(r'EXPECTED_SIZE=\d+',f'EXPECTED_SIZE={size}',script);write(path,sc
 d.install(ok=False);assert '安装资源损坏' in d.install_log() and d.preserved()==before;d.no_temporary()
 passed('inner manifest detects corruption despite a valid outer cksum')
 
-for version in ['9.7.5-test','9.7.6-5.19-normal']:
+for version in ['9.7.5-test','9.7.6-5.18-vera']:
     d=Device();d.seed(version)
-    if version=='9.7.6-5.19-normal':d.install()
+    if version=='9.7.6-5.18-vera':d.install()
     before=d.preserved()
-    old_release=d.base/'releases/9.7.6-5.19-normal'
+    old_release=d.base/'releases/9.7.6-5.18-vera'
     release_hashes={p.relative_to(old_release).as_posix():digest(p) for p in old_release.rglob('*') if p.is_file()}
     d.flag('fail-launcher-once')
     d.command('mv',r'''case "$2" in */documents/reading-records.sh) if [ -f "$SIM/fail-launcher-once" ]; then rm -f "$SIM/fail-launcher-once"; exit 9; fi;; esac

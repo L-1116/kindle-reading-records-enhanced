@@ -9,7 +9,7 @@ BASE="/mnt/us/reading-time"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="/var/local/kmc/bin/fbink"
-RELEASE="$BASE/releases/9.7.6-5.19-normal"
+RELEASE="$BASE/releases/9.7.6-5.18-vera"
 UI_DIR="$RELEASE/ui-calendar"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch-ui.lua"
 RENDERER="$RELEASE/bin/reading-insights-render.lua"
@@ -1219,7 +1219,7 @@ detect_screen; find_touch_device
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
     [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] && [ -f "$UI_DIR/month_detail.png" ] && [ -f "$UI_DIR/week_trend.png" ] && [ -f "$UI_DIR/book_detail.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
-    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.7.6-5.19-normal\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
+    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.7.6-5.18-vera\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
 dashboard_active=1
 

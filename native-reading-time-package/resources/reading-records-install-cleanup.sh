@@ -4,7 +4,7 @@
 BASE="/mnt/us/reading-time"
 # Literal child paths must not traverse a substituted parent into user data.
 [ ! -L /mnt/us ] && [ ! -L /mnt/us/documents ] && [ ! -L /mnt/us/extensions ] && [ ! -L /mnt/us/v4 ] || exit 1
-[ "$(cat "$BASE/VERSION" 2>/dev/null)" = 9.7.6-5.19-normal ] && [ -f "$BASE/activation-verified" ] || exit 1
+[ "$(cat "$BASE/VERSION" 2>/dev/null)" = 9.7.6-5.18-vera ] && [ -f "$BASE/activation-verified" ] || exit 1
 remove_owned() {
     [ -f "$1" ] && [ ! -L "$1" ] || return 0
     grep -Eq "$2" "$1" || return 0

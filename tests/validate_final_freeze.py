@@ -19,8 +19,8 @@ def spawn(d, path):
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def await_file(d, name, process):
-    until = time.monotonic() + 20
+def await_file(d, name, process, timeout=20):
+    until = time.monotonic() + timeout
     while not (d.root / name).exists():
         assert process.poll() is None, (process.returncode, d.install_log(), d.calls())
         assert time.monotonic() < until, d.calls()
@@ -65,20 +65,20 @@ for shell in (SH, DASH):
     gate = d.root / 'gate.sh'
     write(gate, d.transform((source[:source.index('[ -x /sbin/initctl ]')] + '\nexit 0\n').encode()).decode())
     for primary, fallback, ok, expected in [
-        ('Kindle 5.19.6', '5.18.1', True, '5.19.6'),
-        ('Kindle 5.19.6', '5.19.1 5.20.0', True, '5.19.6'),
-        ('garbage', '5.19.6.1', True, '5.19.6.1'),
-        (None, '5.19.0', True, '5.19.0'),
-        ('', '5.19.1', True, '5.19.1'),
-        ('5.19.6 5.19.1', '5.19.6', False, None),
-        ('5.19.6 5.18.1', '5.19.6', False, None),
-        ('garbage', '5.19.6 5.19.1', False, None),
+        ('Kindle 5.18.4', '5.19.1', True, '5.18.4'),
+        ('Kindle 5.18.4', '5.18.1 5.20.0', True, '5.18.4'),
+        ('garbage', '5.18.4.1', True, '5.18.4.1'),
+        (None, '5.18.0', True, '5.18.0'),
+        ('', '5.18.1', True, '5.18.1'),
+        ('5.18.4 5.18.1', '5.18.4', False, None),
+        ('5.18.4 5.19.1', '5.18.4', False, None),
+        ('garbage', '5.18.4 5.18.1', False, None),
         (None, 'garbage', False, None),
-        ('5.18.1', '5.19.6', False, None),
-        ('5.20.0', '5.19.6', False, None),
-        ('5.190.1', '5.19.6', False, None),
-        ('5.19.6 5.19.6', None, True, '5.19.6'),
-        ('5.19.6.1.2.3.4', None, True, '5.19.6.1.2.3.4'),
+        ('5.19.1', '5.18.4', False, None),
+        ('5.20.0', '5.18.4', False, None),
+        ('5.180.1', '5.18.4', False, None),
+        ('5.18.4 5.18.4', None, True, '5.18.4'),
+        ('5.18.4.1.2.3.4', None, True, '5.18.4.1.2.3.4'),
     ]:
         for name, text in [('prettyversion.txt', primary), ('version.txt', fallback)]:
             path = d.etc / name
@@ -92,10 +92,10 @@ for shell in (SH, DASH):
         d.no_temporary()
         passed(Path(shell).name + ': primary/fallback ' + repr((primary, fallback)))
     # Unreadable is injected as cat failure, even when the host runs as admin.
-    write(d.etc / 'prettyversion.txt', '5.19.6'); write(d.etc / 'version.txt', '5.19.1')
+    write(d.etc / 'prettyversion.txt', '5.18.4'); write(d.etc / 'version.txt', '5.18.1')
     d.command('cat', 'case "$1" in */prettyversion.txt) exit 3;; esac\nexec /usr/bin/cat "$@"')
     d.chmod([d.mock / 'cat']); result = d.run(gate)
-    assert 'selected=5.19.1' in result.stdout.splitlines()
+    assert 'selected=5.18.1' in result.stdout.splitlines()
     passed(Path(shell).name + ': unreadable primary falls back')
 
 # Only one exact job's positive PID can be remembered (no trailing/multiline
@@ -212,12 +212,16 @@ exec /usr/bin/tar "$@"'''); d.chmod([d.mock / 'tar'])
     # During repair the versioned directory is momentarily absent; the formal
     # launcher must use its own lock code and fail cleanly, not source that dir.
     d = ready(shell); d.flag('block-publish')
-    d.command('mv', r'''case "$1:$2" in */.install-*/release:*/releases/9.7.6-5.19-normal)
+    d.command('mv', r'''case "$1:$2" in */.install-*/release:*/releases/9.7.6-5.18-vera)
 echo ready > "$SIM/publishing"
 while [ -f "$SIM/block-publish" ]; do /usr/bin/sleep .02; done;; esac
 exec /usr/bin/mv "$@"'''); d.chmod([d.mock / 'mv'])
-    a = spawn(d, d.docs / BOOTSTRAP); await_file(d, 'publishing', a)
-    assert not (d.base / 'releases/9.7.6-5.19-normal').exists()
+    # This hook follows payload CRC checks, file copies and repair snapshots.
+    # Frozen and candidate archives both take ~19 seconds on Windows/MSYS;
+    # give this filesystem phase the same budget as post-publication completion.
+    # Other handoff deadlines and all cross-lock assertions remain unchanged.
+    a = spawn(d, d.docs / BOOTSTRAP); await_file(d, 'publishing', a, timeout=40)
+    assert not (d.base / 'releases/9.7.6-5.18-vera').exists()
     result = d.run(d.docs / 'reading-records.sh', ok=False)
     assert '缺少会话锁模块' not in result.stderr
     assert not (d.root / 'touch-pid').exists()
@@ -258,7 +262,7 @@ for mode in ['root-remount-readonly', 'root-target-readonly', 'root-target-reado
     d = ready()
     # Distinct prior bytes make a mixed deployment observable, even for a
     # repair of the same version. Only fixture files gain harmless comments.
-    for prior in [d.base / 'releases/9.7.6-5.19-normal/bin/reading-records-ui.sh',
+    for prior in [d.base / 'releases/9.7.6-5.18-vera/bin/reading-records-ui.sh',
                   d.base / 'bin/native-reading-time-daemon.sh',
                   d.etc / 'upstart/native-reading-time.conf']:
         write(prior, prior.read_text(encoding='utf-8') + '\n# fixture prior deployment\n')

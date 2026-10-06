@@ -43,28 +43,28 @@ source = (PKG / 'install.sh').read_text(encoding='utf-8')
 gate = source[:source.index('[ -x /sbin/initctl ]')] + '\nexit 0\n'
 gate_path = d.root / 'gate.sh'
 write(gate_path, d.transform(gate.encode()).decode())
-allowed = ['5.19.0', '5.19.1', '5.19.6', '5.19.6.1', '5.19.123.456.789',
-           '"5.19.6"', 'Kindle 5.19.6', 'Kindle 5.19.6 (build)',
-           'Firmware Version: Kindle 5.19.6', '   Kindle 5.19.6   ',
-           'Kindle 5.19.6\n', 'Kindle 5.19.6\r\n']
+allowed = ['5.18.0', '5.18.1', '5.18.4', '5.18.4.1', '5.18.123.456.789',
+           '"5.18.4"', 'Kindle 5.18.4', 'Kindle 5.18.4 (build)',
+           'Firmware Version: Kindle 5.18.4', '   Kindle 5.18.4   ',
+           'Kindle 5.18.4\n', 'Kindle 5.18.4\r\n']
 for text in allowed:
     write(d.etc / 'prettyversion.txt', text)
     d.run(gate_path)
     passed('firmware accepted: ' + repr(text))
-for text in ['5.17.1', '5.18.6.1', '5.20.0', '5.190', '5.190.1', '', 'garbage',
-             '5.19', '5.19.', '5.19.x', '5.19.6..1', '5.19.6evil', 'evil5.19.6',
-             '5.19.6 5.18.1', '5.19.6 5.19.1', '5.19.6,5.20.0',
-             '5.19.6/6.1.1', 'Kindle 5.19.6\r\nFirmware 5.20.0']:
+for text in ['5.17.1', '5.19.6.1', '5.20.0', '5.180', '5.180.1', '', 'garbage',
+             '5.18', '5.18.', '5.18.x', '5.18.4..1', '5.18.4evil', 'evil5.18.4',
+             '5.18.4 5.19.1', '5.18.4 5.18.1', '5.18.4,5.20.0',
+             '5.18.4/6.1.1', 'Kindle 5.18.4\r\nFirmware 5.20.0']:
     write(d.etc / 'prettyversion.txt', text)
     d.run(gate_path, ok=False)
     passed('firmware rejected: ' + repr(text))
-for other, ok in [('Kindle 5.19.6 (51999999)', True), ('Kindle 5.19.1', True), ('5.18.1', True)]:
-    d.firmware('5.19.6'); write(d.etc / 'version.txt', other)
+for other, ok in [('Kindle 5.18.4 (51999999)', True), ('Kindle 5.18.1', True), ('5.19.1', True)]:
+    d.firmware('5.18.4'); write(d.etc / 'version.txt', other)
     d.run(gate_path, ok=ok)
     passed('firmware primary priority over independent fallback: ' + other)
-(d.etc / 'prettyversion.txt').unlink(); write(d.etc / 'version.txt', 'Firmware Version: Kindle 5.19.6.1\r\n')
+(d.etc / 'prettyversion.txt').unlink(); write(d.etc / 'version.txt', 'Firmware Version: Kindle 5.18.4.1\r\n')
 d.run(gate_path); passed('firmware version.txt fallback with CRLF')
-(d.etc / 'version.txt').unlink(); d.firmware('5.19.6')
+(d.etc / 'version.txt').unlink(); d.firmware('5.18.4')
 
 for width, height in [(1072,1448), (1236,1648), (1264,1680), (1448,1072), (1648,1236), (1680,1264), (1860,2480), (2480,1860)]:
     d.command('fbset', f"echo 'geometry {width} {height} {width} {height} 8'"); d.chmod([d.mock / 'fbset'])
@@ -250,7 +250,7 @@ assert len(original)==33 and set(whitelist)==set(original)|{'/mnt/us/documents/r
 passed('destructive cleanup audit: all original 33 paths plus ASCII payload, 35 literal rm targets including self')
 
 for parent in ['extensions','v4','documents']:
-    d=Device(); write(d.base/'VERSION','9.7.6-5.19-normal'); write(d.base/'activation-verified','verified')
+    d=Device(); write(d.base/'VERSION','9.7.6-5.18-vera'); write(d.base/'activation-verified','verified')
     write(d.base/'reading-records-installer/user-data','must survive'); write(d.base/'cleanup.sh','user data')
     if parent=='documents':shutil.move(str(d.docs),str(d.root/'saved-documents'))
     alias=d.us/parent
@@ -296,11 +296,11 @@ for mode in ['publish-release','publish-service','snapshot-full','stop-failure',
 rollback() {''')
                 member.size=len(raw);dst_tar.addfile(member,io.BytesIO(raw))
         d.original_tar=buffer.getvalue();d.prepare_payload()
-    if mode!='rollback-remove-new':write(d.base/'releases/9.7.6-5.19-normal/old-marker','original release')
+    if mode!='rollback-remove-new':write(d.base/'releases/9.7.6-5.18-vera/old-marker','original release')
     before=d.preserved(); old_daemon=digest(d.base/'bin/native-reading-time-daemon.sh')
     mv_body=r'''echo "mv $*" >> "$SIM/fs-calls"
 case "$1:$2" in
- */.install-*/release:*/releases/9.7.6-5.19-normal)
+ */.install-*/release:*/releases/9.7.6-5.18-vera)
     if [ "$FAULT_MODE" = publish-release ] && [ -f "$SIM/fault-armed" ]; then
         rm -f "$SIM/fault-armed"; /usr/bin/mkdir -p "$2"; echo partial > "$2/partial"; exit 9
     fi;;
@@ -325,7 +325,7 @@ case "$*" in
 esac
 exec /usr/bin/cp "$@"'''
     rm_body=r'''echo "rm $*" >> "$SIM/fs-calls"
-case "$*" in *'/releases/9.7.6-5.19-normal')
+case "$*" in *'/releases/9.7.6-5.18-vera')
 case "$FAULT_MODE" in rollback-release-rm|rollback-remove-new) if [ -f "$SIM/in-rollback" ]; then exit 9; fi;; esac;; esac
 exec /usr/bin/rm "$@"'''
     d.env['FAULT_MODE']=mode
@@ -365,7 +365,7 @@ if [ "$FAULT_MODE" = rollback-reload ] && [ -f "$SIM/in-rollback" ]; then exit 9
         assert (stage/'journal').is_file()==(mode!='rollback-journal-missing')
         if mode in ['rollback-release-move','rollback-release-rm']:
             assert (stage/'old-release/old-marker').read_text().strip()=='original release'
-            assert not (d.base/'releases/9.7.6-5.19-normal/old-release').exists()
+            assert not (d.base/'releases/9.7.6-5.18-vera/old-release').exists()
         if mode not in ['rollback-missing-backup']:assert digest(stage/'backup/1')==old_daemon
         if mode not in ['stop-failure']:assert not (d.root/'running').exists()
     else:
@@ -384,7 +384,7 @@ for name in protected:
     assert not subprocess.check_output(['git','diff','b344986^','b344986','--',path],cwd=ROOT)
 for name in ['runtime-child.sh','阅读记录-optimized.sh','阅读记录.sh']:
     path='native-reading-time-package/'+name
-    assert (PKG/name).read_bytes()==subprocess.check_output(['git','show','93b6e79:'+path],cwd=ROOT)
+    assert (PKG/name).read_bytes().replace(b'9.7.6-5.18-vera',b'9.7.6-5.19-normal')==subprocess.check_output(['git','show','93b6e79:'+path],cwd=ROOT)
     active='\n'.join(line for line in (PKG/name).read_text(encoding='utf-8').splitlines() if not line.lstrip().startswith('#'))
     assert not re.search(r'EVIOCGRAB|power.?button|power.?key|kill[^\n]*powerd',active,re.I)
 launch_source=(PKG/'launch.sh').read_text(encoding='utf-8')

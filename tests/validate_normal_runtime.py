@@ -61,7 +61,7 @@ for i in range(5):d.flag('actions','exit');ui(d);restored(d,'R','0','1')
 passed('five repeated landscape launches; original nonzero screensaver property preserved')
 
 for mode in ['missing-main','syntax-main','missing-font','touch-failure','touch-init-missing-device','touch-init-missing-reader','fbink-failure','orientation-timeout','orientation-set-failure','orientation-read-failure','invalid-orientation','power-read-failure','eat-set-failure']:
-    d=ready();d.flag('orientation','R');release=d.base/'releases/9.7.6-5.19-normal'
+    d=ready();d.flag('orientation','R');release=d.base/'releases/9.7.6-5.18-vera'
     if mode=='missing-main':(release/'bin/reading-records-ui.sh').unlink()
     elif mode=='syntax-main':write(release/'bin/reading-records-ui.sh','if then broken')
     elif mode=='missing-font':(d.base/'fonts/NotoSansCJKsc-Regular.otf').unlink()
@@ -83,7 +83,7 @@ for mode in ['missing-main','syntax-main','missing-font','touch-failure','touch-
     passed('safe startup/runtime failure cleanup: '+mode)
 
 for mode in ['renderer-missing','renderer-Lua-error','legacy-failure','fast-refresh-fallback']:
-    d=ready();d.flag('orientation','L');release=d.base/'releases/9.7.6-5.19-normal'
+    d=ready();d.flag('orientation','L');release=d.base/'releases/9.7.6-5.18-vera'
     if mode=='renderer-missing':(release/'bin/reading-insights-render.lua').unlink()
     elif mode=='renderer-Lua-error':write(release/'bin/reading-insights-render.lua','error("injected Lua failure")')
     elif mode=='legacy-failure':
@@ -96,7 +96,7 @@ for shell in (SH,DASH):
     for signum,status in [('INT',130),('TERM',143),('HUP',129)]:
         for fallback in [False,True]:
             d=ready(shell);d.flag('orientation','R');d.flag('block-touch')
-            if fallback:(d.base/'releases/9.7.6-5.19-normal/bin/reading-insights-render.lua').unlink()
+            if fallback:(d.base/'releases/9.7.6-5.18-vera/bin/reading-insights-render.lua').unlink()
             path=d.docs/'reading-records.sh'
             text=path.read_text(encoding='utf-8').replace('exec >> "$LOG" 2>&1','echo "$$" > "$SIM/launch-pid"\nexec >> "$LOG" 2>&1')
             write(path,text)
@@ -130,7 +130,7 @@ for owner in ['launcher','touch-reader']:
         if owner=='launcher':
             path=d.docs/'reading-records.sh';target='UI_PID=$!'
         else:
-            path=d.base/'releases/9.7.6-5.19-normal/bin/runtime-child.sh';target='UI_CHILD=$!'
+            path=d.base/'releases/9.7.6-5.18-vera/bin/runtime-child.sh';target='UI_CHILD=$!'
         text=path.read_text(encoding='utf-8').replace(target, 'kill -'+signal+' "$$"\n'+target)
         write(path,text)
         p=ui(d,ok=False);assert p.returncode==status,(p.returncode,d.calls())

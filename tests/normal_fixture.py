@@ -45,7 +45,7 @@ class Device:
         self.env = os.environ.copy(); self.env.update(SIM=("/"+self.root.drive[0].lower()+self.root.as_posix()[2:] if os.name=="nt" else self.root.as_posix()), PYTHON_BIN=sys.executable.replace("\\", "/"))
         self.env["PATH"] = str(self.mock) + os.pathsep + self.env["PATH"]
         self.flag("orientation", "U"); self.flag("eatTapMode", "0"); self.flag("preventScreenSaver", "0")
-        self.flag("actions", "exit"); self.firmware("5.19.6")
+        self.flag("actions", "exit"); self.firmware("5.18.4")
         write(self.root / "var/local/deviceType.txt", "Paperwhite Signature Edition\n")
         write(self.sys / "class/input/event1/device/name", "cyttsp touch\n")
         write(self.root / "touch", "input device")
@@ -56,7 +56,7 @@ class Device:
 
     def flag(self, name, value="1"): write(self.root / name, str(value) + "\n")
     def unflag(self, name): (self.root / name).unlink(missing_ok=True)
-    def firmware(self, version): write(self.etc / "prettyversion.txt", f"Kindle {version} (build 519999999)\n")
+    def firmware(self, version): write(self.etc / "prettyversion.txt", f"Kindle {version} (build 518999999)\n")
     def read(self, name): return (self.root / name).read_text(encoding="utf-8").strip()
     def command(self, name, body): write(self.mock / name, "#!/bin/sh\n" + body + "\n")
     def commands(self):

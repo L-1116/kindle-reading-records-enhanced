@@ -1,4 +1,4 @@
-"""Build the deterministic two-file 5.19 Standard ZIP and verify every byte."""
+"""Build the deterministic two-file 5.18 Vera ZIP and verify every byte."""
 from __future__ import annotations
 import hashlib
 import io
@@ -11,7 +11,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PKG = ROOT / "native-reading-time-package"
-VERSION = "9.7.6-5.19-normal"
+VERSION = "9.7.6-5.18-vera"
 BOOTSTRAP = "reading-records-9.7.6-install.sh"
 PAYLOAD = "reading-records-9.7.6-data.tar"
 ARCHIVE = ROOT / "dist" / f"ReadingTime-{VERSION}.zip"

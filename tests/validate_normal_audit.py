@@ -19,7 +19,8 @@ commits = git('rev-list', '--reverse', tag + '..HEAD').decode().splitlines()
 assert commits and git('rev-parse', commits[0] + '^').decode().strip() == baseline
 assert git('rev-parse', commits[0] + '^{tree}') == git('rev-parse', tag + '^{tree}')
 assert not git('rev-list', '--merges', tag + '..HEAD').strip()
-passed('exact baseline, empty baseline commit and linear ancestry', baseline)
+subprocess.run(['git','merge-base','--is-ancestor','df5fd1e128d6a943435ea0ee8426b8f9f166b250','HEAD'],cwd=ROOT,check=True)
+passed('exact frozen Vera baseline, empty original baseline commit and linear ancestry', baseline)
 
 changed = []
 for name in git('ls-tree', '-r', '--name-only', tag, 'native-reading-time-package').decode('utf-8').splitlines():
@@ -58,7 +59,7 @@ with zipfile.ZipFile(ARCHIVE) as z:
                 for shell in (SH, DASH):
                     subprocess.run([shell, '-n'], input=raw_script, check=True, capture_output=True)
                 source = raw_script.decode('utf-8')
-                assert '5.18' not in source and '5.17' not in source
+                assert '5.19' not in source and '5.17' not in source
                 assert 'hard_float' not in source and 'fbink -e' not in source
         assert not any('Install-Native' in n or 'RUNME.sh' in n for n in names)
 passed('tar excludes compatibility/KS code, probes, watchdogs, obsolete installers and diagnostics')
