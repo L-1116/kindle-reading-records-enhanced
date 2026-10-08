@@ -5,6 +5,7 @@ import hashlib
 import io
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -149,7 +150,10 @@ kill() {
                         "/proc/device-tree/model": (self.root / "model").as_posix(), "/sys/class/input": (self.sys / "class/input").as_posix(),
                         "/sys/class/graphics": (self.sys / "class/graphics").as_posix(), "/dev/input/event1": (self.root / "touch").as_posix(),
                         "/sbin/initctl": (self.mock / "initctl").as_posix(), "/var/local/kmc/bin/fbink": (self.mock / "fbink").as_posix()}
-        for old, new in replacements.items(): text = text.replace(old, new)
+        # Replace original prefixes once. On Linux the new /mnt/us path is
+        # itself under /tmp and must not be rewritten by the /tmp rule again.
+        prefixes = '|'.join(re.escape(p) for p in sorted(replacements, key=len, reverse=True))
+        text = re.sub(prefixes, lambda m: replacements[m.group(0)], text)
         text=text.replace("/bin/sh ", '"'+self.shell.replace("\\", "/")+'" ')
         return text.encode("utf-8")
 

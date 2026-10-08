@@ -22,7 +22,7 @@ assert not git('rev-list', '--merges', tag + '..HEAD').strip()
 passed('exact baseline, empty baseline commit and linear ancestry', baseline)
 
 changed = []
-for name in git('ls-tree', '-r', '--name-only', tag, 'native-reading-time-package').decode('utf-8').splitlines():
+for name in filter(None, git('ls-tree', '-r', '-z', '--name-only', tag, 'native-reading-time-package').decode('utf-8').split('\0')):
     if (ROOT / name).read_bytes() != git('show', tag + ':' + name):
         changed.append(name)
 assert set(changed) == {
