@@ -389,14 +389,31 @@ for name in ['runtime-child.sh','阅读记录-optimized.sh','阅读记录.sh']:
     assert not re.search(r'EVIOCGRAB|power.?button|power.?key|kill[^\n]*powerd',active,re.I)
 launch_source=(PKG/'launch.sh').read_text(encoding='utf-8')
 old_launch=subprocess.check_output(['git','show','93b6e79:native-reading-time-package/launch.sh'],cwd=ROOT).decode('utf-8')
-# Only the lock release/handoff paths change inside cleanup; LIPC order/flags
-# and all geometry/property/startup logic after lock acquisition are identical.
+# Retain the earlier lock/handoff audit and allow only the deliberate removal
+# of write-only touch-state handling. Direction/power cleanup remains exact.
 def cleanup_body(text):return text[text.index('cleanup_runtime_state()'):text.index('on_signal()')]
 expected=cleanup_body(old_launch).replace('rm -f "$LOCK/pid" "$LOCK/ui-start" "$LOCK/ui-cancel"; rmdir "$LOCK" 2>/dev/null || true;', 'release_runtime_lock;')
 expected=expected.replace('$LOCK/ui-', '$LOCK_OWNER/ui-')
+expected=expected.replace('    if [ "$EAT_PENDING" -eq 1 ]; then lipc-set-prop com.lab126.winmgr eatTapMode "$ORIGINAL_EAT" || echo \'restore eatTapMode failed\'; fi\n','')
 assert cleanup_body(launch_source)==expected
-start='[ -r "$MAIN" ]';end='UI_ENTERED=1'
-assert launch_source[launch_source.index(start):launch_source.index(end)]==old_launch[old_launch.index(start):old_launch.index(end)]
+# Verify the complete production launcher against the actual frozen commit,
+# not just selected functions. No lock, orientation, power or handoff drift.
+frozen_launch=subprocess.check_output(['git','show','df5fd1e128d6a943435ea0ee8426b8f9f166b250:native-reading-time-package/launch.sh'],cwd=ROOT).decode('utf-8')
+replacements=[
+    ('; EAT_PENDING=0',''),
+    (' ORIGINAL_EAT=;',''),
+    ('    if [ "$EAT_PENDING" -eq 1 ]; then lipc-set-prop com.lab126.winmgr eatTapMode "$ORIGINAL_EAT" || echo \'restore eatTapMode failed\'; fi\n',''),
+    ('# Preserve the baseline UI behavior; restore actual original values, never\n# assume zero. Neither runtime uses EVIOCGRAB or changes power-key handlers.\nORIGINAL_EAT="$(lipc-get-prop com.lab126.winmgr eatTapMode 2>/dev/null)" || fail "无法保存触摸状态"\n',
+     '# eatTapMode is write-only; leave it untouched rather than invent a saved value.\n# Both touch readers observe evdev read-only without needing a LIPC change.\n# Restore the actual saved power value; do not change power-key handlers.\n'),
+    ('case "$ORIGINAL_EAT:$ORIGINAL_POWER" in *[!0-9:]*|:*|*:) fail "无效的系统状态";; esac',
+     'case "$ORIGINAL_POWER" in \'\'|*[!0-9]*) fail "无效的系统状态";; esac'),
+    ('EAT_PENDING=1; lipc-set-prop com.lab126.winmgr eatTapMode 0 || fail "无法设置触摸状态"\n',''),
+]
+for old,new in replacements:
+    assert frozen_launch.count(old)==1,old
+    frozen_launch=frozen_launch.replace(old,new)
+assert launch_source==frozen_launch
+passed('frozen launcher audit: only write-only eatTapMode handling removed; orientation/power/locks unchanged')
 active='\n'.join(line for line in launch_source.splitlines() if not line.lstrip().startswith('#'))
 assert not re.search(r'EVIOCGRAB|power.?button|power.?key|kill[^\n]*powerd',active,re.I)
 passed('b344986/runtime baseline evidence: tracker, TSV, AWK, touch, UI and power-key behavior unchanged')

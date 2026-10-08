@@ -14,7 +14,9 @@ PKG = ROOT / "native-reading-time-package"
 VERSION = "9.7.6-5.19-normal"
 BOOTSTRAP = "reading-records-9.7.6-install.sh"
 PAYLOAD = "reading-records-9.7.6-data.tar"
-ARCHIVE = ROOT / "dist" / f"ReadingTime-{VERSION}.zip"
+# Keep the deployed release ID for in-place repair; name the user ZIP after
+# the renamed branch so it cannot be confused with the previous frozen ZIP.
+ARCHIVE = ROOT / "dist" / "ReadingTime-9.7.6-5.19-vera.zip"
 OUT = ROOT / "build/validation"
 
 def cksum(data: bytes) -> tuple[int, int]:

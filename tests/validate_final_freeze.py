@@ -19,11 +19,11 @@ def spawn(d, path):
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def await_file(d, name, process):
-    until = time.monotonic() + 20
+def await_file(d, name, process, timeout=20):
+    until = time.monotonic() + timeout
     while not (d.root / name).exists():
         assert process.poll() is None, (process.returncode, d.install_log(), d.calls())
-        assert time.monotonic() < until, d.calls()
+        assert time.monotonic() < until, (name, d.install_log(), d.calls())
         time.sleep(.02)
 
 
@@ -216,7 +216,10 @@ exec /usr/bin/tar "$@"'''); d.chmod([d.mock / 'tar'])
 echo ready > "$SIM/publishing"
 while [ -f "$SIM/block-publish" ]; do /usr/bin/sleep .02; done;; esac
 exec /usr/bin/mv "$@"'''); d.chmod([d.mock / 'mv'])
-    a = spawn(d, d.docs / BOOTSTRAP); await_file(d, 'publishing', a)
+    # Archive verification + snapshots precede this window. The Windows/MSYS
+    # host measured 19.78s here; 20s is not a product latency contract. Keep
+    # the actual repair/lock assertions and a bounded wait with more margin.
+    a = spawn(d, d.docs / BOOTSTRAP); await_file(d, 'publishing', a, timeout=60)
     assert not (d.base / 'releases/9.7.6-5.19-normal').exists()
     result = d.run(d.docs / 'reading-records.sh', ok=False)
     assert '缺少会话锁模块' not in result.stderr

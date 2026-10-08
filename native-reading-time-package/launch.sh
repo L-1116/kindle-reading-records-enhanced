@@ -8,8 +8,8 @@ MAIN="$RELEASE/bin/reading-records-ui.sh"
 LOG="$BASE/dashboard-launch.log"
 LOCK="/tmp/reading-records-ui.lock"
 INSTALL_LOCK="/tmp/reading-records-9.7.6-install.lock"
-UI_PID=; SPAWNING=0; SIGNAL_STATUS=0; LOCK_OWNED=0; ORIENTATION_PENDING=0; EAT_PENDING=0; POWER_PENDING=0
-ORIGINAL_ORIENTATION=; ORIGINAL_EAT=; ORIGINAL_POWER=; UI_ENTERED=0; CLEANED=0
+UI_PID=; SPAWNING=0; SIGNAL_STATUS=0; LOCK_OWNED=0; ORIENTATION_PENDING=0; POWER_PENDING=0
+ORIGINAL_ORIENTATION=; ORIGINAL_POWER=; UI_ENTERED=0; CLEANED=0
 exec >> "$LOG" 2>&1
 fail() { echo "ERROR: $1"; lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; exit 1; }
 cleanup_runtime_state() {
@@ -20,7 +20,6 @@ cleanup_runtime_state() {
     # Flags are set BEFORE each LIPC request: interruption during the request
     # must also restore the saved property, even when its return code is unknown.
     if [ "$POWER_PENDING" -eq 1 ]; then lipc-set-prop com.lab126.powerd preventScreenSaver "$ORIGINAL_POWER" || echo 'restore preventScreenSaver failed'; fi
-    if [ "$EAT_PENDING" -eq 1 ]; then lipc-set-prop com.lab126.winmgr eatTapMode "$ORIGINAL_EAT" || echo 'restore eatTapMode failed'; fi
     # Native Library redraw owns recovery, including after a failed FBInk call.
     if [ "$UI_ENTERED" -eq 1 ] || [ "$ORIENTATION_PENDING" -eq 1 ]; then
         lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
@@ -132,12 +131,11 @@ if [ "$SCREEN_W" -ge "$SCREEN_H" ] || [ "$ORIGINAL_ORIENTATION" = L ] || [ "$ORI
         sleep 1; tries=$((tries+1))
     done
 fi
-# Preserve the baseline UI behavior; restore actual original values, never
-# assume zero. Neither runtime uses EVIOCGRAB or changes power-key handlers.
-ORIGINAL_EAT="$(lipc-get-prop com.lab126.winmgr eatTapMode 2>/dev/null)" || fail "无法保存触摸状态"
+# eatTapMode is write-only; leave it untouched rather than invent a saved value.
+# Both touch readers observe evdev read-only without needing a LIPC change.
+# Restore the actual saved power value; do not change power-key handlers.
 ORIGINAL_POWER="$(lipc-get-prop com.lab126.powerd preventScreenSaver 2>/dev/null)" || fail "无法保存休眠状态"
-case "$ORIGINAL_EAT:$ORIGINAL_POWER" in *[!0-9:]*|:*|*:) fail "无效的系统状态";; esac
-EAT_PENDING=1; lipc-set-prop com.lab126.winmgr eatTapMode 0 || fail "无法设置触摸状态"
+case "$ORIGINAL_POWER" in ''|*[!0-9]*) fail "无效的系统状态";; esac
 POWER_PENDING=1; lipc-set-prop com.lab126.powerd preventScreenSaver 1 || fail "无法设置休眠状态"
 UI_ENTERED=1
 SPAWNING=1

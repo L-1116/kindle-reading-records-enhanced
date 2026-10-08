@@ -1,16 +1,31 @@
-# Kindle Reading Records Enhanced — 9.7.6-5.19-normal
+# Kindle Reading Records Enhanced — 9.7.6-5.19-vera
 
-这是从 `v9.7.5-测试版`（`e41707492b985284d77e0ec5ec5ceffe98209a89`）建立的独立 Standard 主线，仅面向 firmware 5.19.x 的 Kindle 青春版、Paperwhite/KPW 等普通 Kindle。Scribe/KS 和旧固件不适用。
+下载正式安装包：[ReadingTime-9.7.6-5.19-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6-5.19-vera/ReadingTime-9.7.6-5.19-vera.zip)。[查看发布说明](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6-5.19-vera)。
 
-本地安装包：`ReadingTime-9.7.6-5.19-normal.zip`。解压一次，只会得到两个文件：
+**仅适用于固件 5.19.x 的普通 Kindle。非 5.19 固件请勿安装，Scribe/KS 不适用。**
 
-- `reading-records-9.7.6-install.sh`
-- `reading-records-9.7.6-data.tar`
+已在 **KPW6、固件 5.19.6、Véra 越狱环境**下试运行成功。本版本主要解决“横屏阅读后打开阅读记录插件会闪退”的问题，支持原地安装或更新，保留已有阅读历史和封面缓存。
 
-将两个文件一起复制到 Kindle 的 `documents/`，在书库点击“安装阅读记录”。安装后先打开“阅读记录”确认运行正常，再点击“安装好之后，确认无误了再点这个”。清理仅删除安装残留，长期保留正式“阅读记录”入口及所有用户数据。沿用原版本的越狱、Véra/KPM Scriptlet、FBInk/Lua 环境，不要求用户选择 runtime 或执行命令。
+## 安装或更新方法
 
-USB/MTP 复制用的物理文件名统一使用短 ASCII；中文显示名保留在 Scriptlet 的 `# Name`。安装入口排除重复点击，解包前检查临时空间，事务开始前检查安装和备份空间。空间不足或无法可靠读取容量时保留两个安装文件及旧运行版本，并提示“存储空间不足”；请在正常管理存储后重新安装。回滚无法完整恢复时保留恢复快照，位置记录在 `reading-time/install-last.log`。
+1. 下载并解压安装 ZIP，得到 `reading-records-9.7.6-install.sh` 和 `reading-records-9.7.6-data.tar` 两个文件。
+2. 将两个文件一起拖入 Kindle 根目录的 **`documents` 文件夹**。
+3. 安全弹出 Kindle 并断开 USB 连接，回到书库，点击出现的“安装阅读记录”书本，即可安装或更新。
+4. 完成后，书库会同时出现阅读记录插件图标和清理功能书本。
+5. 打开插件，稍作检查并确认运行正常后，点击“安装好之后，确认无误了再点这个”清理书本。
 
-保留周统计、每日/月历、阅读书籍、累计时长，日期/月/最近 8 周/书籍详情及单书日历，最近 7 天/本月/今年/全部筛选，Kindle 阅读进度、每页 3 本和原封面提取/fallback。原始 TSV 格式、计时/session/book ID 模型不变。
+清理功能只删除安装残留，保留正式插件、阅读历史、配置和封面缓存。
 
-本轮没有公开发布。横屏方向恢复与实体电源键必须先完成 KPW 5.19 真机验证；真机清单见 `docs/5.19-normal-kpw-checklist.md`。后台完整离线验证：`python scripts/validate_all.py`。`dist/` 为本地用户包，`build/validation/` 为开发验证报告，均不会成为额外用户安装文件。基线旧 RUNME/installer 源文件仅供历史审计，不进入新 payload，也不参与新安装路径。
+## 保留的功能与数据
+
+保留周统计、每日时长/月历、阅读书籍、累计时长，日期、月份、最近 8 周、书籍详情和单书日历，以及最近 7 天、本月、今年和全部筛选。统计、封面、Lua 渲染、触摸坐标、daemon 和历史格式保持不变。
+
+沿用原有越狱及 Véra/KPM Scriptlet、FBInk/Lua 环境。安装、升级和 repair 保留阅读历史、备份、用户配置及封面缓存；清理只处理安装残留。空间不足或容量无法可靠读取时，安装会保留两个安装文件和旧运行版本并提示存储空间不足。回滚无法完成时保留恢复快照，位置记录在 `reading-time/install-last.log`。
+
+## 开发与验证记录
+
+这是从 `v9.7.5-测试版`（`e41707492b985284d77e0ec5ec5ceffe98209a89`）建立的独立 5.19.x Standard 分支。启动器不再读写只写的 `eatTapMode`，保留原有只读触摸监听与可读写系统状态的保存、恢复。为保持原地升级，内部 release ID 仍为 `9.7.6-5.19-normal`，运行目录和旧数据不迁移。
+
+本地包为 `dist/ReadingTime-9.7.6-5.19-vera.zip`；后台完整回归入口为 `python scripts/validate_all.py`。修复阶段的 12 阶段、407 项检查通过，宿主超时及完整末阶段重跑记录保留。修复与真机反馈见 [修复记录](docs/5.19-vera-eattapmode-fix.md)，具体物理行为清单见 [KPW 验证清单](docs/5.19-normal-kpw-checklist.md)。已确认的真机结果限于用户反馈的 KPW6 / 5.19.6 / Véra 运行成功及横屏阅读后启动闪退修复，不扩大为所有机型、固件或电源/休眠行为均已验证。
+
+`build/validation/` 为开发者本地报告，不作为额外安装附件。基线旧 RUNME/installer 仅供历史审计，不参与本版本安装路径。main 和历史 tag 保留；指定旧版本取消公开发布时仅改为 Release 草稿，保留历史说明、附件和代码。

@@ -71,8 +71,16 @@ class Device:
 echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'
 echo 'kindle 1048576 1024 1047552 1% /'
 ''')
-        self.command("lipc-get-prop", '\n'.join([
-            '[ ! -f "$SIM/fail-get-$2" ] || exit 1', 'case "$2" in orientationLock) cat "$SIM/orientation";; *) cat "$SIM/$2";; esac']))
+        self.command("lipc-get-prop", r'''echo "get $*" >> "$SIM/calls"
+# winmgr exposes eatTapMode as write-only: its private simulated value must
+# never be returned, even when it exists or contains a nonzero value.
+if [ "$1:$2" = com.lab126.winmgr:eatTapMode ]; then
+    echo 'LIPC property is not readable: eatTapMode' >&2
+    exit 1
+fi
+[ ! -f "$SIM/fail-get-$2" ] || exit 1
+case "$2" in orientationLock) cat "$SIM/orientation";; *) cat "$SIM/$2";; esac
+''')
         self.command("lipc-set-prop", r'''echo "set $*" >> "$SIM/calls"
 [ ! -f "$SIM/fail-set-$2" ] || exit 1
 case "$2" in
