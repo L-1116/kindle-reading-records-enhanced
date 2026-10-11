@@ -23,7 +23,7 @@ subprocess.run(['git','merge-base','--is-ancestor','df5fd1e128d6a943435ea0ee8426
 passed('exact frozen Vera baseline, empty original baseline commit and linear ancestry', baseline)
 
 changed = []
-for name in git('ls-tree', '-r', '--name-only', tag, 'native-reading-time-package').decode('utf-8').splitlines():
+for name in filter(None, git('ls-tree', '-r', '-z', '--name-only', tag, 'native-reading-time-package').decode('utf-8').split('\0')):
     if (ROOT / name).read_bytes() != git('show', tag + ':' + name):
         changed.append(name)
 assert set(changed) == {

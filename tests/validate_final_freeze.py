@@ -23,7 +23,7 @@ def await_file(d, name, process, timeout=20):
     until = time.monotonic() + timeout
     while not (d.root / name).exists():
         assert process.poll() is None, (process.returncode, d.install_log(), d.calls())
-        assert time.monotonic() < until, d.calls()
+        assert time.monotonic() < until, (name, timeout, process.poll(), d.install_log(), d.calls())
         time.sleep(.02)
 
 

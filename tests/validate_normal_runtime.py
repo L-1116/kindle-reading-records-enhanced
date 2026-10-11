@@ -28,7 +28,9 @@ def ready(shell=SH):
 
 def restored(d,orientation,eat,power):
     assert d.read('orientation')==orientation,(d.read('orientation'),d.calls())
+    # Hidden simulator state is inspected out of band; no snapshot is readable.
     assert d.read('eatTapMode')==eat and d.read('preventScreenSaver')==power,d.calls()
+    assert 'com.lab126.winmgr eatTapMode' not in d.calls(),d.calls()
     d.no_temporary()
     assert ' -e ' not in d.calls()
     # Assert actual command order for ALL existing normal/error/signal cases,
@@ -41,7 +43,7 @@ def restored(d,orientation,eat,power):
         assert index>0 and calls[index-1].startswith('set com.lab126.appmgrd start '), calls
     for index in libraries:
         end=next((i for i in libraries if i>index),len(calls))
-        assert not any(c.startswith(('set com.lab126.powerd preventScreenSaver ', 'set com.lab126.winmgr eatTapMode '))
+        assert not any(c.startswith('set com.lab126.powerd preventScreenSaver ')
                        for c in calls[index+1:min(end,index+2)]),calls
 
 def ui(d,ok=True):return d.run(d.docs/'reading-records.sh',ok=ok)
@@ -54,13 +56,13 @@ for orientation in ['U','D','R','L']:
         assert 'set com.lab126.winmgr orientationLock U' in d.calls()
         assert f'set com.lab126.winmgr orientationLock {orientation}' in d.calls()
     else:assert 'set com.lab126.winmgr orientationLock' not in d.calls()
-    passed('portrait/landscape startup and original state restoration: '+orientation)
+    passed('portrait/landscape startup, orientation/power restored; hidden touch state untouched: '+orientation)
 
 d=ready();d.flag('orientation','R');d.flag('preventScreenSaver','1')
 for i in range(5):d.flag('actions','exit');ui(d);restored(d,'R','0','1')
 passed('five repeated landscape launches; original nonzero screensaver property preserved')
 
-for mode in ['missing-main','syntax-main','missing-font','touch-failure','touch-init-missing-device','touch-init-missing-reader','fbink-failure','orientation-timeout','orientation-set-failure','orientation-read-failure','invalid-orientation','power-read-failure','eat-set-failure']:
+for mode in ['missing-main','syntax-main','missing-font','touch-failure','touch-init-missing-device','touch-init-missing-reader','fbink-failure','orientation-timeout','orientation-set-failure','orientation-read-failure','invalid-orientation','power-read-failure','power-set-failure','power-invalid','power-empty']:
     d=ready();d.flag('orientation','R');release=d.base/'releases/9.7.6-5.18-vera'
     if mode=='missing-main':(release/'bin/reading-records-ui.sh').unlink()
     elif mode=='syntax-main':write(release/'bin/reading-records-ui.sh','if then broken')
@@ -74,8 +76,11 @@ for mode in ['missing-main','syntax-main','missing-font','touch-failure','touch-
     elif mode=='orientation-read-failure':d.flag('fail-get-orientationLock')
     elif mode=='invalid-orientation':d.flag('orientation','invalid');d.command('fbset',"echo 'geometry 1696 1272 1696 1272 8'");d.chmod([d.mock/'fbset'])
     elif mode=='power-read-failure':d.flag('fail-get-preventScreenSaver')
-    elif mode=='eat-set-failure':d.flag('fail-set-eatTapMode')
-    ui(d,ok=False);restored(d,'invalid' if mode=='invalid-orientation' else 'R','0','0')
+    elif mode=='power-set-failure':d.flag('fail-set-preventScreenSaver')
+    elif mode=='power-invalid':d.flag('preventScreenSaver','not-a-number')
+    elif mode=='power-empty':d.flag('preventScreenSaver','')
+    ui(d,ok=False);restored(d,'invalid' if mode=='invalid-orientation' else 'R','0',
+                          'not-a-number' if mode=='power-invalid' else '' if mode=='power-empty' else '0')
     if mode in ['missing-main', 'syntax-main']:assert 'set com.lab126.appmgrd start' not in d.calls()
     if mode in ['invalid-orientation','orientation-read-failure']:
         assert 'set com.lab126.winmgr orientationLock U' not in d.calls()
@@ -122,6 +127,17 @@ for signum,status in [('INT',130),('TERM',143),('HUP',129)]:
     write(d.mock/'lipc-set-prop',mock);d.chmod([d.mock/'lipc-set-prop'])
     p=ui(d,ok=False);assert p.returncode==status,p.returncode
     restored(d,'R','0','0');passed('signal during orientation request return window: '+signum)
+
+# Preserve the nonzero saved power state if a write completed but its return
+# was interrupted. This exercises pending-before-request for every signal.
+for signum,status in [('INT',130),('TERM',143),('HUP',129)]:
+    d=ready();d.flag('orientation','R');d.flag('preventScreenSaver','2')
+    mock=(d.mock/'lipc-set-prop').read_text(encoding='utf-8')
+    mock=mock.replace('"$SIM/$2";;', '"$SIM/$2"; if [ "$2:$3" = preventScreenSaver:1 ]; then kill -'+signum+' "$PPID"; fi;;')
+    assert 'kill -'+signum in mock
+    write(d.mock/'lipc-set-prop',mock);d.chmod([d.mock/'lipc-set-prop'])
+    p=ui(d,ok=False);assert p.returncode==status,p.returncode
+    restored(d,'R','0','2');passed('signal during power request return window: '+signum)
 
 # Inject signals between fork and PID assignment, the smallest ownership gap.
 for owner in ['launcher','touch-reader']:
@@ -183,13 +199,13 @@ passed('complete optimized UI dispatch with real Lua: statistics, all filters, d
 source=(PKG/'launch.sh').read_text(encoding='utf-8')
 definitions=source[:source.index('on_signal()')].replace('exec >> "$LOG" 2>&1','')
 for shell in (SH,DASH):
-    for orientation_pending,eat_pending,power_pending,entered in [(1,1,1,1),(1,0,0,0),(0,1,1,1),(0,0,0,0)]:
+    for orientation_pending,power_pending,entered in [(1,1,1),(1,0,0),(0,1,1),(0,0,0)]:
         d=Device(shell)
         helper=d.transform((PKG/'runtime-lock.sh').read_bytes()).decode()
         script=d.transform(definitions.encode()).decode()+helper+f'''
 acquire_runtime_lock || exit 1
-ORIGINAL_ORIENTATION=R; ORIGINAL_EAT=3; ORIGINAL_POWER=2
-ORIENTATION_PENDING={orientation_pending}; EAT_PENDING={eat_pending}; POWER_PENDING={power_pending}; UI_ENTERED={entered}; LOCK_OWNED=1
+ORIGINAL_ORIENTATION=R; ORIGINAL_POWER=2
+ORIENTATION_PENDING={orientation_pending}; POWER_PENDING={power_pending}; UI_ENTERED={entered}; LOCK_OWNED=1
 cleanup_runtime_state
 cp "$SIM/calls" "$SIM/first-cleanup" 2>/dev/null || : > "$SIM/first-cleanup"
 cleanup_runtime_state
@@ -197,13 +213,12 @@ cleanup_runtime_state
         path=d.root/'cleanup-idempotency.sh';write(path,script);d.run(path)
         calls=d.calls().splitlines();expected=[]
         if power_pending:expected.append('set com.lab126.powerd preventScreenSaver 2')
-        if eat_pending:expected.append('set com.lab126.winmgr eatTapMode 3')
         if entered or orientation_pending:expected.append("set com.lab126.appmgrd start app://com.lab126.KPPMainApp?view=KPP_LIBRARY")
         if orientation_pending:expected.append('set com.lab126.winmgr orientationLock R')
         assert calls==expected,(calls,expected)
         assert d.calls()==(d.root/'first-cleanup').read_text(encoding='utf-8')
         d.no_temporary()
-        passed(f'{Path(shell).name}: cleanup command order + idempotency pending={orientation_pending}{eat_pending}{power_pending}, entered={entered}')
+        passed(f'{Path(shell).name}: cleanup command order + idempotency pending={orientation_pending}{power_pending}, entered={entered}')
 
 result={'result':'PASS','checks':checks,'case_count':len(checks),'limits':['LIPC, framebuffer and physical input hardware mocked; no actual Kindle power-key or rotation verification. SIGKILL, power loss and an unresponsive system LIPC service cannot be recovered by POSIX traps.']}
 write(OUT/'runtime-results.json',json.dumps(result,ensure_ascii=False,indent=2))

@@ -5,6 +5,7 @@ import hashlib
 import io
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -71,8 +72,15 @@ class Device:
 echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'
 echo 'kindle 1048576 1024 1047552 1% /'
 ''')
-        self.command("lipc-get-prop", '\n'.join([
-            '[ ! -f "$SIM/fail-get-$2" ] || exit 1', 'case "$2" in orientationLock) cat "$SIM/orientation";; *) cat "$SIM/$2";; esac']))
+        self.command("lipc-get-prop", r'''echo "get $*" >> "$SIM/calls"
+# eatTapMode is write-only, including when its hidden state is nonzero.
+if [ "$1:$2" = com.lab126.winmgr:eatTapMode ]; then
+    echo 'LIPC property is not readable: eatTapMode' >&2
+    exit 1
+fi
+[ ! -f "$SIM/fail-get-$2" ] || exit 1
+case "$2" in orientationLock) cat "$SIM/orientation";; *) cat "$SIM/$2";; esac
+''')
         self.command("lipc-set-prop", r'''echo "set $*" >> "$SIM/calls"
 [ ! -f "$SIM/fail-set-$2" ] || exit 1
 case "$2" in
@@ -141,7 +149,9 @@ kill() {
                         "/proc/device-tree/model": (self.root / "model").as_posix(), "/sys/class/input": (self.sys / "class/input").as_posix(),
                         "/sys/class/graphics": (self.sys / "class/graphics").as_posix(), "/dev/input/event1": (self.root / "touch").as_posix(),
                         "/sbin/initctl": (self.mock / "initctl").as_posix(), "/var/local/kmc/bin/fbink": (self.mock / "fbink").as_posix()}
-        for old, new in replacements.items(): text = text.replace(old, new)
+        # Replace original strings once: Linux destinations may contain /tmp.
+        prefixes = '|'.join(re.escape(p) for p in sorted(replacements, key=len, reverse=True))
+        text = re.sub(prefixes, lambda m: replacements[m.group(0)], text)
         text=text.replace("/bin/sh ", '"'+self.shell.replace("\\", "/")+'" ')
         return text.encode("utf-8")
 
@@ -178,6 +188,14 @@ kill() {
             try:
                 code = process.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
+                # Keep stage evidence before atexit removes the private device.
+                # A host deadline alone does not prove the Kindle flow blocked.
+                evidence = OUT / 'host-timeouts' / self.root.name
+                evidence.mkdir(parents=True, exist_ok=True)
+                for source in (self.root / 'calls', self.root / 'process.stdout', self.root / 'process.stderr',
+                               self.base / 'install-last.log', self.base / 'dashboard-launch.log'):
+                    if source.exists(): shutil.copy2(source, evidence / source.name)
+                write(evidence / 'context.txt', f'path={path}\ntimeout={timeout}\npid={process.pid}\n')
                 if os.name == "nt":
                     subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 else:
