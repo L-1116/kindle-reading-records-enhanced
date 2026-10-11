@@ -40,8 +40,8 @@ for firmware,model in [('5.18.1.1.1',model) for model in ['KPW4','Paperwhite','K
     assert (d.docs/'reading-records.sh').exists()
     assert '# Name: 阅读记录' in (d.docs/'reading-records.sh').read_text(encoding='utf-8')
     assert (d.root/'running').exists()
-    assert (d.base/'VERSION').read_text().strip()=='9.7.6-5.18-springbreak-kpw4-test2'
-    release=d.base/'releases/9.7.6-5.18-springbreak-kpw4-test2'
+    assert (d.base/'VERSION').read_text().strip()=='9.7.6-5.18-springbreak'
+    release=d.base/'releases/9.7.6-5.18-springbreak'
     assert all((release/path).is_file() for path in ['bin/reading-records-ui.sh','bin/reading-insights-touch-ui.lua','ui-calendar/book_detail.png','ui-calendar/daily.png'])
     assert digest(d.base/'assets/launcher-icon.png')==digest(PKG/'launcher-icon.png')
     assert digest(d.base/'bin/native-reading-time-daemon.sh')==hashlib.sha256(d.transform((PKG/'native-reading-time-daemon.sh').read_bytes())).hexdigest()
@@ -64,13 +64,13 @@ for mode in ['name','pen','geometry','landscape-geometry','installed-ks']:
     d.install(ok=False);assert 'KS' in d.install_log() or 'Scribe' in d.install_log()
     assert d.preserved()==before;d.no_temporary();passed('Scribe/mixed install rejected: '+mode)
 
-for version in ['9.7.4','9.7.5-test','9.7.5-compat-v3-standard','V3 Standard','V4 Test 3','9.7.6-5.18-springbreak-kpw4-test2']:
+for version in ['9.7.4','9.7.5-test','9.7.5-compat-v3-standard','V3 Standard','V4 Test 3','9.7.6-5.18-springbreak']:
     d=Device();d.seed(version);before=d.preserved();d.install();d.no_temporary()
     assert d.preserved()==before and (d.base/'releases/old/marker').read_text()=='old release'
     assert not (d.docs/'阅读记录.sh').exists()
-    if version=='9.7.6-5.18-springbreak-kpw4-test2':
+    if version=='9.7.6-5.18-springbreak':
         # Repair replaces corrupted runtime, while preserving data.
-        write(d.base/'releases/9.7.6-5.18-springbreak-kpw4-test2/bin/reading-records-ui.sh','broken runtime')
+        write(d.base/'releases/9.7.6-5.18-springbreak/bin/reading-records-ui.sh','broken runtime')
         d.install();assert d.preserved()==before;d.no_temporary()
     passed('upgrade/repair preserves history, backup, config, cover cache and statistics: '+version)
     # Cleanup leaves exactly the formal entry and unrelated documents.
@@ -94,18 +94,18 @@ for version in ['9.7.4','9.7.5-test','9.7.5-compat-v3-standard','V3 Standard','V
     passed('cleanup whitelist, self-removal and working UI after cleanup: '+version)
 
 # Snapshot every active runtime entry and force a post-publication service failure.
-for version in ['9.7.5-test','9.7.6-5.18-springbreak-kpw4-test2']:
+for version in ['9.7.5-test','9.7.6-5.18-springbreak']:
     d=Device();d.seed(version)
-    if version=='9.7.6-5.18-springbreak-kpw4-test2':d.install()
+    if version=='9.7.6-5.18-springbreak':d.install()
     before=d.preserved()
     paths=[d.base/'VERSION',d.base/'bin/native-reading-time-daemon.sh',d.base/'fonts/NotoSansCJKsc-Regular.otf',d.base/'assets/launcher-icon.png',d.etc/'upstart/native-reading-time.conf']
-    if version=='9.7.6-5.18-springbreak-kpw4-test2':paths.extend([d.docs/'reading-records.sh',d.docs/'reading-records-install-cleanup.sh',d.base/'releases/9.7.6-5.18-springbreak-kpw4-test2/bin/reading-records-ui.sh'])
+    if version=='9.7.6-5.18-springbreak':paths.extend([d.docs/'reading-records.sh',d.docs/'reading-records-install-cleanup.sh',d.base/'releases/9.7.6-5.18-springbreak/bin/reading-records-ui.sh'])
     else:paths.append(d.docs/'阅读记录.sh')
     hashes={str(p):digest(p) for p in paths}
     d.flag('fail-service');d.install(ok=False)
     assert all(digest(path)==sha for path,sha in hashes.items()) and d.preserved()==before
     assert (d.root/'running').exists()
-    if version=='9.7.5-test':assert not (d.docs/'reading-records-install-cleanup.sh').exists() and not (d.base/'releases/9.7.6-5.18-springbreak-kpw4-test2').exists()
+    if version=='9.7.5-test':assert not (d.docs/'reading-records-install-cleanup.sh').exists() and not (d.base/'releases/9.7.6-5.18-springbreak').exists()
     d.no_temporary();passed('post-activation rollback restores entire previous runtime: '+version)
 
 # Standard metadata may mention books; 'ks' must be a standalone variant token.
@@ -134,11 +134,11 @@ script=re.sub(r'EXPECTED_SIZE=\d+',f'EXPECTED_SIZE={size}',script);write(path,sc
 d.install(ok=False);assert '安装资源损坏' in d.install_log() and d.preserved()==before;d.no_temporary()
 passed('inner manifest detects corruption despite a valid outer cksum')
 
-for version in ['9.7.5-test','9.7.6-5.18-springbreak-kpw4-test2']:
+for version in ['9.7.5-test','9.7.6-5.18-springbreak']:
     d=Device();d.seed(version)
-    if version=='9.7.6-5.18-springbreak-kpw4-test2':d.install()
+    if version=='9.7.6-5.18-springbreak':d.install()
     before=d.preserved()
-    old_release=d.base/'releases/9.7.6-5.18-springbreak-kpw4-test2'
+    old_release=d.base/'releases/9.7.6-5.18-springbreak'
     release_hashes={p.relative_to(old_release).as_posix():digest(p) for p in old_release.rglob('*') if p.is_file()}
     d.flag('fail-launcher-once')
     d.command('mv',r'''case "$2" in */documents/reading-records.sh) if [ -f "$SIM/fail-launcher-once" ]; then rm -f "$SIM/fail-launcher-once"; exit 9; fi;; esac

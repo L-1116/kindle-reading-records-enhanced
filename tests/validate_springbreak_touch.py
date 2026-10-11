@@ -14,6 +14,10 @@ OUT = ROOT / 'build/test2-audit'
 OUT.mkdir(parents=True, exist_ok=True)
 SHELLS = ['C:/Program Files/Git/usr/bin/sh.exe', 'C:/Program Files/Git/usr/bin/dash.exe'] if os.name == 'nt' else ['/bin/sh', '/bin/dash']
 NAMES = ('阅读记录-optimized.sh', '阅读记录.sh')
+from springbreak_archives import historical_zip, members
+import io, zipfile
+TEST1_ZIP=historical_zip('test1')
+with zipfile.ZipFile(io.BytesIO(TEST1_ZIP)) as z: TEST1_FILES=members(z.read('reading-records-9.7.6-data.tar'))
 checks = []
 def passed(name, **detail):
     checks.append(dict(check=name, result='PASS', **detail))
@@ -56,7 +60,7 @@ def run_select(source, layout, override=None, absent=(), nonchar=(), links=(), s
 
 REAL = {'event0': '20cc000.snvs', 'event1': 'bd71827-power', 'event2': 'goodix-ts'}
 for name in NAMES:
-    original = (OUT / 'test1-source/native-reading-time-package' / name).read_text(encoding='utf-8')
+    original = TEST1_FILES[name].decode()
     status, selected, log = run_select(original, REAL)
     assert status == 0 and selected == '/dev/input/event1', (status, selected, log)
     passed(name + ': exact Test 1 selector reproduces wrong power-node fallback', selected=selected)
@@ -162,8 +166,8 @@ for shell in (SH, DASH):
     # Install exact preserved Test 1 bytes, then verify transactional Test 2
     # failure rollback, retry, same-version repair and whitelist cleanup.
     d = Device(shell); new_tar, new_boot = d.original_tar, d.original_boot
-    test1 = OUT / 'ReadingTime-9.7.6-5.18-springbreak-kpw4-test1.zip'
-    assert hashlib.sha256(test1.read_bytes()).hexdigest() == '11bf3309d509685e841a9ec39d76a831d717d2f020ac142343f253a2c372262d'
+    test1 = io.BytesIO(TEST1_ZIP)
+    assert hashlib.sha256(TEST1_ZIP).hexdigest() == '11bf3309d509685e841a9ec39d76a831d717d2f020ac142343f253a2c372262d'
     with zipfile.ZipFile(test1) as archive:
         d.original_tar, d.original_boot = archive.read(PAYLOAD), archive.read(BOOTSTRAP)
     d.prepare_payload(); d.seed('9.7.6-5.18-springbreak-kpw4-test1'); d.install()

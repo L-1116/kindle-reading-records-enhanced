@@ -1,3 +1,11 @@
+# 9.7.6-5.18-springbreak 当前记录
+
+2026-10-12 用户反馈 Test 2 实机成功，授权将源码命名并推送为 `9.7.6-5.18-springbreak`，允许公开仓库源码可见但不创建 Release。范围仍为 KPW4 / 5.18.1.1.1 / SpringBreak；120 秒退出仍保留。
+
+Test 2 原源码与 ZIP 在 Git 检查点 `b7684a07715ac85eb9b0a58ef726c8b50e61131b` 及开发者本地保留。当前包仅版本身份变化。新增历史归档重建测试工具，保持 Vera、Test 1、Test 2 原 ZIP SHA 断言，避免克隆后的回归依赖未跟踪的开发目录。详见 `springbreak-hardware-confirmation.md`。
+
+以下为此前 Test 1/Test 2 审计历史；“尚待实机”等状态是当时记录，不覆盖当前用户反馈。
+
 # 9.7.6 SpringBreak / KPW4 Test 2 审计
 
 ## 本轮真实证据与最小修复（2026-10-11）

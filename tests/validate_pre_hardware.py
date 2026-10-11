@@ -252,7 +252,7 @@ assert len(original)==33 and set(whitelist)==set(original)|{'/mnt/us/documents/r
 passed('destructive cleanup audit: all original 33 paths plus ASCII payload, 35 literal rm targets including self')
 
 for parent in ['extensions','v4','documents']:
-    d=Device(); write(d.base/'VERSION','9.7.6-5.18-springbreak-kpw4-test2'); write(d.base/'activation-verified','verified')
+    d=Device(); write(d.base/'VERSION','9.7.6-5.18-springbreak'); write(d.base/'activation-verified','verified')
     write(d.base/'reading-records-installer/user-data','must survive'); write(d.base/'cleanup.sh','user data')
     if parent=='documents':shutil.move(str(d.docs),str(d.root/'saved-documents'))
     alias=d.us/parent
@@ -298,11 +298,11 @@ for mode in ['publish-release','publish-service','snapshot-full','stop-failure',
 rollback() {''')
                 member.size=len(raw);dst_tar.addfile(member,io.BytesIO(raw))
         d.original_tar=buffer.getvalue();d.prepare_payload()
-    if mode!='rollback-remove-new':write(d.base/'releases/9.7.6-5.18-springbreak-kpw4-test2/old-marker','original release')
+    if mode!='rollback-remove-new':write(d.base/'releases/9.7.6-5.18-springbreak/old-marker','original release')
     before=d.preserved(); old_daemon=digest(d.base/'bin/native-reading-time-daemon.sh')
     mv_body=r'''echo "mv $*" >> "$SIM/fs-calls"
 case "$1:$2" in
- */.install-*/release:*/releases/9.7.6-5.18-springbreak-kpw4-test2)
+ */.install-*/release:*/releases/9.7.6-5.18-springbreak)
     if [ "$FAULT_MODE" = publish-release ] && [ -f "$SIM/fault-armed" ]; then
         rm -f "$SIM/fault-armed"; /usr/bin/mkdir -p "$2"; echo partial > "$2/partial"; exit 9
     fi;;
@@ -327,7 +327,7 @@ case "$*" in
 esac
 exec /usr/bin/cp "$@"'''
     rm_body=r'''echo "rm $*" >> "$SIM/fs-calls"
-case "$*" in *'/releases/9.7.6-5.18-springbreak-kpw4-test2')
+case "$*" in *'/releases/9.7.6-5.18-springbreak')
 case "$FAULT_MODE" in rollback-release-rm|rollback-remove-new) if [ -f "$SIM/in-rollback" ]; then exit 9; fi;; esac;; esac
 exec /usr/bin/rm "$@"'''
     d.env['FAULT_MODE']=mode
@@ -367,7 +367,7 @@ if [ "$FAULT_MODE" = rollback-reload ] && [ -f "$SIM/in-rollback" ]; then exit 9
         assert (stage/'journal').is_file()==(mode!='rollback-journal-missing')
         if mode in ['rollback-release-move','rollback-release-rm']:
             assert (stage/'old-release/old-marker').read_text().strip()=='original release'
-            assert not (d.base/'releases/9.7.6-5.18-springbreak-kpw4-test2/old-release').exists()
+            assert not (d.base/'releases/9.7.6-5.18-springbreak/old-release').exists()
         if mode not in ['rollback-missing-backup']:assert digest(stage/'backup/1')==old_daemon
         if mode not in ['stop-failure']:assert not (d.root/'running').exists()
     else:
@@ -389,7 +389,7 @@ for name in ['runtime-child.sh','阅读记录-optimized.sh','阅读记录.sh']:
     original=subprocess.check_output(['git','show','93b6e79:'+path],cwd=ROOT)
     current=(PKG/name).read_text(encoding='utf-8')
     if name.startswith('阅读记录'): current=baseline_ui(current,original.decode())
-    assert current.replace('9.7.6-5.18-springbreak-kpw4-test2','9.7.6-5.19-normal').encode()==original
+    assert current.replace('9.7.6-5.18-springbreak','9.7.6-5.19-normal').encode()==original
     active='\n'.join(line for line in (PKG/name).read_text(encoding='utf-8').splitlines() if not line.lstrip().startswith('#'))
     assert not re.search(r'EVIOCGRAB|power.?button|power.?key|kill[^\n]*powerd',active,re.I)
 launch_source=baseline_launcher((PKG/'launch.sh').read_text(encoding='utf-8'))

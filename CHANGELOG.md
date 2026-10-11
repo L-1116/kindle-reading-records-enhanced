@@ -1,3 +1,11 @@
+## 9.7.6-5.18-springbreak — 源码分支（2026-10-12）
+
+- 用户反馈 KPW4 / 5.18.1.1.1 / SpringBreak 的 Test 2 实机成功。
+- 统一内部版本、release 路径、安装/清理标识与 ZIP 名称；除身份外运行代码保持 Test 2 字节。
+- 保留 goodix-ts 动态选择、120 秒退出、状态恢复、锁、数据保护和两文件安装。
+- 固定 Git 检查点保留 Test 2；历史 fixture 从 Git 精确重建并维持原 SHA 断言，使源码克隆后也能执行回归。
+- 仅 push 源码分支，不创建 tag、PR 或 GitHub Release；不扩大固件/型号范围。
+
 ## 9.7.6-5.18-springbreak-kpw4-test2 — 本地候选（2026-10-11）
 
 - 真实 Test 1 枚举为 event0=20cc000.snvs、event1=bd71827-power、event2=goodix-ts，证实触摸选择器错误。

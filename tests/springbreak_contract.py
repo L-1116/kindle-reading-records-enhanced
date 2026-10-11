@@ -1,6 +1,6 @@
 """Exact allowed candidate deltas; historical assertions still compare full bodies."""
 BASE = '3acda144ee7bf3a09d7472628efdffd9c09ab240'
-VERSION = '9.7.6-5.18-springbreak-kpw4-test2'
+VERSION = '9.7.6-5.18-springbreak'
 VERA = '9.7.6-5.18-vera'
 
 MODEL_BLOCK = '''# Non-unique product code only: read exactly bytes 4..6, never the serial.
@@ -29,7 +29,7 @@ done
 '''
 
 DIAGNOSTIC_BLOCK = '''# Once per launch: existing logs only; no executable probes or personal data.
-echo 'candidate=9.7.6-5.18-springbreak-kpw4-test2 target=KPW4/5.18.1.1.1'
+echo 'candidate=9.7.6-5.18-springbreak target=KPW4/5.18.1.1.1'
 echo "fbink_path=/var/local/kmc/bin/fbink lua_path=$(command -v lua 2>/dev/null)"
 for runtime_link in /var/local/kmc/bin /var/local/kmc/lib; do
     echo "runtime_link=$runtime_link target=$(readlink "$runtime_link" 2>/dev/null)"

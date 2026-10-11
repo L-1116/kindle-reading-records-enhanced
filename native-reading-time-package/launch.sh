@@ -3,7 +3,7 @@
 # Author: Kindle Reading Records Enhanced
 # Icon: /mnt/us/reading-time/assets/launcher-icon.png
 BASE="/mnt/us/reading-time"
-RELEASE="$BASE/releases/9.7.6-5.18-springbreak-kpw4-test2"
+RELEASE="$BASE/releases/9.7.6-5.18-springbreak"
 MAIN="$RELEASE/bin/reading-records-ui.sh"
 LOG="$BASE/dashboard-launch.log"
 LOCK="/tmp/reading-records-ui.lock"
@@ -106,7 +106,7 @@ installer_busy && fail "安装正在进行，请稍后再打开阅读记录"
 [ -r "$MAIN" ] || fail "缺少阅读记录运行文件，请重新安装"
 /bin/sh -n "$MAIN" || fail "阅读记录运行文件损坏"
 # Once per launch: existing logs only; no executable probes or personal data.
-echo 'candidate=9.7.6-5.18-springbreak-kpw4-test2 target=KPW4/5.18.1.1.1'
+echo 'candidate=9.7.6-5.18-springbreak target=KPW4/5.18.1.1.1'
 echo "fbink_path=/var/local/kmc/bin/fbink lua_path=$(command -v lua 2>/dev/null)"
 for runtime_link in /var/local/kmc/bin /var/local/kmc/lib; do
     echo "runtime_link=$runtime_link target=$(readlink "$runtime_link" 2>/dev/null)"

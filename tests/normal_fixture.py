@@ -218,7 +218,7 @@ kill() {
         p = self.base / "install-last.log"
         text = p.read_text(encoding="utf-8", errors="replace") if p.exists() else ""
         # Fault assertions concern this attempt; the actual file retains history.
-        return text.rsplit('BEGIN: 9.7.6-5.18-springbreak-kpw4-test2 install\n', 1)[-1]
+        return text.rsplit('BEGIN: 9.7.6-5.18-springbreak install\n', 1)[-1]
     def preserved(self):
         return {p.relative_to(self.base).as_posix(): digest(p) for p in self.base.rglob("*") if p.is_file() and
                 (p.name in {"reading-time.tsv", "reading-time.tsv.bak", "user.conf", "book-cover-cache.tsv", "book-cover-misses.tsv"} or

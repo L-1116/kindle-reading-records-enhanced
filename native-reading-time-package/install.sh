@@ -10,7 +10,7 @@ fi
 PKG="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)" || exit 1
 BASE="/mnt/us/reading-time"
 DOCS="/mnt/us/documents"
-RELEASE="$BASE/releases/9.7.6-5.18-springbreak-kpw4-test2"
+RELEASE="$BASE/releases/9.7.6-5.18-springbreak"
 CONF="/etc/upstart/native-reading-time.conf"
 STAGE="$BASE/.install-9.7.6-normal.$$"
 LOCK="/tmp/reading-records-ui.lock"
@@ -262,15 +262,15 @@ verify_running_daemon || fail '阅读记录服务未运行'
 # user's next step, never falsely treated as on-device UI verification here.
 [ -s "$BASE/reading-time.tsv" ] || fail '阅读记录服务未初始化数据'
 cmp -s "$BASE/bin/native-reading-time-daemon.sh" "$PKG/native-reading-time-daemon.sh" || fail '服务部署校验失败'
-printf '9.7.6-5.18-springbreak-kpw4-test2\n' > "$STAGE/VERSION"
+printf '9.7.6-5.18-springbreak\n' > "$STAGE/VERSION"
 atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail '无法写入版本标识'
-printf 'version=9.7.6-5.18-springbreak-kpw4-test2 firmware=%s verified=files-and-service\n' "$firmware" > "$STAGE/verified"
+printf 'version=9.7.6-5.18-springbreak firmware=%s verified=files-and-service\n' "$firmware" > "$STAGE/verified"
 atomic_file "$STAGE/verified" "$BASE/activation-verified" 644 || fail '无法记录安装校验'
 atomic_file "$PKG/resources/reading-records-install-cleanup.sh" "$DOCS/reading-records-install-cleanup.sh" 755 || fail '无法生成安装清理入口'
 # Old formal launchers are exact known paths, removed inside the transaction.
 rm -f "$DOCS/阅读记录.sh" "$DOCS/阅读记录-optimized.sh" || fail '无法更新旧入口'
 COMMITTED=1
 scan; sync
-log 'SUCCESS: 9.7.6-5.18-springbreak-kpw4-test2 files and daemon verified; user data preserved'
+log 'SUCCESS: 9.7.6-5.18-springbreak files and daemon verified; user data preserved'
 toast '阅读记录安装完成，请先打开阅读记录确认正常，再清理安装文件。'
 exit 0

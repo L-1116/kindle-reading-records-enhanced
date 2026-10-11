@@ -1,0 +1,30 @@
+{
+  "version": "9.7.6-5.18-springbreak-kpw4-test2",
+  "checkpoint": "b7684a07715ac85eb9b0a58ef726c8b50e61131b",
+  "offline_result": "PASS",
+  "checks": 709,
+  "stages": 16,
+  "case_counts": {
+    "results.json": 33,
+    "stats-filters-results.json": 17,
+    "day-detail-results.json": 6,
+    "period-detail-results.json": 7,
+    "book-detail-results.json": 9,
+    "cover-fallback-results.json": 4,
+    "audit-results.json": 6,
+    "installer-results.json": 52,
+    "runtime-results.json": 59,
+    "518-eattapmode-results.json": 28,
+    "pre-hardware-results.json": 118,
+    "final-freeze-results.json": 91,
+    "springbreak-candidate-results.json": 116,
+    "input-evidence.json": 21,
+    "touch-results.json": 142
+  },
+  "zip_sha256": "718517ed78953ec6e88acaed67a9ca049ee6a82300e3d7ec86ff73cb097ba59c",
+  "zip_bytes": 15167620,
+  "payload_sha256": "538cf2e68c8310b919dc1b87079ff035432b6056262c22b439d174b7b4907107",
+  "hardware_feedback_date": "2026-10-12",
+  "hardware_feedback": "User reports Test 2 successful on KPW4 / firmware 5.18.1.1.1 / SpringBreak.",
+  "hardware_limits": "No itemized hardware test checklist or raw evdev capture supplied; no broader device/firmware compatibility claim."
+}

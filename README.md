@@ -1,11 +1,12 @@
-# Kindle Reading Records — KPW4 / SpringBreak 专用候选
+# Kindle Reading Records — 9.7.6-5.18-springbreak
 
-本分支从 `3acda144ee7bf3a09d7472628efdffd9c09ab240` 隔离建立，只服务 **KPW4 / firmware 5.18.1.1.1 / 已有 Scriptlet 的 SpringBreak**。Test 1 已有安装和首次优化绘制成功证据；触摸因漏识别 `goodix-ts` 误选电源节点而失败。Test 2 只修复两版设备选择，触摸和安全退出仍待真机确认。本轮仅本地构建，不提交或发布。
+本分支从 `3acda144ee7bf3a09d7472628efdffd9c09ab240` 隔离建立，适用 **KPW4 / firmware 5.18.1.1.1 / 已有 Scriptlet 的 SpringBreak**。2026-10-12 用户反馈 Test 2 实机成功；按要求命名为 `9.7.6-5.18-springbreak`。仅提交并推送源码分支，不创建 GitHub Release。包内身份同步，已测触摸/绘制/退出/安装逻辑保持不变。
 
-候选包为 `dist/ReadingTime-9.7.6-5.18-springbreak-kpw4-test2.zip`。解压一次，将两个 ASCII 文件一起放入 Kindle 的 documents，点击“安装阅读记录”。保留已有 reading-time 目录，可覆盖升级和 repair。每次打开约两分钟后走原清理流程自动退出；失败保留安装文件，不点击清理入口。
+本地包为 `dist/ReadingTime-9.7.6-5.18-springbreak.zip`。解压一次，将两个 ASCII 文件一起放入 Kindle 的 documents，点击“安装阅读记录”。保留已有 reading-time 目录，可覆盖升级和 repair。每次打开约两分钟后走原清理流程自动退出；失败保留安装文件，不点击清理入口。
 
 - 中文安装/简短确认：[说明](docs/中文说明.md)
 - 上游依赖、历史触摸证据、改动及边界：[审计](docs/springbreak-kpw4-audit.md)
+- 实机与离线证据：[记录](docs/springbreak-hardware-confirmation.md)
 - 本地完整回归：`python scripts/validate_all.py`
 - 最终包与实测计数报告：回归通过后运行 `python scripts/report_springbreak.py`，见 `build/validation/springbreak-final-report.md`。
 

@@ -213,7 +213,7 @@ exec /usr/bin/tar "$@"'''); d.chmod([d.mock / 'tar'])
     # During repair the versioned directory is momentarily absent; the formal
     # launcher must use its own lock code and fail cleanly, not source that dir.
     d = ready(shell); d.flag('block-publish')
-    d.command('mv', r'''case "$1:$2" in */.install-*/release:*/releases/9.7.6-5.18-springbreak-kpw4-test2)
+    d.command('mv', r'''case "$1:$2" in */.install-*/release:*/releases/9.7.6-5.18-springbreak)
 echo ready > "$SIM/publishing"
 while [ -f "$SIM/block-publish" ]; do /usr/bin/sleep .02; done;; esac
 exec /usr/bin/mv "$@"'''); d.chmod([d.mock / 'mv'])
@@ -222,7 +222,7 @@ exec /usr/bin/mv "$@"'''); d.chmod([d.mock / 'mv'])
     # give this filesystem phase the same budget as post-publication completion.
     # Other handoff deadlines and all cross-lock assertions remain unchanged.
     a = spawn(d, d.docs / BOOTSTRAP); await_file(d, 'publishing', a, timeout=40)
-    assert not (d.base / 'releases/9.7.6-5.18-springbreak-kpw4-test2').exists()
+    assert not (d.base / 'releases/9.7.6-5.18-springbreak').exists()
     result = d.run(d.docs / 'reading-records.sh', ok=False)
     assert '缺少会话锁模块' not in result.stderr
     assert not (d.root / 'touch-pid').exists()
@@ -263,7 +263,7 @@ for mode in ['root-remount-readonly', 'root-target-readonly', 'root-target-reado
     d = ready()
     # Distinct prior bytes make a mixed deployment observable, even for a
     # repair of the same version. Only fixture files gain harmless comments.
-    for prior in [d.base / 'releases/9.7.6-5.18-springbreak-kpw4-test2/bin/reading-records-ui.sh',
+    for prior in [d.base / 'releases/9.7.6-5.18-springbreak/bin/reading-records-ui.sh',
                   d.base / 'bin/native-reading-time-daemon.sh',
                   d.etc / 'upstart/native-reading-time.conf']:
         write(prior, prior.read_text(encoding='utf-8') + '\n# fixture prior deployment\n')

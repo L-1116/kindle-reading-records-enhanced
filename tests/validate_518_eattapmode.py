@@ -116,7 +116,7 @@ def verify_fixed():
                 d.flag('fail-set-eatTapMode')
                 if hidden is None: d.unflag('eatTapMode')
                 else: d.flag('eatTapMode', hidden)
-                if fallback: (d.base / 'releases/9.7.6-5.18-springbreak-kpw4-test2/bin/reading-insights-render.lua').unlink()
+                if fallback: (d.base / 'releases/9.7.6-5.18-springbreak/bin/reading-insights-render.lua').unlink()
                 actions = ['tab_total', 'tab_books', 'tab_daily', 'month_prev', 'exit']
                 d.flag('actions', '\n'.join(actions)); before = d.preserved()
                 d.run(d.docs / 'reading-records.sh')

@@ -2,7 +2,7 @@ name: Validate
 
 on:
   push:
-    branches: [main, 9.7.6-5.18-vera]
+    branches: [main, 9.7.6-5.18-vera, 9.7.6-5.18-springbreak]
     tags: ["v*"]
   pull_request:
 

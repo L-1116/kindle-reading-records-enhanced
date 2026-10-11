@@ -5,6 +5,7 @@ import subprocess
 import json
 import time
 import sys
+from package_release import VERSION
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +26,7 @@ CHECKS = [
     ROOT / "tests/validate_springbreak_evidence.py",
     ROOT / "tests/validate_springbreak_touch.py",
     ROOT / "tests/validate_springbreak_candidate.py",
+    ROOT / "tests/validate_springbreak_naming.py",
 ]
 
 
@@ -39,7 +41,7 @@ def main() -> None:
         started = time.time()
         completed = subprocess.run([sys.executable, str(check)], cwd=ROOT)
         results.append({"script": str(check.relative_to(ROOT)), "result": "PASS" if completed.returncode == 0 else "FAIL", "seconds": round(time.time() - started, 2)})
-        summary_path.write_text(json.dumps({"result": "PASS" if all(r["result"] == "PASS" for r in results) else "FAIL", "complete": len(results) == len(CHECKS), "stages": results}, indent=2), encoding="utf-8")
+        summary_path.write_text(json.dumps({"version": VERSION, "result": "PASS" if all(r["result"] == "PASS" for r in results) else "FAIL", "complete": len(results) == len(CHECKS), "stages": results}, indent=2), encoding="utf-8")
         if completed.returncode:
             raise subprocess.CalledProcessError(completed.returncode, completed.args)
 
