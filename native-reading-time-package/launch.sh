@@ -3,7 +3,7 @@
 # Author: Kindle Reading Records Enhanced
 # Icon: /mnt/us/reading-time/assets/launcher-icon.png
 BASE="/mnt/us/reading-time"
-RELEASE="$BASE/releases/9.7.6-5.18-vera"
+RELEASE="$BASE/releases/9.7.6-5.18-springbreak-kpw4-test2"
 MAIN="$RELEASE/bin/reading-records-ui.sh"
 LOG="$BASE/dashboard-launch.log"
 LOCK="/tmp/reading-records-ui.lock"
@@ -105,6 +105,19 @@ acquire_runtime_lock || fail "阅读记录已经打开或安装正在进行，�
 installer_busy && fail "安装正在进行，请稍后再打开阅读记录"
 [ -r "$MAIN" ] || fail "缺少阅读记录运行文件，请重新安装"
 /bin/sh -n "$MAIN" || fail "阅读记录运行文件损坏"
+# Once per launch: existing logs only; no executable probes or personal data.
+echo 'candidate=9.7.6-5.18-springbreak-kpw4-test2 target=KPW4/5.18.1.1.1'
+echo "fbink_path=/var/local/kmc/bin/fbink lua_path=$(command -v lua 2>/dev/null)"
+for runtime_link in /var/local/kmc/bin /var/local/kmc/lib; do
+    echo "runtime_link=$runtime_link target=$(readlink "$runtime_link" 2>/dev/null)"
+done
+if [ -r /var/local/kmc/bin/fbink ]; then
+    echo "fbink_cksum=$(cksum < /var/local/kmc/bin/fbink 2>/dev/null)"
+fi
+for input_name in /sys/class/input/event*/device/name; do
+    [ -r "$input_name" ] || continue
+    echo "input_node=$input_name name=$(cat "$input_name" 2>/dev/null)"
+done
 read_geometry() {
     geometry="$(fbset 2>/dev/null | awk '/geometry/{print $2 " " $3;exit}')"
     set -- $geometry; SCREEN_W="${1:-0}"; SCREEN_H="${2:-0}"
@@ -148,6 +161,19 @@ UI_PID=$!
 SPAWNING=0
 [ "$SIGNAL_STATUS" -eq 0 ] || exit "$SIGNAL_STATUS"
 : > "$LOCK_OWNER/ui-start" || fail "无法开始阅读记录会话"
+# Dedicated candidate: a bounded session, managed by the existing parent.
+# No timer child, detached process, input grab, or alternate cleanup path.
+SESSION_LIMIT=120
+session_ticks=0
+echo "session_limit_seconds=$SESSION_LIMIT ui_pid=$UI_PID"
+while kill -0 "$UI_PID" 2>/dev/null; do
+    if [ "$session_ticks" -ge "$SESSION_LIMIT" ]; then
+        echo 'SAFETY_EXIT: session time limit reached; cleaning owned UI'
+        exit 124
+    fi
+    sleep 1
+    session_ticks=$((session_ticks+1))
+done
 wait "$UI_PID"; result=$?; UI_PID=
 echo "ui_exit=$result"
 exit "$result"

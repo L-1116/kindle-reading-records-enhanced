@@ -9,7 +9,7 @@ BASE="/mnt/us/reading-time"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="/var/local/kmc/bin/fbink"
-RELEASE="$BASE/releases/9.7.6-5.18-vera"
+RELEASE="$BASE/releases/9.7.6-5.18-springbreak-kpw4-test2"
 UI_DIR="$RELEASE/ui-calendar"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch-ui.lua"
 RENDERER="$RELEASE/bin/reading-insights-render.lua"
@@ -74,13 +74,35 @@ detect_screen() {
     VIEW_W=$((LOGICAL_W*SCALE_NUM/SCALE_DEN)); VIEW_H=$((LOGICAL_H*SCALE_NUM/SCALE_DEN)); ORIGIN_X=$(((SCREEN_W-VIEW_W)/2)); ORIGIN_Y=$(((SCREEN_H-VIEW_H)/2))
 }
 
+touch_device_is_valid() {
+    touch_candidate="$1"
+    case "$touch_candidate" in /dev/input/event*) touch_number="${touch_candidate#/dev/input/event}";; *) return 1;; esac
+    case "$touch_number" in ''|*[!0-9]*) return 1;; esac
+    [ ! -L "$touch_candidate" ] && [ -c "$touch_candidate" ] && [ -r "$touch_candidate" ] || return 1
+    [ -r "/sys/class/input/event$touch_number/device/name" ] || return 1
+    touch_name="$(tr '[:upper:]' '[:lower:]' < "/sys/class/input/event$touch_number/device/name" 2>/dev/null)"
+    case "$touch_name" in *power*|*snvs*) return 1;; esac
+    case "$touch_name" in *touch*|*zforce*|*cyttsp*|*fts*|*_ts*|*goodix-ts*) return 0;; esac
+    return 1
+}
+
 find_touch_device() {
-    if [ -n "${READING_TOUCH_DEVICE:-}" ] && [ -r "$READING_TOUCH_DEVICE" ]; then TOUCH="$READING_TOUCH_DEVICE"; return; fi
-    for ep in /sys/class/input/event*; do
-        [ -r "$ep/device/name" ] || continue; en="$(tr '[:upper:]' '[:lower:]' < "$ep/device/name" 2>/dev/null)"
-        case "$en" in *touch*|*zforce*|*cyttsp*|*fts*|*_ts*) c="/dev/input/${ep##*/}"; [ -r "$c" ] && { TOUCH="$c"; return; };; esac
+    TOUCH=
+    if [ -n "${READING_TOUCH_DEVICE:-}" ]; then
+        touch_device_is_valid "$READING_TOUCH_DEVICE" || fail "READING_TOUCH_DEVICE 无效或不是已识别的触摸设备"
+        TOUCH="$READING_TOUCH_DEVICE"
+        echo "touch_device=$TOUCH source=override"
+        return
+    fi
+    for event_path in /sys/class/input/event*; do
+        candidate="/dev/input/${event_path##*/}"
+        if touch_device_is_valid "$candidate"; then
+            TOUCH="$candidate"
+            echo "touch_device=$TOUCH source=sysfs"
+            return
+        fi
     done
-    TOUCH="/dev/input/event1"
+    fail "未找到可读的触摸设备（sysfs 名称校验失败）"
 }
 
 scale_len() { n=$(( $1*SCALE_NUM/SCALE_DEN )); [ "$n" -gt 0 ] || n=1; echo "$n"; }
@@ -1219,7 +1241,7 @@ detect_screen; find_touch_device
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
     [ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"; [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] && [ -f "$UI_DIR/month_detail.png" ] && [ -f "$UI_DIR/week_trend.png" ] && [ -f "$UI_DIR/book_detail.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
-    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.7.6-5.18-vera\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
+    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.7.6-5.18-springbreak-kpw4-test2\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
 dashboard_active=1
 

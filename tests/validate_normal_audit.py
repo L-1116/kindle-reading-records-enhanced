@@ -1,5 +1,6 @@
 """Audit exact ancestry and exercise the production duplicate-row selector."""
 from normal_fixture import *
+from springbreak_contract import baseline_ui
 import json
 import re
 from PIL import Image
@@ -36,14 +37,15 @@ assert original.replace(b'\r\n', b'\n') == (PKG / 'reading-insights-title-widths
 passed('strict baseline bytes: only two UI shells and width-table line endings changed', str(changed))
 viewer = (PKG / '阅读记录-optimized.sh').read_text(encoding='utf-8')
 old = git('show', tag + ':native-reading-time-package/阅读记录-optimized.sh').decode('utf-8')
+audited_viewer = baseline_ui(viewer, old)
 for start, end in [
     ('find_touch_device()', 'scale_len()'),
     ('build_cache()', 'catalog_loaded=0'),
     ('extract_epub_cover()', 'renderer_available=0'),
     ('prepare_week_view()', 'draw_count=0'),
 ]:
-    assert viewer[viewer.index(start):viewer.index(end)] == old[old.index(start):old.index(end)], start
-passed('touch selection, cover extraction, statistics and UI rendering functions preserved exactly')
+    assert audited_viewer[audited_viewer.index(start):audited_viewer.index(end)] == old[old.index(start):old.index(end)], start
+passed('reviewed selector delta only; cover/statistics/UI functions preserved exactly')
 
 with zipfile.ZipFile(ARCHIVE) as z:
     for shell in (SH, DASH):

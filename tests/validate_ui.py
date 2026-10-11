@@ -6,6 +6,7 @@ from pathlib import Path
 import calendar, datetime, hashlib, json, os, shutil, subprocess, sys
 from PIL import Image, ImageDraw, ImageFont
 from lupa.lua51 import LuaRuntime
+from springbreak_contract import baseline_ui
 
 ROOT=Path(__file__).resolve().parents[1]
 PKG=ROOT/'native-reading-time-package'
@@ -80,14 +81,15 @@ record('preserved core','Daemon, Upstart, original touch readers, legacy ui/ ass
 
 viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
 old=STABLE_VIEWER.read_text(encoding='utf-8')
+audited_viewer=baseline_ui(viewer,old)
 for start,end in [('detect_screen()','time_text()'),('refresh_region()','dashboard_active=0')]:
-    current_block=viewer[viewer.index(start):viewer.index(end)]
+    current_block=audited_viewer[audited_viewer.index(start):audited_viewer.index(end)]
     current_block=current_block.replace(' || fail "FBInk 显示操作失败"', '').replace(' || fail "FBInk 刷新失败"', '')
     assert current_block==old[old.index(start):old.index(end)]
 for name in ('page_prev)','page_next)'):
     assert next(x for x in viewer.splitlines() if x.strip().startswith(name))==next(x for x in old.splitlines() if x.strip().startswith(name))
 assert 'mode=daily; view_year=' in viewer
-record('interaction invariants','Default daily, page navigation branches and refresh policy remain stable; v9.7.5-test extends only filters, local cover fallback and release metadata.')
+record('interaction invariants','Default daily, page navigation branches, geometry and refresh policy remain stable; the reviewed Test 2 selector alone is normalized for historical full-body comparison and separately tested against real KPW4 names.')
 
 # Extract definitions only: never run startup, hardware access, or EXIT cleanup.
 defs=viewer[:viewer.index('\n. "$RELEASE/bin/runtime-child.sh"')]

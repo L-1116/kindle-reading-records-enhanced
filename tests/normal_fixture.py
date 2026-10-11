@@ -46,10 +46,13 @@ class Device:
         self.env = os.environ.copy(); self.env.update(SIM=("/"+self.root.drive[0].lower()+self.root.as_posix()[2:] if os.name=="nt" else self.root.as_posix()), PYTHON_BIN=sys.executable.replace("\\", "/"))
         self.env["PATH"] = str(self.mock) + os.pathsep + self.env["PATH"]
         self.flag("orientation", "U"); self.flag("eatTapMode", "0"); self.flag("preventScreenSaver", "0")
-        self.flag("actions", "exit"); self.firmware("5.18.4")
+        self.flag("actions", "exit"); self.firmware("5.18.1.1.1")
+        write(self.root / "proc/usid", "G000PP")
         write(self.root / "var/local/deviceType.txt", "Paperwhite Signature Edition\n")
         write(self.sys / "class/input/event1/device/name", "cyttsp touch\n")
-        write(self.root / "touch", "input device")
+        self.touch = self.root / "dev/input/event1"
+        write(self.touch, "input device")
+        write(self.touch.with_name("event1.fixture-char"), "host character-node fixture")
         self.commands()
         with zipfile.ZipFile(ARCHIVE) as z:
             self.original_tar = z.read(PAYLOAD); self.original_boot = z.read(BOOTSTRAP)
@@ -65,7 +68,7 @@ class Device:
         self.command("unzip", 'exec "$PYTHON_BIN" "$SIM/unzip.py" "$@"')
         self.command("id", "echo 0")
         self.command("mntroot", 'echo "root $*" >> "$SIM/calls"; case "$1" in rw) [ ! -f "$SIM/fail-root" ];; ro) [ ! -f "$SIM/fail-root-ro" ];; esac')
-        self.command("sleep", "exit 0")
+        self.command("sleep", 'case "$1" in 1) /usr/bin/sleep 1;; *) exit 0;; esac')
         # Real host free space is unrelated to Kindle partitions. Individual
         # preflight cases override this deterministic POSIX/BusyBox df fixture.
         self.command("df", r'''echo "df $*" >> "$SIM/calls"
@@ -131,6 +134,9 @@ esac
 
     def transform(self, raw):
         text = raw.decode("utf-8")
+        # Only mock evdev character type; preserve all production path/name,
+        # symlink/readability checks. No Kindle node is opened on the host.
+        text = text.replace('[ -c "$touch_candidate" ]', '[ -f "$touch_candidate.fixture-char" ]')
         if 'stop_daemon() {' in text:
             # Explicitly mock the simulator's synthetic Upstart PID only.
             # All other PID checks, including the owned real-process test,
@@ -143,11 +149,11 @@ kill() {
     esac
 }
 ''', 1)
-        replacements = {"/mnt/us": self.us.as_posix(), "/tmp": self.tmp.as_posix(), "/etc/upstart": (self.etc / "upstart").as_posix(),
+        replacements = {"/proc/usid": (self.root / "proc/usid").as_posix(), "/mnt/us": self.us.as_posix(), "/tmp": self.tmp.as_posix(), "/etc/upstart": (self.etc / "upstart").as_posix(),
                         "/etc/prettyversion.txt": (self.etc / "prettyversion.txt").as_posix(), "/etc/version.txt": (self.etc / "version.txt").as_posix(),
                         "/var/local/deviceType.txt": (self.root / "var/local/deviceType.txt").as_posix(),
                         "/proc/device-tree/model": (self.root / "model").as_posix(), "/sys/class/input": (self.sys / "class/input").as_posix(),
-                        "/sys/class/graphics": (self.sys / "class/graphics").as_posix(), "/dev/input/event1": (self.root / "touch").as_posix(),
+                        "/sys/class/graphics": (self.sys / "class/graphics").as_posix(), "/dev/input": (self.root / "dev/input").as_posix(),
                         "/sbin/initctl": (self.mock / "initctl").as_posix(), "/var/local/kmc/bin/fbink": (self.mock / "fbink").as_posix()}
         # Replace original strings once: Linux destinations may contain /tmp.
         prefixes = '|'.join(re.escape(p) for p in sorted(replacements, key=len, reverse=True))
@@ -209,7 +215,10 @@ kill() {
 
     def install(self, ok=True): return self.run(self.docs / BOOTSTRAP, ok=ok)
     def install_log(self):
-        p = self.base / "install-last.log"; return p.read_text(encoding="utf-8", errors="replace") if p.exists() else ""
+        p = self.base / "install-last.log"
+        text = p.read_text(encoding="utf-8", errors="replace") if p.exists() else ""
+        # Fault assertions concern this attempt; the actual file retains history.
+        return text.rsplit('BEGIN: 9.7.6-5.18-springbreak-kpw4-test2 install\n', 1)[-1]
     def preserved(self):
         return {p.relative_to(self.base).as_posix(): digest(p) for p in self.base.rglob("*") if p.is_file() and
                 (p.name in {"reading-time.tsv", "reading-time.tsv.bak", "user.conf", "book-cover-cache.tsv", "book-cover-misses.tsv"} or

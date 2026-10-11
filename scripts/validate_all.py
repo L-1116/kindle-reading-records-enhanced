@@ -22,6 +22,9 @@ CHECKS = [
     ROOT / "tests/validate_518_eattapmode.py",
     ROOT / "tests/validate_pre_hardware.py",
     ROOT / "tests/validate_final_freeze.py",
+    ROOT / "tests/validate_springbreak_evidence.py",
+    ROOT / "tests/validate_springbreak_touch.py",
+    ROOT / "tests/validate_springbreak_candidate.py",
 ]
 
 

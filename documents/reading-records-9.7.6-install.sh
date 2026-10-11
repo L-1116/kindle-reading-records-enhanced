@@ -49,8 +49,9 @@ mkdir "$INSTALL_OWNER" 2>/dev/null || fail '安装正在进行，请稍后重试
 set -- "$INSTALL_LOCK"/owner.*
 [ "$#" -eq 1 ] && [ "$1" = "$INSTALL_OWNER" ] || fail '安装正在进行，请稍后重试'
 mkdir -p /mnt/us/reading-time || fail '存储空间不足或无法创建安装日志目录，安装已停止。'
-printf '' > "$LOG" || fail '存储空间不足或无法写入安装日志，安装已停止。'
+printf '' >> "$LOG" || fail '存储空间不足或无法写入安装日志，安装已停止。'
 LOG_READY=1
+log 'BEGIN: 9.7.6-5.18-springbreak-kpw4-test2 install'
 [ -f "$PAYLOAD" ] || fail "缺少阅读记录安装数据，请把两个文件一起复制到 Kindle。"
 command -v cksum >/dev/null 2>&1 || fail "无法校验安装数据"
 checksum="$(cksum < "$PAYLOAD")" || fail "无法校验安装数据"

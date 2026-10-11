@@ -1,5 +1,6 @@
 """5.18 write-only regression: real old/new launcher and same-version upgrade."""
 from normal_fixture import *
+from springbreak_contract import VERSION, VERA
 import json
 
 START = '01109630d1b03c693eef587b494c2bafe00c60e3'
@@ -37,7 +38,7 @@ def reproduce():
         for hidden in (None, '0', '7'):
             for direction in ('U', 'R'):
                 d = copy_device(template)
-                (d.docs / 'reading-records.sh').write_bytes(d.transform(old_launcher()))
+                (d.docs / 'reading-records.sh').write_bytes(d.transform(old_launcher().replace(VERA.encode(), VERSION.encode())))
                 d.flag('orientation', direction)
                 if hidden is None: d.unflag('eatTapMode')
                 else: d.flag('eatTapMode', hidden)
@@ -71,6 +72,10 @@ def baseline_payload(d):
     with tarfile.open(fileobj=io.BytesIO(d.original_tar)) as t:
         sources = {m.name: t.extractfile(m).read() for m in t.getmembers()}
     prefix = 'native-reading-time-package/'
+    # Reconstruct every exact old source, not candidate-specific metadata/guard.
+    for name in sources:
+        if name != prefix + 'payload-manifest.tsv':
+            sources[name] = subprocess.check_output(['git','show',START+':'+name],cwd=ROOT)
     sources[prefix + 'launch.sh'] = old_launcher()
     sources.pop(prefix + 'payload-manifest.tsv')
     sources[prefix + 'payload-manifest.tsv'] = ''.join(
@@ -85,8 +90,8 @@ def baseline_payload(d):
     raw = buf.getvalue()
     assert hashlib.sha256(raw).hexdigest() == '650a4b3e649241d932651c1d84bb74c5c83c9dd47d2f86247cb7b6a61561ba63'
     checksum, size = python_cksum(raw)
-    boot = re.sub(rb'EXPECTED_CKSUM=\d+', f'EXPECTED_CKSUM={checksum}'.encode(), d.original_boot)
-    boot = re.sub(rb'EXPECTED_SIZE=\d+', f'EXPECTED_SIZE={size}'.encode(), boot)
+    boot = subprocess.check_output(['git','show',START+':documents/'+BOOTSTRAP],cwd=ROOT)
+    boot = boot.replace(b'@PAYLOAD_CKSUM@', str(checksum).encode()).replace(b'@PAYLOAD_SIZE@', str(size).encode())
     return raw, boot
 
 
@@ -111,7 +116,7 @@ def verify_fixed():
                 d.flag('fail-set-eatTapMode')
                 if hidden is None: d.unflag('eatTapMode')
                 else: d.flag('eatTapMode', hidden)
-                if fallback: (d.base / 'releases/9.7.6-5.18-vera/bin/reading-insights-render.lua').unlink()
+                if fallback: (d.base / 'releases/9.7.6-5.18-springbreak-kpw4-test2/bin/reading-insights-render.lua').unlink()
                 actions = ['tab_total', 'tab_books', 'tab_daily', 'month_prev', 'exit']
                 d.flag('actions', '\n'.join(actions)); before = d.preserved()
                 d.run(d.docs / 'reading-records.sh')

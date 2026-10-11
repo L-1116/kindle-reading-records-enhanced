@@ -4,7 +4,7 @@ BASE="/mnt/us/reading-time"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="/var/local/kmc/bin/fbink"
-RELEASE="$BASE/releases/9.7.6-5.18-vera"
+RELEASE="$BASE/releases/9.7.6-5.18-springbreak-kpw4-test2"
 UI_DIR="$RELEASE/ui"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch.lua"
 CC_DB="/var/local/cc.db"
@@ -57,21 +57,35 @@ detect_screen() {
     ORIGIN_Y=$(((SCREEN_H-VIEW_H)/2))
 }
 
+touch_device_is_valid() {
+    touch_candidate="$1"
+    case "$touch_candidate" in /dev/input/event*) touch_number="${touch_candidate#/dev/input/event}";; *) return 1;; esac
+    case "$touch_number" in ''|*[!0-9]*) return 1;; esac
+    [ ! -L "$touch_candidate" ] && [ -c "$touch_candidate" ] && [ -r "$touch_candidate" ] || return 1
+    [ -r "/sys/class/input/event$touch_number/device/name" ] || return 1
+    touch_name="$(tr '[:upper:]' '[:lower:]' < "/sys/class/input/event$touch_number/device/name" 2>/dev/null)"
+    case "$touch_name" in *power*|*snvs*) return 1;; esac
+    case "$touch_name" in *touch*|*zforce*|*cyttsp*|*fts*|*_ts*|*goodix-ts*) return 0;; esac
+    return 1
+}
+
 find_touch_device() {
-    if [ -n "${READING_TOUCH_DEVICE:-}" ] && [ -r "$READING_TOUCH_DEVICE" ]; then
-        TOUCH="$READING_TOUCH_DEVICE"; return
+    TOUCH=
+    if [ -n "${READING_TOUCH_DEVICE:-}" ]; then
+        touch_device_is_valid "$READING_TOUCH_DEVICE" || fail "READING_TOUCH_DEVICE 无效或不是已识别的触摸设备"
+        TOUCH="$READING_TOUCH_DEVICE"
+        echo "touch_device=$TOUCH source=override"
+        return
     fi
     for event_path in /sys/class/input/event*; do
-        [ -r "$event_path/device/name" ] || continue
-        event_name="$(cat "$event_path/device/name" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
-        case "$event_name" in
-            *touch*|*zforce*|*cyttsp*|*fts*|*_ts*)
-                candidate="/dev/input/${event_path##*/}"
-                [ -r "$candidate" ] && { TOUCH="$candidate"; return; }
-                ;;
-        esac
+        candidate="/dev/input/${event_path##*/}"
+        if touch_device_is_valid "$candidate"; then
+            TOUCH="$candidate"
+            echo "touch_device=$TOUCH source=sysfs"
+            return
+        fi
     done
-    TOUCH="/dev/input/event1"
+    fail "未找到可读的触摸设备（sysfs 名称校验失败）"
 }
 
 scale_len() {

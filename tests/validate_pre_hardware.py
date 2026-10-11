@@ -1,5 +1,6 @@
 """Execute pre-hardware faults against production shells; no foreground use."""
 from normal_fixture import *
+from springbreak_contract import baseline_launcher, baseline_ui
 import json
 import re
 import shlex
@@ -40,7 +41,8 @@ def no_transaction(d, before):
 # of the accepted patch structure also execute in validate_install.py.
 d = Device()
 source = (PKG / 'install.sh').read_text(encoding='utf-8')
-gate = source[:source.index('[ -x /sbin/initctl ]')] + '\nexit 0\n'
+historical_gate_source = subprocess.check_output(["git", "show", "3acda144ee7bf3a09d7472628efdffd9c09ab240:native-reading-time-package/install.sh"], cwd=ROOT).decode("utf-8")
+gate = historical_gate_source[:historical_gate_source.index('[ -x /sbin/initctl ]')] + '\nexit 0\n'
 gate_path = d.root / 'gate.sh'
 write(gate_path, d.transform(gate.encode()).decode())
 allowed = ['5.18.0', '5.18.1', '5.18.4', '5.18.4.1', '5.18.123.456.789',
@@ -250,7 +252,7 @@ assert len(original)==33 and set(whitelist)==set(original)|{'/mnt/us/documents/r
 passed('destructive cleanup audit: all original 33 paths plus ASCII payload, 35 literal rm targets including self')
 
 for parent in ['extensions','v4','documents']:
-    d=Device(); write(d.base/'VERSION','9.7.6-5.18-vera'); write(d.base/'activation-verified','verified')
+    d=Device(); write(d.base/'VERSION','9.7.6-5.18-springbreak-kpw4-test2'); write(d.base/'activation-verified','verified')
     write(d.base/'reading-records-installer/user-data','must survive'); write(d.base/'cleanup.sh','user data')
     if parent=='documents':shutil.move(str(d.docs),str(d.root/'saved-documents'))
     alias=d.us/parent
@@ -296,11 +298,11 @@ for mode in ['publish-release','publish-service','snapshot-full','stop-failure',
 rollback() {''')
                 member.size=len(raw);dst_tar.addfile(member,io.BytesIO(raw))
         d.original_tar=buffer.getvalue();d.prepare_payload()
-    if mode!='rollback-remove-new':write(d.base/'releases/9.7.6-5.18-vera/old-marker','original release')
+    if mode!='rollback-remove-new':write(d.base/'releases/9.7.6-5.18-springbreak-kpw4-test2/old-marker','original release')
     before=d.preserved(); old_daemon=digest(d.base/'bin/native-reading-time-daemon.sh')
     mv_body=r'''echo "mv $*" >> "$SIM/fs-calls"
 case "$1:$2" in
- */.install-*/release:*/releases/9.7.6-5.18-vera)
+ */.install-*/release:*/releases/9.7.6-5.18-springbreak-kpw4-test2)
     if [ "$FAULT_MODE" = publish-release ] && [ -f "$SIM/fault-armed" ]; then
         rm -f "$SIM/fault-armed"; /usr/bin/mkdir -p "$2"; echo partial > "$2/partial"; exit 9
     fi;;
@@ -325,7 +327,7 @@ case "$*" in
 esac
 exec /usr/bin/cp "$@"'''
     rm_body=r'''echo "rm $*" >> "$SIM/fs-calls"
-case "$*" in *'/releases/9.7.6-5.18-vera')
+case "$*" in *'/releases/9.7.6-5.18-springbreak-kpw4-test2')
 case "$FAULT_MODE" in rollback-release-rm|rollback-remove-new) if [ -f "$SIM/in-rollback" ]; then exit 9; fi;; esac;; esac
 exec /usr/bin/rm "$@"'''
     d.env['FAULT_MODE']=mode
@@ -365,7 +367,7 @@ if [ "$FAULT_MODE" = rollback-reload ] && [ -f "$SIM/in-rollback" ]; then exit 9
         assert (stage/'journal').is_file()==(mode!='rollback-journal-missing')
         if mode in ['rollback-release-move','rollback-release-rm']:
             assert (stage/'old-release/old-marker').read_text().strip()=='original release'
-            assert not (d.base/'releases/9.7.6-5.18-vera/old-release').exists()
+            assert not (d.base/'releases/9.7.6-5.18-springbreak-kpw4-test2/old-release').exists()
         if mode not in ['rollback-missing-backup']:assert digest(stage/'backup/1')==old_daemon
         if mode not in ['stop-failure']:assert not (d.root/'running').exists()
     else:
@@ -384,10 +386,13 @@ for name in protected:
     assert not subprocess.check_output(['git','diff','b344986^','b344986','--',path],cwd=ROOT)
 for name in ['runtime-child.sh','阅读记录-optimized.sh','阅读记录.sh']:
     path='native-reading-time-package/'+name
-    assert (PKG/name).read_bytes().replace(b'9.7.6-5.18-vera',b'9.7.6-5.19-normal')==subprocess.check_output(['git','show','93b6e79:'+path],cwd=ROOT)
+    original=subprocess.check_output(['git','show','93b6e79:'+path],cwd=ROOT)
+    current=(PKG/name).read_text(encoding='utf-8')
+    if name.startswith('阅读记录'): current=baseline_ui(current,original.decode())
+    assert current.replace('9.7.6-5.18-springbreak-kpw4-test2','9.7.6-5.19-normal').encode()==original
     active='\n'.join(line for line in (PKG/name).read_text(encoding='utf-8').splitlines() if not line.lstrip().startswith('#'))
     assert not re.search(r'EVIOCGRAB|power.?button|power.?key|kill[^\n]*powerd',active,re.I)
-launch_source=(PKG/'launch.sh').read_text(encoding='utf-8')
+launch_source=baseline_launcher((PKG/'launch.sh').read_text(encoding='utf-8'))
 old_launch=subprocess.check_output(['git','show','93b6e79:native-reading-time-package/launch.sh'],cwd=ROOT).decode('utf-8')
 # Retain the lock/handoff audit, permitting only removal of write-only state.
 def cleanup_body(text):return text[text.index('cleanup_runtime_state()'):text.index('on_signal()')]
@@ -414,7 +419,7 @@ assert launch_source==starting_launch
 passed('starting 5.18 launcher: only write-only eatTapMode handling removed; orientation/power/locks/handoff unchanged')
 active='\n'.join(line for line in launch_source.splitlines() if not line.lstrip().startswith('#'))
 assert not re.search(r'EVIOCGRAB|power.?button|power.?key|kill[^\n]*powerd',active,re.I)
-passed('b344986/runtime baseline evidence: tracker, TSV, AWK, touch, UI and power-key behavior unchanged')
+passed('b344986/runtime baseline: reviewed selector delta only; tracker/TSV/AWK/Lua/UI/power handling unchanged')
 
 write(OUT/'pre-hardware-results.json',json.dumps({'result':'PASS','checks':checks,'case_count':len(checks),
       'limits':['Hardware capacity/LIPC/input behavior simulated; real shell/filesystem/archives exercised.']},ensure_ascii=False,indent=2))

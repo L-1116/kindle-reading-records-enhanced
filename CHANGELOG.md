@@ -1,3 +1,20 @@
+## 9.7.6-5.18-springbreak-kpw4-test2 — 本地候选（2026-10-11）
+
+- 真实 Test 1 枚举为 event0=20cc000.snvs、event1=bd71827-power、event2=goodix-ts，证实触摸选择器错误。
+- 优化版和 legacy 均按 sysfs 动态匹配 goodix-ts；优先排除 power/snvs，取消未经验证的 event1 默认值。
+- READING_TOUCH_DEVICE 必须通过路径、字符节点、非链接、可读性和正向 sysfs 名称检查；失败记录明确错误并走原安全清理。
+- 保留两版 Lua、坐标、绘制、统计/封面/daemon、固件和型号限制、120 秒退出及安装事务；仅同步 Test 2 身份。
+- 新增真实布局、原名称、错误覆盖、两条完整 UI 路径和精确 Test 1 升级/故障回滚/repair/清理 fixture。Test 1 源码、ZIP 和结果保留，未提交或发布。
+
+## 9.7.6-5.18-springbreak-kpw4-test1 — 本地候选（2026-10-11）
+
+- 从精确 Vera 修复 HEAD 隔离，不修改其他开发线，不移植 V4 compatibility。
+- 限定 firmware 5.18.1.1.1 与上游已确认的 PW4 产品代码；不采集完整序列号。
+- 保留两套 Lua/绘制/统计/安装事务；launcher 增加固定会话上限和一次轻量启动日志。
+- 保留原 eatTapMode 禁止读写、方向/休眠恢复和 owned child 回收；安装日志改为追加。
+- 新增历史输入 fixture、目标 gate、退出保障和真实旧包升级保护回归；最终计数与 ZIP checksum 见生成报告。
+- 未宣称真机兼容；不提交/push/tag/PR/Release。
+
 # 版本记录
 
 此记录根据整理前的版本目录和发布说明汇总。详细实现可检出对应 Git 标签查看。

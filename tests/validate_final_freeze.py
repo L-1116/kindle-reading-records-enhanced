@@ -60,10 +60,11 @@ def ready(shell=SH):
 
 # Execute the actual firmware gate, not a Python reimplementation.
 source = (PKG / 'install.sh').read_text(encoding='utf-8')
+historical_gate_source = subprocess.check_output(["git", "show", "3acda144ee7bf3a09d7472628efdffd9c09ab240:native-reading-time-package/install.sh"], cwd=ROOT).decode("utf-8")
 for shell in (SH, DASH):
     d = Device(shell)
     gate = d.root / 'gate.sh'
-    write(gate, d.transform((source[:source.index('[ -x /sbin/initctl ]')] + '\nexit 0\n').encode()).decode())
+    write(gate, d.transform((historical_gate_source[:historical_gate_source.index('[ -x /sbin/initctl ]')] + '\nexit 0\n').encode()).decode())
     for primary, fallback, ok, expected in [
         ('Kindle 5.18.4', '5.19.1', True, '5.18.4'),
         ('Kindle 5.18.4', '5.18.1 5.20.0', True, '5.18.4'),
@@ -85,7 +86,7 @@ for shell in (SH, DASH):
             if text is None: path.unlink(missing_ok=True)
             else: write(path, text)
         # Print the selected version from the production gate for positive cases.
-        text = d.transform((source[:source.index('[ -x /sbin/initctl ]')] + '\nprintf "selected=%s\\n" "$firmware"\nexit 0\n').encode()).decode()
+        text = d.transform((historical_gate_source[:historical_gate_source.index('[ -x /sbin/initctl ]')] + '\nprintf "selected=%s\\n" "$firmware"\nexit 0\n').encode()).decode()
         write(gate, text)
         result = d.run(gate, ok=ok)
         if ok: assert 'selected=' + expected in result.stdout.splitlines()
@@ -212,7 +213,7 @@ exec /usr/bin/tar "$@"'''); d.chmod([d.mock / 'tar'])
     # During repair the versioned directory is momentarily absent; the formal
     # launcher must use its own lock code and fail cleanly, not source that dir.
     d = ready(shell); d.flag('block-publish')
-    d.command('mv', r'''case "$1:$2" in */.install-*/release:*/releases/9.7.6-5.18-vera)
+    d.command('mv', r'''case "$1:$2" in */.install-*/release:*/releases/9.7.6-5.18-springbreak-kpw4-test2)
 echo ready > "$SIM/publishing"
 while [ -f "$SIM/block-publish" ]; do /usr/bin/sleep .02; done;; esac
 exec /usr/bin/mv "$@"'''); d.chmod([d.mock / 'mv'])
@@ -221,7 +222,7 @@ exec /usr/bin/mv "$@"'''); d.chmod([d.mock / 'mv'])
     # give this filesystem phase the same budget as post-publication completion.
     # Other handoff deadlines and all cross-lock assertions remain unchanged.
     a = spawn(d, d.docs / BOOTSTRAP); await_file(d, 'publishing', a, timeout=40)
-    assert not (d.base / 'releases/9.7.6-5.18-vera').exists()
+    assert not (d.base / 'releases/9.7.6-5.18-springbreak-kpw4-test2').exists()
     result = d.run(d.docs / 'reading-records.sh', ok=False)
     assert '缺少会话锁模块' not in result.stderr
     assert not (d.root / 'touch-pid').exists()
@@ -262,7 +263,7 @@ for mode in ['root-remount-readonly', 'root-target-readonly', 'root-target-reado
     d = ready()
     # Distinct prior bytes make a mixed deployment observable, even for a
     # repair of the same version. Only fixture files gain harmless comments.
-    for prior in [d.base / 'releases/9.7.6-5.18-vera/bin/reading-records-ui.sh',
+    for prior in [d.base / 'releases/9.7.6-5.18-springbreak-kpw4-test2/bin/reading-records-ui.sh',
                   d.base / 'bin/native-reading-time-daemon.sh',
                   d.etc / 'upstart/native-reading-time.conf']:
         write(prior, prior.read_text(encoding='utf-8') + '\n# fixture prior deployment\n')

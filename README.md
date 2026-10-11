@@ -1,3 +1,18 @@
+# Kindle Reading Records — KPW4 / SpringBreak 专用候选
+
+本分支从 `3acda144ee7bf3a09d7472628efdffd9c09ab240` 隔离建立，只服务 **KPW4 / firmware 5.18.1.1.1 / 已有 Scriptlet 的 SpringBreak**。Test 1 已有安装和首次优化绘制成功证据；触摸因漏识别 `goodix-ts` 误选电源节点而失败。Test 2 只修复两版设备选择，触摸和安全退出仍待真机确认。本轮仅本地构建，不提交或发布。
+
+候选包为 `dist/ReadingTime-9.7.6-5.18-springbreak-kpw4-test2.zip`。解压一次，将两个 ASCII 文件一起放入 Kindle 的 documents，点击“安装阅读记录”。保留已有 reading-time 目录，可覆盖升级和 repair。每次打开约两分钟后走原清理流程自动退出；失败保留安装文件，不点击清理入口。
+
+- 中文安装/简短确认：[说明](docs/中文说明.md)
+- 上游依赖、历史触摸证据、改动及边界：[审计](docs/springbreak-kpw4-audit.md)
+- 本地完整回归：`python scripts/validate_all.py`
+- 最终包与实测计数报告：回归通过后运行 `python scripts/report_springbreak.py`，见 `build/validation/springbreak-final-report.md`。
+
+## 保留的 Vera 基线历史记录
+
+下文是分叉前历史，旧包名、425 项和提交授权不适用于本轮候选。
+
 # Kindle Reading Records Enhanced — 9.7.6-5.18-vera
 
 这是从冻结 `9.7.6-5.19-vera`（`df5fd1e128d6a943435ea0ee8426b8f9f166b250`）建立的独立开发线，状态为 **Pre-hardware candidate**，仅面向 firmware 5.18.x + Vera 的 Kindle 青春版、Paperwhite/KPW 等普通 Kindle。5.17、5.19、Scribe/KS 不适用。

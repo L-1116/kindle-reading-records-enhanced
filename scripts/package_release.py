@@ -11,7 +11,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PKG = ROOT / "native-reading-time-package"
-VERSION = "9.7.6-5.18-vera"
+VERSION = "9.7.6-5.18-springbreak-kpw4-test2"
 BOOTSTRAP = "reading-records-9.7.6-install.sh"
 PAYLOAD = "reading-records-9.7.6-data.tar"
 ARCHIVE = ROOT / "dist" / f"ReadingTime-{VERSION}.zip"
