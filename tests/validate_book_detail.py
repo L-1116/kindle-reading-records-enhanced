@@ -283,14 +283,14 @@ assert "get_book_detail" not in startup and "render_book_detail" not in startup
 assert hashlib.sha256((PKG / "native-reading-time-daemon.sh").read_bytes()).hexdigest() == BASE_HASHES["native-reading-time-package/native-reading-time-daemon.sh"]
 assert "reading-time.tsv" not in (PKG / "reading-insights-cache.awk").read_text(encoding="utf-8")
 installer = (PKG / "Install-Native-Reading-Time-Optimized.sh").read_text(encoding="utf-8")
-assert "9.7.5-test" in installer and "book_detail.png" in installer and "reading-insights-cover.lua" in installer
-assert "9.7.5-test" in viewer and "book_detail.png" in viewer
+assert "9.7.6-5.20.1-vera" in installer and "book_detail.png" in installer and "reading-insights-cover.lua" in installer
+assert "9.7.6-5.20.1-vera" in viewer and "book_detail.png" in viewer
 assert viewer.splitlines()[:4] == ["#!/bin/sh", "# Name: 阅读记录", "# Author: Kindle Reading Records Enhanced", "# Icon: /mnt/us/reading-time/assets/launcher-icon.png"]
 for lua_file in PKG.glob("*.lua"):
     LuaRuntime().execute("assert(loadstring(...))", lua_file.read_text(encoding="utf-8"))
 for shell_file in [ROOT / "RUNME.sh", *PKG.glob("*.sh")]:
     subprocess.run([SH, "-n", str(shell_file)], check=True, capture_output=True)
-passed("performance and release guardrails", "Book detail is absent from startup, uses only small unsorted DAY_BOOKS scans and never names DATA; daemon bytes and persisted format stay protected, release/resource checks are v9.7.5-test, and shipped shell/Lua syntax passes.")
+passed("performance and release guardrails", "Book detail is absent from startup, uses only small unsorted DAY_BOOKS scans and never names DATA; daemon bytes and persisted format stay protected, release/resource checks match the current product version, and shipped shell/Lua syntax passes.")
 
 
 result = {"result": "PASS", "check_count": len(checks), "checks": checks}

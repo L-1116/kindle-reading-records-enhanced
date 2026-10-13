@@ -11,13 +11,15 @@ import shutil
 from runtime_fixture import install_python_fixture
 import subprocess
 import tempfile
+import time
+from service_fixture import service_fixture
 
 from validate_runtime_probe import ROOT, OUT, SH, executable, setup, shell_path
 
 
 FIRMWARES = ("5.17.1.0.4", "5.18", "5.18.0", "5.18.1", "5.18.1.1.1",
              "5.18.1.2", "5.18.2", "5.18.4", "5.18.5", "5.18.5.0.1",
-             "5.18.6", "5.18.10", "5.19.1", "5.19.2", "5.19.5", "5.19.6")
+             "5.18.6", "5.18.10", "5.19.1", "5.19.2", "5.19.5", "5.19.6", "5.20.1", "5.20.1.0.1")
 RESULTS = []
 
 
@@ -28,7 +30,7 @@ def check(variant: str) -> None:
         launcher.write_text(launcher.read_text(encoding="utf-8").replace('/mnt/us/libkh/bin/fbink', shell_path(root / 'alternate/third-fbink')), encoding="utf-8", newline="\n")
         base = launcher.parent.parent
         package = ROOT / ("native-reading-time-package" if variant == "standard" else "ks-package/native-reading-time-package")
-        release = base / ("releases/9.7.5-test" if variant == "standard" else "releases/9.7.5-ks-test1")
+        release = base / ("releases/9.7.6-5.20.1-vera" if variant == "standard" else "releases/9.7.5-ks-test1")
         main = release / "bin" / ("reading-records.sh" if variant == "standard" else "reading-records-ks.sh")
         source = (package / ("阅读记录-optimized.sh" if variant == "standard" else "阅读记录-ks.sh")).read_text(encoding="utf-8")
         if variant == "standard":
@@ -38,9 +40,12 @@ def check(variant: str) -> None:
                        "reading-insights-titles.lua", "reading-insights-title-widths.lua"):
             shutil.copyfile(ROOT / "native-reading-time-package" / helper, release / "bin" / helper)
         (release / "bin/reading-records-v9.6.3.sh").write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+        if variant == "standard":
+            shutil.copy2(package / "reading-insights-touch-preflight.sh", release / "bin/reading-insights-touch-preflight.sh")
         fake_lua = root / "mockbin/lua-fake"
         install_python_fixture(ROOT / "tests/fixtures/ks-runtime/lua", fake_lua)
         executable(root / "mockbin/lua", '[ -z "${READING_PROBE_SOURCE:-}" ] || [ -r "$READING_PROBE_SOURCE" ] || exit 2\n'
+                   'case "$1" in *reading-insights-touch-probe.lua) printf "%s\\\\n16\\\\nunknown\\\\nunknown\\\\nunknown\\\\nunknown\\\\nauto\\\\n" "$READING_TOUCH_DEVICE"; exit 0;; esac\n'
                    'case "$1" in *reading-insights-touch-ui.lua) echo exit; exit 0;; esac\n'
                    'exec "${0%/*}/lua-fake" "$@"\n')
         executable(root / "mockbin/uname", 'case "$1" in -m) echo armv7l;; -r) echo "$ACTUAL_TEST_KERNEL";; esac\n')
@@ -60,6 +65,7 @@ def check(variant: str) -> None:
             (base / "ui/total.png").write_bytes(b"png")
             (base / "bin/reading-insights-touch.lua").write_text("return true\n", encoding="utf-8")
             executable(root / "mockbin/lua", '[ -z "${READING_PROBE_SOURCE:-}" ] || [ -r "$READING_PROBE_SOURCE" ] || exit 2\n'
+                   'case "$1" in *reading-insights-touch-probe.lua) printf "%s\\\\n16\\\\nunknown\\\\nunknown\\\\nunknown\\\\nunknown\\\\nauto\\\\n" "$READING_TOUCH_DEVICE"; exit 0;; esac\n'
                    'case "$1" in *reading-insights-touch-ui.lua|*reading-insights-touch.lua) echo exit; exit 0;; esac\n'
                        'exec "${0%/*}/lua-fake" "$@"\n')
             selected = shell_path(root / "alternate/fbink")
@@ -122,8 +128,42 @@ def check(variant: str) -> None:
         run_case("5.19.6", screen, "all actual commands fail", 31,
                  PRIMARY_FBINK_MODE="signal", FALLBACK_FBINK_MODE="nonzero")
 
+        # Actual production UI stays usable while shared ensure fails. The
+        # service fixture reports a stopped job and refuses its single start.
+        common = ROOT / "native-reading-time-package"
+        (base / "service").mkdir(exist_ok=True)
+        shutil.copy2(common / "service-manager.sh", base / "bin/service-manager.sh")
+        shutil.copy2(common / "compat/lifecycle.sh", base / "compat/lifecycle.sh")
+        shutil.copy2(common / "native-reading-time.conf", base / "service/native-reading-time.conf")
+        shutil.copy2(common / "native-reading-time-daemon.sh", base / "bin/native-reading-time-daemon.sh")
+        subprocess.run([SH, "-c", '/usr/bin/chmod 755 "$1"', "fixture", (base / "bin/native-reading-time-daemon.sh").as_posix()], check=True)
+        service_dir = root / "service-fixture"
+        env.update(service_fixture(service_dir, base, root / "upstart", SH, running=False))
+        shutil.copy2(common / "native-reading-time.conf", root / "upstart/native-reading-time.conf")
+        (service_dir / "start-fail").touch()
+        history_before = (base / "reading-time.tsv").read_bytes()
+        run_case("5.20.1", screen, "failed service/history UI works", PRIMARY_FBINK_MODE="ok")
+        deadline = time.monotonic() + 14
+        while time.monotonic() < deadline and not (base / "service-status.txt").exists(): time.sleep(.05)
+        assert 'recovery_status=failed' in (base / "service-status.txt").read_text(encoding="utf-8")
+        assert (base / "reading-time.tsv").read_bytes() == history_before
+        while time.monotonic() < deadline and Path(env["READING_LIFECYCLE_LOCK"]).exists(): time.sleep(.05)
+        # A failed evidence/log initialization retains old stderr and still
+        # renders history through the temporary log path.
+        (base / "launch-last.log").unlink()
+        (base / "launch-last.log").mkdir()
+        (base / "last-launch.stderr").write_bytes(b"original failure stderr\n")
+        result = subprocess.run([SH, launcher.as_posix()], env={**env, "ACTUAL_TEST_SCREEN": screen,
+                                "ACTUAL_TEST_KERNEL": "4.9.77-lab126", "PRIMARY_FBINK_MODE": "ok"},
+                                capture_output=True, timeout=30)
+        assert result.returncode == 0, (variant, result.stdout, result.stderr)
+        assert (base / "last-launch.stderr").read_bytes() == b"original failure stderr\n"
+        assert (base / "reading-time.tsv").read_bytes() == history_before
+        assert (root / "reading-records-emergency-launch.log").is_file()
+        RESULTS.append({"variant": variant, "case": "failed evidence/history UI works", "result": "PASS"})
+
 
 if __name__ == "__main__":
-    for variant in ("standard", "ks"):
+    for variant in ("standard",):
         check(variant)
     (OUT / "fbink-actual-use-results.json").write_text(json.dumps(RESULTS, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -1,362 +1,194 @@
-"""Exercise packaged V4 bootstraps in relocated Kindle filesystem sandboxes."""
-
-from __future__ import annotations
-
-import hashlib
-import json
-import os
+"""Current Standard two-file package migration/rollback acceptance.
+Historical filename is retained for callers; no KS build or device access.
+"""
 from pathlib import Path
-import shutil
-import subprocess
-import tempfile
-import zipfile
+import hashlib,io,json,os,shutil,subprocess,sys,tarfile,tempfile,zipfile
+from service_fixture import service_fixture
+ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/'scripts'))
+from build_v4 import PRODUCT_VERSION,SIMPLE_ARCHIVE,BOOT_NAME as BOOT,TAR_NAME as TAR,make_tar,posix_cksum
+OUT=ROOT/'build/validation';OUT.mkdir(exist_ok=True)
+SHELL=shutil.which('sh') or 'C:/Program Files/Git/usr/bin/sh.exe'
+CLEAN='reading-records-install-cleanup.sh'
 
+def put(path,raw):
+    path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
 
-ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "build/validation"
-OUT.mkdir(parents=True, exist_ok=True)
-SHELL = next(path for path in (shutil.which("sh"), r"C:\Program Files\Git\bin\sh.exe")
-             if path and Path(path).is_file())
-BOOT = "reading-records-v4-install.sh"
-TAR = "阅读记录安装数据.tar"
-CLEAN = "安装好之后，确认无误了再点这个.sh"
+def historical(tag,path):
+    return subprocess.check_output(['git','show',tag+':'+path],cwd=ROOT)
 
+def chmod(*paths):
+    subprocess.run([SHELL,'-c','/usr/bin/chmod 755 "$@"','fixture',*[p.as_posix() for p in paths]],check=True)
 
-def digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def put(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-
-
-def msys(path: Path) -> str:
-    return f"/{path.drive[0].lower()}{path.as_posix()[2:]}" if path.drive else path.as_posix()
-
-
-def historical(tag: str, path: str) -> bytes:
-    return subprocess.check_output(["git", "show", f"{tag}:{path}"], cwd=ROOT)
-
-
-def run(session: Path, variant: str, previous: str | None, *, mutation: str = "", cleanup: bool = False, legacy_tag: str = "", legacy_archive: str = "", cleanup_unknown: bool = False) -> dict:
-    us = session / "us"
-    docs = us / "documents"
-    base = us / "reading-time"
-    upstart = session / "upstart"
-    mock = session / "mockbin"
-    tmp = session / "tmp"
-    for folder in (docs, upstart, mock, tmp):
-        folder.mkdir(parents=True, exist_ok=True)
-    zip_name = "ReadingTime-V4.zip" if variant == "standard" else "ReadingTime-V4-KS.zip"
-    with zipfile.ZipFile(ROOT / "dist" / zip_name) as archive:
-        assert set(archive.namelist()) == {BOOT, TAR}
-        archive.extractall(docs)
-    script = docs / BOOT
-    if mutation == "missing_payload":
-        (docs / TAR).unlink()
-    elif mutation == "bad_checksum":
-        data = bytearray((docs / TAR).read_bytes())
-        data[0] ^= 1
-        (docs / TAR).write_bytes(data)
-    elif mutation == "bad_tar":
-        data = (docs / TAR).read_bytes()
-        (docs / TAR).write_bytes(b"X" * len(data))
-        text = script.read_text(encoding="utf-8")
-        from build_v4 import posix_cksum
-        checksum = str(posix_cksum((docs / TAR).read_bytes()))
-        script.write_text(text.replace(text.split("PAYLOAD_CKSUM='")[1].split("'")[0], checksum), encoding="utf-8", newline="\n")
-    if previous is not None:
-        tag = {"9.7.4": "v9.7.4", "9.7.5": "v9.7.5-test.1", "V1": "v9.7.5-test.1", "V2": "v9.7.5-compat-v2"}.get(previous)
-        put(base / "reading-time.tsv", b"date\tbook_id\tseconds\ttitle\n2026-09-01\tb1\t120\tOld book\n")
-        put(base / "book-covers/old-cover.jpg", b"old image")
-        put(base / "book-covers/second-cover.png", b"another cached image")
-        put(base / "user.conf", b"preference=keep\n")
-        put(base / "book-cover-cache.tsv", b"old cache\n")
-        put(base / "reading-time.tsv.bak", b"old history backup\n")
-        put(base / "阅读时长统计.txt", b"old statistics export\n")
-        put(base / "launch-last.log", b"old launch diagnostic\n")
-        put(base / "touch-last.log", b"old touch diagnostic\n")
-        put(base / "bin/native-reading-time-daemon.sh", historical(tag, "native-reading-time-package/native-reading-time-daemon.sh") if tag else (ROOT / "native-reading-time-package/native-reading-time-daemon.sh").read_bytes())
-        if previous == "V3-KS":
-            put(base / "VERSION", b"9.7.5-ks-test1-touch-compat\n")
-            put(base / "bin/launch-ks.sh", b"old KS launcher")
-            put(base / "releases/9.7.5-ks-test1/bin/reading-records-ks.sh", (ROOT / "ks-package/native-reading-time-package/阅读记录-ks.sh").read_bytes())
-        elif previous in {"V4-KS", "V4-KS Test1", "V4-KS Test2"}:
-            put(base / "VERSION", b"V4-KS\n")
-            put(base / "release-info", b"release_family=V4\nvariant=ks\n")
-            put(base / "bin/launch-ks.sh", b"old KS launcher")
-            put(base / "releases/9.7.5-ks-test1/bin/reading-records-ks.sh", (ROOT / "ks-package/native-reading-time-package/阅读记录-ks.sh").read_bytes())
-        else:
-            put(base / "VERSION", ("V4\n" if previous in {"V4", "V4 Test1", "V4 Test2"} else f"{previous}\n").encode())
-            if previous in {"V4", "V4 Test1", "V4 Test2"}:
-                put(base / "release-info", b"release_family=V4\nvariant=standard\n")
-            put(base / "bin/launch.sh", b"old standard launcher")
-            resolver_source = historical(tag, "native-reading-time-package/阅读记录-optimized.sh") if tag else (ROOT / "native-reading-time-package/阅读记录-optimized.sh").read_bytes()
-            put(base / "releases/9.7.5-test/bin/reading-records.sh", resolver_source)
-        put(docs / "阅读记录.sh", b"old entry")
-        put(upstart / "native-reading-time.conf", b"old service")
-        if previous in {"V3", "V3-KS"}:
-            put(us / "RUNME.sh", b"#!/bin/sh\n/mnt/us/native-reading-time-package/install.sh\n")
-            put(docs / "reading-records-install.sh", b"/mnt/us/native-reading-time-package/install.sh\n")
-            put(us / "extensions/reading-records-installer/config.xml", b"reading-records-installer\n")
-            put(us / "extensions/reading-records-installer/bin/action.sh", b"old KUAL installer\n")
-        put(base / "ui/old-ui.png", b"old UI asset")
-        put(base / "fonts/old-font.otf", b"old font asset")
-        put(base / "assets/old-icon.png", b"old icon")
-    previous_checkpoint = {"V4 Test1": "88164e9", "V4 Test2": "0dc8c1b", "V4-KS Test1": "88164e9", "V4-KS Test2": "0dc8c1b"}.get(previous)
-    if previous_checkpoint:
-        if variant == "standard":
-            put(base / "bin/launch.sh", historical(previous_checkpoint, "native-reading-time-package/launch.sh"))
-            put(base / "releases/9.7.5-test/bin/reading-records.sh", historical(previous_checkpoint, "native-reading-time-package/阅读记录-optimized.sh"))
-        else:
-            put(base / "bin/launch-ks.sh", historical(previous_checkpoint, "ks-package/native-reading-time-package/launch-ks.sh"))
-            put(base / "releases/9.7.5-ks-test1/bin/reading-records-ks.sh", historical(previous_checkpoint, "ks-package/native-reading-time-package/阅读记录-ks.sh"))
-    protected = {str(path): digest(path) for path in (base / "reading-time.tsv", base / "reading-time.tsv.bak", base / "阅读时长统计.txt", base / "user.conf", base / "book-cover-cache.tsv", base / "launch-last.log", base / "touch-last.log") if path.is_file()}
-    if (base / "book-covers").is_dir():
-        protected.update({str(path): digest(path) for path in (base / "book-covers").rglob("*") if path.is_file()})
-    cover_count = sum(path.is_file() for path in (base / "book-covers").rglob("*")) if (base / "book-covers").is_dir() else 0
-    old_runtime = {str(path): digest(path) for path in (base / "VERSION", base / "bin/launch.sh", base / "bin/launch-ks.sh", base / "releases/9.7.5-test/bin/reading-records.sh", base / "releases/9.7.5-ks-test1/bin/reading-records-ks.sh", docs / "阅读记录.sh", upstart / "native-reading-time.conf") if path.is_file()}
-    for folder in (base / "bin", base / "releases", base / "compat", base / "ui", base / "fonts", base / "assets"):
-        if folder.is_dir():
-            old_runtime.update({str(path): digest(path) for path in folder.rglob("*") if path.is_file()})
-
-    initctl = mock / "initctl"
-    initctl.write_text(
-        '#!/bin/sh\ncase "$1" in\n'
-        f'  start) [ -f "{(base / "reading-time.tsv").as_posix()}" ] || printf "date\\tbook_id\\tseconds\\ttitle\\n" > "{(base / "reading-time.tsv").as_posix()}" ;;\n'
-        '  status) echo "native-reading-time start/running, process 123" ;;\n'
-        'esac\nexit 0\n', encoding="utf-8", newline="\n")
-    scripts = {
-        "id": '#!/bin/sh\n[ "$1" = -u ] && { echo 0; exit 0; }; /usr/bin/id "$@"\n',
-        "mntroot": '#!/bin/sh\nexit 0\n',
-        "lipc-get-prop": '#!/bin/sh\nexit 0\n',
-        "lipc-set-prop": '#!/bin/sh\nexit 0\n',
-        "fbink": '#!/bin/sh\nexit 0\n',
-        "lua": '#!/bin/sh\nexit 0\n',
-        "sleep": '#!/bin/sh\nexit 0\n',
-        "sync": '#!/bin/sh\nexit 0\n',
+def seed(session,previous):
+    us=session/'us';base=us/'reading-time';docs=us/'documents';upstart=session/'upstart'
+    docs.mkdir(parents=True);(base/'bin').mkdir(parents=True);upstart.mkdir()
+    if previous:
+        put(base/'bin/native-reading-time-daemon.sh',(ROOT/'native-reading-time-package/native-reading-time-daemon.sh').read_bytes())
+        put(upstart/'native-reading-time.conf',(ROOT/'native-reading-time-package/native-reading-time.conf').read_bytes())
+        if previous in ('normal','mixed','deleted-formal'):
+            tag='v9.7.6-5.19-vera';prefix='native-reading-time-package/'
+            manifest=historical(tag,prefix+'install-manifest.txt').decode()
+            for line in manifest.splitlines():
+                src,kind,dst,_=line.split('\t')
+                if kind=='release': put(base/'releases/9.7.6-5.19-normal'/dst,historical(tag,prefix+src))
+                elif kind=='docs': put(docs/dst,historical(tag,prefix+src))
+        if previous in ('V4','mixed','deleted-formal'):
+            with zipfile.ZipFile(ROOT/'build/standard-next-baseline/artifacts/9.7.6-5.20.1-vera.zip') as outer:
+                with tarfile.open(fileobj=io.BytesIO(outer.read(TAR))) as payload:
+                    files={m.name:payload.extractfile(m).read() for m in payload if m.isfile()}
+            prefix='native-reading-time-package/'
+            for src,dst in [('launch.sh','bin/launch.sh'),('service-manager.sh','bin/service-manager.sh'),('compat/lifecycle.sh','compat/lifecycle.sh'),('compat/detect_env.sh','compat/detect_env.sh'),('native-reading-time.conf','service/native-reading-time.conf')]:put(base/dst,files[prefix+src])
+            for src,dst in [('阅读记录-optimized.sh','bin/reading-records.sh'),('阅读记录.sh','bin/reading-records-v9.6.3.sh')]:put(base/'releases/9.7.5-test'/dst,files[prefix+src])
+            put(docs/'reading-records-uninstall.sh',files[prefix+'resources/reading-records-uninstall.sh'])
+            put(docs/'安装好之后，确认无误了再点这个.sh',files['v4/cleanup.sh'])
+            if previous!='deleted-formal':put(docs/'阅读记录.sh',files[prefix+'阅读记录-entry.sh'])
+            put(base/'release-info',b'release_family=V4\nvariant=standard\n')
+        if previous in ('V1','V2','V3','9.7.4'):
+            tag={'V1':'v9.7.5-test.1','V2':'v9.7.5-compat-v2','V3':'v9.7.5-compat-v3','9.7.4':'v9.7.4'}[previous]
+            src='阅读记录-optimized.sh' if previous=='9.7.4' else '阅读记录-entry.sh'
+            put(docs/'阅读记录.sh',historical(tag,'native-reading-time-package/'+src))
+            if previous!='9.7.4':put(docs/'reading-records-uninstall.sh',historical(tag,'documents/reading-records-uninstall.sh'))
+        put(base/'VERSION',(str(previous)+'\n').encode())
+    protected={
+        base/'reading-time.tsv':b'date\tbook_id\tseconds\ttitle\n2026-10-01\told\t120\tHistory\n',
+        base/'user.conf':b'preference=keep\n',base/'reading-time.tsv.bak':b'previous backup',
+        base/'book-covers/cover.jpg':b'cover',base/'book-cover-cache.tsv':b'cover cache',
+        base/'book-cover-misses.tsv':b'miss cache',base/'service.log':b'core service evidence',
+        base/'upstart.log':b'core upstart evidence',base/'touch-last.log':b'core touch evidence',
     }
-    for name, body in scripts.items():
-        (mock / name).write_text(body, encoding="utf-8", newline="\n")
-    subprocess.run([SHELL, "-c", '/usr/bin/chmod 755 "$@"', "test", *(p.as_posix() for p in mock.iterdir())], check=True)
-    loader = session / "ld-linux-armhf.so.3"
-    loader.write_bytes(b"loader")
-    device = session / "deviceType.txt"
-    device.write_text("KindleScribe\n" if variant == "ks" or mutation == "wrong_device" else "KindlePaperwhite\n", encoding="ascii")
-    env = {**os.environ, "PATH": msys(mock) + ":/usr/bin:/bin", "READING_MNT_US": us.as_posix(), "READING_BASE": base.as_posix(), "READING_DOCUMENTS": docs.as_posix(), "READING_TMPDIR": tmp.as_posix(), "READING_UPSTART_DIR": upstart.as_posix(), "READING_DEVICETYPE_PATH": device.as_posix(), "READING_ARMHF_LOADER_PATH": loader.as_posix(), "READING_ARCH_OVERRIDE": "armhf", "READING_ALLOW_NONROOT_TEST": "1"}
-    if mutation == "soft_float":
-        loader.unlink()
-        env["READING_ARCH_OVERRIDE"] = "armv7l"
-    # Relocate the device-only absolute paths in the packaged installer scripts
-    # after extraction. Runtime payload files are left byte-identical.
-    if mutation not in {"missing_payload", "bad_checksum", "bad_tar", "temp_failure", "tar_unavailable"}:
-        import tarfile
-        import io
-        tar_path = docs / TAR
-        members: dict[str, bytes] = {}
-        with tarfile.open(tar_path) as archive:
-            for member in archive:
-                raw = archive.extractfile(member).read()
-                if member.name in {"native-reading-time-package/install.sh", "native-reading-time-package/Install-Native-Reading-Time.sh", "native-reading-time-package/Install-Native-Reading-Time-Optimized.sh", "native-reading-time-package/Install-Native-Reading-Time-KS.sh"}:
-                    raw = raw.replace(b"/sbin/initctl", initctl.as_posix().encode()).replace(b"/lib/ld-linux-armhf.so.3", loader.as_posix().encode())
-                    if mutation == "core_failure" and member.name.endswith("/install.sh"):
-                        raw = raw.replace(b"STAGE=install", b"exit 73\nSTAGE=install")
-                    if mutation == "staging_failure" and member.name.endswith("/Install-Native-Reading-Time-Optimized.sh"):
-                        raw = raw.replace(b'rm -rf "$STAGE"; mkdir -p', b'exit 72\nrm -rf "$STAGE"; mkdir -p')
-                    if mutation == "staging_failure" and member.name.endswith("/Install-Native-Reading-Time-KS.sh"):
-                        raw = raw.replace(b'rm -rf "$STAGE"; mkdir -p', b'exit 72\nrm -rf "$STAGE"; mkdir -p')
-                    if mutation == "activation_failure" and member.name.endswith("/Install-Native-Reading-Time-Optimized.sh"):
-                        raw = raw.replace(b'echo "$(date): final sanity resolver=ok', b'fail "injected post-activation failure"\necho "$(date): final sanity resolver=ok')
-                    if mutation == "activation_failure" and member.name.endswith("/Install-Native-Reading-Time-KS.sh"):
-                        raw = raw.replace(b'cleanup_stage; trap - INT TERM HUP; sync', b'fail "injected post-activation failure"\ncleanup_stage; trap - INT TERM HUP; sync')
-                members[member.name] = raw
-        # Rebuild only the sandbox copy and update its bootstrap checksum.
-        from build_v4 import make_tar, posix_cksum
-        rebuilt = make_tar(members)
-        tar_path.write_bytes(rebuilt)
-        checksum = str(posix_cksum(rebuilt))
-        script.write_text(script.read_text(encoding="utf-8").replace(script.read_text(encoding="utf-8").split("PAYLOAD_SIZE='")[1].split("'")[0], str(len(rebuilt)), 1).replace(script.read_text(encoding="utf-8").split("PAYLOAD_CKSUM='")[1].split("'")[0], checksum, 1), encoding="utf-8", newline="\n")
-    if mutation == "verified_failure":
-        source = script.read_text(encoding="utf-8")
-        source = source.replace('[ -x "$launcher" ] && [ -x "$resolver" ]', 'false && [ -x "$launcher" ] && [ -x "$resolver" ]')
-        script.write_text(source, encoding="utf-8", newline="\n")
-    if mutation == "temp_failure":
-        env["READING_TMPDIR"] = (session / "missing-tmp-root").as_posix()
-    if mutation == "tar_unavailable":
-        source = script.read_text(encoding="utf-8")
-        source = source.replace("command -v tar >/dev/null 2>&1", "false").replace("command -v busybox >/dev/null 2>&1", "false")
-        script.write_text(source, encoding="utf-8", newline="\n")
-    if mutation in {"tar_extract_failure", "busybox_fallback"}:
-        if mutation == "tar_extract_failure":
-            source = script.read_text(encoding="utf-8")
-            source = source.replace('tar_cmd() {', 'tar_cmd() { [ "$1" = -xf ] && return 79;')
-            script.write_text(source, encoding="utf-8", newline="\n")
-        else:
-            source = script.read_text(encoding="utf-8").replace("command -v tar >/dev/null 2>&1", "false")
-            source = source.replace('tar_cmd() {', 'busybox() { [ "$1" = tar ] || return 1; shift; /usr/bin/tar "$@"; }\ntar_cmd() {')
-            script.write_text(source, encoding="utf-8", newline="\n")
-    if mutation == "early_cleanup":
-        put(docs / CLEAN, (ROOT / "v4/cleanup.sh").read_bytes())
-        before = subprocess.run([SHELL, (docs / CLEAN).as_posix()], env=env, capture_output=True, timeout=30)
-        assert before.returncode != 0
-        assert (docs / BOOT).exists() and (docs / TAR).exists() and (docs / CLEAN).exists()
-        assert all(digest(Path(path)) == value for path, value in protected.items())
-        return {"returncode": before.returncode, "result": "early cleanup refused", "protected_hashes": protected}
-    result = subprocess.run([SHELL, script.as_posix()], env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90)
-    details = (docs / "reading-records-v4-install-result.txt").read_text(encoding="utf-8") if (docs / "reading-records-v4-install-result.txt").exists() else ""
-    expected_failure = bool(mutation and mutation not in {"busybox_fallback", "soft_float"})
-    if expected_failure:
-        assert result.returncode != 0, (mutation, result.stdout, result.stderr, details)
-        assert not (docs / CLEAN).exists()
-        expected_error = {
-            "missing_payload": "payload not found",
-            "bad_checksum": "payload checksum mismatch",
-            "bad_tar": "tar listing failed",
-            "tar_unavailable": "tar unavailable",
-            "tar_extract_failure": "tar extraction failed",
-            "temp_failure": "temporary directory creation failed",
-            "core_failure": "internal installer failed",
-            "staging_failure": "internal installer failed",
-            "activation_failure": "internal installer failed",
-            "verified_failure": "verified activation failed",
-            "cross_variant": "cross-variant upgrade refused",
-            "wrong_device": "device variant mismatch",
-        }.get(mutation)
-        if expected_error:
-            assert f"error={expected_error}" in details, (mutation, details)
+    if previous is None:protected={}
+    for p,raw in protected.items():put(p,raw)
+    return us,base,docs,upstart,protected
+
+def run(session,variant='standard',previous=None,mutation='',cleanup=False,legacy_tag=None,legacy_archive=None,cleanup_unknown=False):
+    assert variant=='standard'
+    package_sha=hashlib.sha256(SIMPLE_ARCHIVE.read_bytes()).hexdigest()
+    us,base,docs,upstart,protected=seed(session,previous)
+    tmp=session/'tmp';tmp.mkdir();mock=session/'mockbin';mock.mkdir()
+    for name,body in [('fbink','exit 0'),('lua','exit 0'),('lipc-get-prop','echo active'),('lipc-set-prop','echo "$*" >> "$SCANNER_CALLS"\n[ "${SCANNER_FAIL:-0}" != 1 ]')]:put(mock/name,('#!/bin/sh\n'+body+'\n').encode())
+    chmod(*mock.iterdir())
+    env={**os.environ,'PATH':mock.as_posix()+':/usr/bin:/bin:'+os.environ.get('PATH',''),'READING_MNT_US':us.as_posix(),'READING_BASE':base.as_posix(),'READING_DOCUMENTS':docs.as_posix(),'READING_TMPDIR':tmp.as_posix(),'READING_ALLOW_NONROOT_TEST':'1','READING_UI_LOCK':(tmp/'ui.lock').as_posix(),'SCANNER_CALLS':(session/'scanner-calls').as_posix()}
+    env.update(service_fixture(session/'service-fixture',base,upstart,SHELL,running=bool(previous)))
+    model=session/'device';put(model,b'KPW6');env['READING_DEVICETYPE_PATH']=model.as_posix()
+    pretty=session/'pretty';put(pretty,b'Kindle 5.20.1');env['READING_PRETTYVERSION_PATH']=pretty.as_posix()
+    env['READING_ARMHF_LOADER_PATH']=(session/'loader').as_posix();put(session/'loader',b'loader')
+    if previous in ('test1','test1-cleaned'):
+        with zipfile.ZipFile(ROOT/'dist/standard-test1/9.7.6-5.20.1-vera-test1.zip') as old:
+            old.extractall(docs)
+        installed=subprocess.run([SHELL,(docs/BOOT).as_posix()],env=env,capture_output=True,timeout=130)
+        assert installed.returncode==0,(installed.stdout,installed.stderr)
+        assert (docs/CLEAN).read_text(encoding='utf-8').splitlines()[1]=='# Name: 安装文件清理'
+        if previous=='test1-cleaned':
+            cleared=subprocess.run([SHELL,(docs/CLEAN).as_posix()],env=env,capture_output=True,timeout=90)
+            assert cleared.returncode==0,cleared.stderr
+            assert not (docs/CLEAN).exists()
+    if mutation=='lost_service':(upstart/'native-reading-time.conf').unlink(missing_ok=True)
+    if mutation=='stopped_service':(session/'service-fixture/running').unlink(missing_ok=True);put(session/'service-fixture/proc/123/cmdline',b'')
+    if mutation=='initial_rw':put(session/'service-fixture/mounts',b'/dev/root / ext3 rw,relatime 0 0\n')
+    if mutation=='scanner_failure':env['SCANNER_FAIL']='1'
+    if mutation=='cross_variant':put(base/'release-info',b'variant=ks\n')
+    if mutation=='ks_residue':put(base/'bin/launch-ks.sh',b'known KS marker')
+    if mutation=='wrong_device':put(model,b'Kindle Scribe')
+    if mutation=='unknown_formal':put(docs/'reading-records.sh','#!/bin/sh\n# Name: 阅读记录\necho personal\n'.encode())
+    if mutation=='unknown_alias':put(docs/'阅读记录.sh',b'personal file must survive')
+    if mutation in ('orphan','duplicate'):
+        pid='124' if mutation=='duplicate' else '123'
+        put(session/f'service-fixture/proc/{pid}/cmdline',b'/bin/sh\0'+(base/'bin/native-reading-time-daemon.sh').as_posix().encode()+b'\0')
+        put(session/f'service-fixture/proc/{pid}/stat',b'124 (daemon) S 1 0\n')
+        if mutation=='orphan':(session/'service-fixture/running').unlink(missing_ok=True)
+    if mutation=='busy_ui':
+        put(tmp/'ui.lock/owner.1/sentinel',b'foreign');put(tmp/'ui.lock/pid',b'1')
+    with zipfile.ZipFile(SIMPLE_ARCHIVE) as archive:archive.extractall(docs)
+    script=docs/BOOT
+    if mutation=='missing_payload':(docs/TAR).unlink()
+    if mutation=='bad_checksum':raw=(docs/TAR).read_bytes();put(docs/TAR,bytes([raw[0]^1])+raw[1:])
+    if mutation in ('core_failure','activation_failure','interrupted'):
+        with tarfile.open(docs/TAR) as archive:files={m.name:archive.extractfile(m).read() for m in archive if m.isfile()}
+        key='native-reading-time-package/install.sh' if mutation=='core_failure' else 'native-reading-time-package/Install-Native-Reading-Time-Optimized.sh'
+        if mutation=='core_failure':files[key]=files[key].replace(b'STAGE=install',b'exit 73\nSTAGE=install')
+        else:files[key]=files[key].replace(b'echo "$(date): final sanity resolver=ok', (b'kill -TERM $$\n' if mutation=='interrupted' else b'fail "injected failure"\n')+b'echo "$(date): final sanity resolver=ok')
+        raw=make_tar(files);put(docs/TAR,raw)
+        text=script.read_text(encoding='utf-8');import re
+        text=re.sub(r"PAYLOAD_SIZE='[0-9]+'",f"PAYLOAD_SIZE='{len(raw)}'",text);text=re.sub(r"PAYLOAD_CKSUM='[0-9]+'",f"PAYLOAD_CKSUM='{posix_cksum(raw)}'",text);script.write_text(text,encoding='utf-8',newline='\n')
+    # Installation reports record the attempted upgrade, including a failure.
+    # They must retain new fault evidence rather than roll back to an old success.
+    old_evidence_log=(docs/'reading-records-v4-install.log').read_bytes() if (docs/'reading-records-v4-install.log').is_file() else b''
+    before={p.relative_to(us).as_posix():p.read_bytes() for folder in [base/'bin',base/'releases',base/'compat',base/'service',docs] for p in folder.rglob('*') if p.is_file() and p.name not in (BOOT,TAR,'reading-records-v4-install-result.txt','reading-records-v4-install.log')}
+    before_metadata={p:p.read_bytes() for p in (base/'VERSION',base/'release-info') if p.is_file()}
+    result=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130)
+    log=(docs/'reading-records-v4-install.log').read_text(encoding='utf-8',errors='replace')
+    failed=mutation in ('core_failure','activation_failure','interrupted','missing_payload','bad_checksum','cross_variant','ks_residue','wrong_device','unknown_formal','orphan','duplicate','busy_ui')
+    assert (result.returncode!=0)==failed,(previous,mutation,result.returncode,result.stderr,log,(base/'install.log').read_text(errors='replace')[-2500:] if (base/'install.log').exists() else '')
+    assert all(p.read_bytes()==raw for p,raw in protected.items())
+    if failed:
+        assert all((us/path).is_file() and (us/path).read_bytes()==raw for path,raw in before.items()),(mutation,[path for path,raw in before.items() if not (us/path).is_file() or (us/path).read_bytes()!=raw])
+        assert (docs/CLEAN).exists()==('documents/'+CLEAN in before)
+        assert all(p.read_bytes()==raw for p,raw in before_metadata.items()),mutation
+        assert (docs/'reading-records-v4-install.log').read_bytes().startswith(old_evidence_log)
+        assert 'installation_status=failed' in (docs/'reading-records-v4-install-result.txt').read_text(encoding='utf-8')
     else:
-        assert result.returncode == 0, (variant, previous, result.stdout, result.stderr, details, (docs / "reading-records-v4-install.log").read_text(errors="replace")[-2000:], (base / "install.log").read_text(errors="replace")[-3000:] if (base / "install.log").exists() else "")
-        assert (docs / CLEAN).is_file()
-        assert (base / "VERSION").read_text().strip() == ("V4-KS" if variant == "ks" else "V4")
-        import tarfile
-        with tarfile.open(docs / TAR) as archive:
-            source_name = "native-reading-time-package/阅读记录-optimized.sh" if variant == "standard" else "native-reading-time-package/阅读记录-ks.sh"
-            expected_runtime = archive.extractfile(source_name).read()
-            expected_launcher = archive.extractfile("native-reading-time-package/launch.sh" if variant == "standard" else "native-reading-time-package/launch-ks.sh").read()
-        installed_runtime = base / ("releases/9.7.5-test/bin/reading-records.sh" if variant == "standard" else "releases/9.7.5-ks-test1/bin/reading-records-ks.sh")
-        assert installed_runtime.read_bytes() == expected_runtime
-        assert (base / ("bin/launch.sh" if variant == "standard" else "bin/launch-ks.sh")).read_bytes() == expected_launcher
-        if previous in {"V4", "V4-KS"}:
-            repeated = subprocess.run([SHELL, script.as_posix()], env=env, capture_output=True, timeout=90)
-            assert repeated.returncode == 0, (variant, repeated.stdout, repeated.stderr)
-            assert installed_runtime.read_bytes() == expected_runtime
-            assert all(digest(Path(path)) == value for path, value in protected.items())
-    assert all(digest(Path(path)) == value for path, value in protected.items())
-    if previous is not None:
-        assert sum(path.is_file() for path in (base / "book-covers").rglob("*")) == cover_count
-    if expected_failure:
-        assert all(digest(Path(path)) == value for path, value in old_runtime.items()), mutation
-        for folder in (base / "bin", base / "releases", base / "compat", base / "ui", base / "fonts", base / "assets"):
-            if folder.is_dir():
-                assert all(str(path) in old_runtime for path in folder.rglob("*") if path.is_file()), mutation
-    if mutation and mutation != "missing_payload":
-        assert (docs / TAR).exists()
-    assert not list(tmp.glob("reading-records-installer.*"))
-    if cleanup:
-        assert not mutation
-        old_boot = docs / "点这个安装，然后确认插件正常之前不要删文件.sh"
-        put(old_boot, b"#!/bin/sh\n# READING_RECORDS_V4_BOOTSTRAP\n")
-        backup = session / "cleanup-copy.sh"
-        backup.write_bytes((docs / CLEAN).read_bytes())
-        if legacy_tag:
-            old_files = subprocess.check_output(["git", "ls-tree", "-r", "--name-only", "-z", legacy_tag, "native-reading-time-package"], cwd=ROOT).decode("utf-8").rstrip("\0").split("\0")
-            for name in old_files:
-                put(us / name, historical(legacy_tag, name))
-            assert not (us / "PACKAGE-MANIFEST.json").exists()
-        elif legacy_archive:
-            with zipfile.ZipFile(ROOT / "dist" / legacy_archive) as archive:
-                archive.extractall(us)
-        else:
-            full_name = "ReadingTime-V4-Full-Compatibility.zip" if variant == "standard" else "ReadingTime-V4-KS-Full-Compatibility.zip"
-            with zipfile.ZipFile(ROOT / "dist" / full_name) as archive:
-                archive.extractall(us)
-        leftovers = {
-            us / "RUNME.sh": b"#!/bin/sh\n/mnt/us/native-reading-time-package/install.sh\n",
-            us / "README.txt": "Kindle 阅读记录\n".encode(),
-            docs / "reading-records-install.sh": b"/mnt/us/native-reading-time-package/install.sh\n",
-        }
-        for path, raw in leftovers.items():
-            put(path, raw)
-        if cleanup_unknown:
-            put(us / "native-reading-time-package/user-extra.txt", b"user file, must not be removed")
-            denied = subprocess.run([SHELL, (docs / CLEAN).as_posix()], env=env, capture_output=True, timeout=30)
-            assert denied.returncode != 0
-            assert (us / "native-reading-time-package/user-extra.txt").is_file()
-            assert (docs / BOOT).is_file() and (docs / TAR).is_file() and (docs / CLEAN).is_file()
-            assert all(digest(Path(path)) == value for path, value in protected.items())
-            return {"returncode": denied.returncode, "result": "unknown package member protected", "protected_hashes": protected}
-        first = subprocess.run([SHELL, (docs / CLEAN).as_posix()], env=env, capture_output=True, timeout=30)
-        assert first.returncode == 0, (first.stdout, first.stderr, (base / "cleanup-last.log").read_text(errors="replace"))
-        assert not (docs / BOOT).exists() and not (docs / TAR).exists() and not (docs / CLEAN).exists()
-        assert not old_boot.exists()
-        assert not (us / "native-reading-time-package").exists()
-        assert not (us / "extensions/reading-records-installer").exists()
-        assert all(not path.exists() for path in leftovers)
-        assert all(digest(Path(path)) == value for path, value in protected.items())
-        assert (base / "bin/native-reading-time-daemon.sh").exists()
-        second = subprocess.run([SHELL, backup.as_posix()], env=env, capture_output=True, timeout=30)
-        assert second.returncode == 0, (second.stdout, second.stderr)
-    return {"returncode": result.returncode, "result": details.strip(), "protected_hashes": protected}
+        assert (docs/'reading-records.sh').read_bytes()==(ROOT/'native-reading-time-package/阅读记录-entry.sh').read_bytes()
+        if previous is None:assert (base/'reading-time.tsv').read_bytes()==b'date\tbook_id\tseconds\ttitle\n'
+        assert (base/'VERSION').read_text().strip()==PRODUCT_VERSION
+        assert (base/f'releases/{PRODUCT_VERSION}/bin/reading-records.sh').read_bytes()==(ROOT/'native-reading-time-package/阅读记录-optimized.sh').read_bytes()
+        assert (docs/CLEAN).is_file() and (base/'.previous-install').is_dir()
+        assert (docs/CLEAN).read_text(encoding='utf-8').splitlines()[1]=='# Name: 确认无误之后，再点这个'
+        owned_viewers=[p.name for p in docs.glob('*.sh') if '# Name: 阅读记录' in p.read_text(encoding='utf-8',errors='replace').splitlines()]
+        assert owned_viewers==['reading-records.sh']
+        known_cleanup_names=('# Name: 安装文件清理','# Name: 确认无误之后，再点这个','# Name: 安装好之后，确认无误了再点这个')
+        visible_cleanups=[p.name for p in docs.glob('*.sh') if any(name in p.read_text(encoding='utf-8',errors='replace').splitlines() for name in known_cleanup_names)]
+        assert visible_cleanups==[CLEAN],visible_cleanups
+        if mutation!='unknown_alias':assert not (docs/'阅读记录.sh').exists()
+        assert not (docs/'reading-records-uninstall.sh').exists() and not (docs/'安装好之后，确认无误了再点这个.sh').exists()
+        if previous in ('mixed','deleted-formal','V4','test1','test1-cleaned'):
+            again=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130);assert again.returncode==0,again.stderr
+            assert len(list(base.glob('.previous-install')))==1 and not list(base.glob('.v4-rollback.*'))
+        if mutation=='scanner_failure':assert 'scanner_request=request_failed index_completion=unverified' in log
+        if cleanup:
+            backup=session/'cleanup-copy.sh';shutil.copy2(docs/CLEAN,backup)
+            active_runtime={p:p.read_bytes() for folder in (base/f'releases/{PRODUCT_VERSION}',base/'compat',base/'service') for p in folder.rglob('*') if p.is_file()}
+            active_runtime.update({p:p.read_bytes() for p in (base/'bin/launch.sh',base/'bin/service-manager.sh',base/'bin/native-reading-time-daemon.sh',upstart/'native-reading-time.conf')})
+            scanner_before=len((session/'scanner-calls').read_text(encoding='utf-8').splitlines())
+            if cleanup_unknown:put(us/'native-reading-time-package/user-extra.txt',b'user unknown')
+            if legacy_tag:
+                names=subprocess.check_output(['git','ls-tree','-r','--name-only',legacy_tag,'native-reading-time-package'],cwd=ROOT).decode().splitlines()
+                for name in names:put(us/name,historical(legacy_tag,name))
+            c=subprocess.run([SHELL,(docs/CLEAN).as_posix()],env=env,capture_output=True,timeout=90)
+            if cleanup_unknown:assert c.returncode!=0 and (us/'native-reading-time-package/user-extra.txt').read_bytes()==b'user unknown'
+            else:
+                assert c.returncode==0,(c.stdout,c.stderr,(base/'cleanup-last.log').read_text(errors='replace'))
+                assert not (docs/CLEAN).exists() and not (docs/BOOT).exists() and not (docs/TAR).exists()
+                assert not (base/'.previous-install').exists() and not (us/'native-reading-time-package').exists(), ((base/'cleanup-last.log').read_text(errors='replace'),(base/'.previous-install/snapshot-files').read_text(errors='replace') if (base/'.previous-install/snapshot-files').exists() else '')
+                assert not (base/'releases/9.7.6-5.19-normal').exists(), (base/'cleanup-last.log').read_text(errors='replace')
+                assert not (base/'releases/9.7.5-test').exists()
+                assert not (base/'releases/9.7.4').exists()
+                assert not (base/'releases/9.7.6-5.20.1-vera-test1').exists()
+                assert (docs/'reading-records.sh').read_bytes()==(ROOT/'native-reading-time-package/阅读记录-entry.sh').read_bytes()
+                assert all(p.read_bytes()==raw for p,raw in active_runtime.items())
+                assert len((session/'scanner-calls').read_text(encoding='utf-8').splitlines())>scanner_before
+                if mutation=='scanner_failure':assert 'scanner_request=request_failed index_completion=unverified' in (base/'cleanup-last.log').read_text(encoding='utf-8')
+                c=subprocess.run([SHELL,backup.as_posix()],env=env,capture_output=True,timeout=90);assert c.returncode==0,c.stderr
+            assert all(p.read_bytes()==raw for p,raw in protected.items())
+    calls=(session/'service-fixture/calls').read_text(errors='replace') if (session/'service-fixture/calls').exists() else ''
+    if previous and mutation not in ('stopped_service','orphan','duplicate'):
+        assert 'stop native-reading-time' not in calls, (mutation,calls)
+        assert 'start native-reading-time' not in calls,(mutation,calls)
+    return {'package_sha256':package_sha,'scenario':str(previous or 'fresh')+' '+mutation,'result':'PASS','scanner_index_completion':'UNVERIFIED','protected_files':len(protected)}
 
-
-def main() -> None:
-    import sys
-    sys.path.insert(0, str(ROOT / "scripts"))
-    matrix = [("standard", None), ("standard", "9.7.4"), ("standard", "9.7.5"), ("standard", "V1"), ("standard", "V2"), ("standard", "V3"), ("standard", "V4"), ("standard", "V4 Test1"), ("standard", "V4 Test2"), ("ks", None), ("ks", "V3-KS"), ("ks", "V4-KS"), ("ks", "V4-KS Test1"), ("ks", "V4-KS Test2")]
-    selected = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("READING_V4_TEST_FILTER", "")
-    if selected:
-        matrix = [case for case in matrix if case[0] == selected]
-    report: dict[str, dict] = {}
-    for variant, previous in matrix:
-        with tempfile.TemporaryDirectory(prefix="v4-", dir=OUT) as name:
-            key = f"{previous or 'empty'} -> {'V4-KS' if variant == 'ks' else 'V4'}"
-            report[key] = run(Path(name), variant, previous)
-            print(key, "PASS", flush=True)
-    for mutation in (() if selected else ("missing_payload", "bad_checksum", "bad_tar", "tar_unavailable", "tar_extract_failure", "temp_failure", "core_failure", "staging_failure", "activation_failure", "verified_failure", "early_cleanup", "busybox_fallback", "soft_float", "cross_variant", "wrong_device")):
-        with tempfile.TemporaryDirectory(prefix="v4-fail-", dir=OUT) as name:
-            test_variant = "ks" if mutation == "cross_variant" else "standard"
-            old = "V4" if mutation == "cross_variant" else None if mutation == "soft_float" else "V3"
-            report[mutation] = run(Path(name), test_variant, old, mutation=mutation)
-            print(mutation, "PASS", flush=True)
-    if not selected:
-        with tempfile.TemporaryDirectory(prefix="v4-ks-soft-float-", dir=OUT) as name:
-            report["ks soft_float fresh"] = run(Path(name), "ks", None, mutation="soft_float")
-            print("ks soft_float fresh PASS", flush=True)
-        for mutation in ("staging_failure", "activation_failure", "verified_failure"):
-            with tempfile.TemporaryDirectory(prefix="v4-ks-fail-", dir=OUT) as name:
-                report[f"ks {mutation}"] = run(Path(name), "ks", "V3-KS", mutation=mutation)
-                print("ks", mutation, "PASS", flush=True)
-        for variant in ("standard", "ks"):
-            with tempfile.TemporaryDirectory(prefix="v4-cleanup-", dir=OUT) as name:
-                report[f"cleanup {variant}"] = run(Path(name), variant, "V3" if variant == "standard" else "V3-KS", cleanup=True)
-                print("cleanup", variant, "PASS", flush=True)
-        for tag in ("v9.7.4", "v9.7.5-test.1", "v9.7.5-compat-v2"):
-            with tempfile.TemporaryDirectory(prefix="v4-legacy-cleanup-", dir=OUT) as name:
-                report[f"cleanup {tag}"] = run(Path(name), "standard", "V3", cleanup=True, legacy_tag=tag)
-                print("cleanup", tag, "PASS", flush=True)
-    if selected == "focused":
-        for variant, previous, mutation, do_cleanup in (("standard", "V3", "activation_failure", False), ("standard", "V3", "verified_failure", False), ("ks", "V3-KS", "staging_failure", False), ("ks", "V3-KS", "activation_failure", False), ("ks", "V3-KS", "verified_failure", False), ("standard", "V3", "", True), ("ks", "V3-KS", "", True)):
-            with tempfile.TemporaryDirectory(prefix="v4-focused-", dir=OUT) as name:
-                report[f"focused {variant} {mutation or 'cleanup'}"] = run(Path(name), variant, previous, mutation=mutation, cleanup=do_cleanup)
-                print("focused", variant, mutation or "cleanup", "PASS", flush=True)
-        with tempfile.TemporaryDirectory(prefix="v4-focused-legacy-", dir=OUT) as name:
-            report["focused cleanup v9.7.4"] = run(Path(name), "standard", "V3", cleanup=True, legacy_tag="v9.7.4")
-            print("focused cleanup v9.7.4 PASS", flush=True)
-        with tempfile.TemporaryDirectory(prefix="v4-focused-unknown-", dir=OUT) as name:
-            report["focused cleanup unknown member"] = run(Path(name), "standard", "V3", cleanup=True, cleanup_unknown=True)
-            print("focused cleanup unknown member PASS", flush=True)
-    if selected == "legacy":
-        for tag in ("v9.7.4", "v9.7.5-test.1", "v9.7.5-compat-v2"):
-            with tempfile.TemporaryDirectory(prefix="v4-legacy-cleanup-", dir=OUT) as name:
-                report[f"legacy cleanup {tag}"] = run(Path(name), "standard", "V3", cleanup=True, legacy_tag=tag)
-                print("legacy cleanup", tag, "PASS", flush=True)
-        with tempfile.TemporaryDirectory(prefix="v4-legacy-ks-cleanup-", dir=OUT) as name:
-            report["legacy cleanup V3-KS"] = run(Path(name), "ks", "V3-KS", cleanup=True, legacy_archive="ReadingTime-v9.7.5-KS-touch-compat-hotfix.zip")
-            print("legacy cleanup V3-KS PASS", flush=True)
-    output = OUT / (f"v4-{selected}-results.json" if selected else "v4-results.json")
-    output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-if __name__ == "__main__":
-    main()
+def main():
+    results=[]
+    cases=[(p,'',True) for p in (None,'9.7.4','V1','V2','V3','normal','V4','mixed','deleted-formal')]
+    cases += [('mixed',m,False) for m in ('core_failure','activation_failure','interrupted','missing_payload','bad_checksum','cross_variant','ks_residue','wrong_device','unknown_formal','unknown_alias','duplicate','orphan','scanner_failure','lost_service','stopped_service','initial_rw','busy_ui')]
+    cases += [('test1','',True),('test1-cleaned','',True),(None,'scanner_failure',True)]
+    cases += [('test1',m,False) for m in ('core_failure','activation_failure','interrupted')]
+    for p,m,c in cases:
+        with tempfile.TemporaryDirectory(prefix='standard-install-',dir=OUT) as name:results.append(run(Path(name),previous=p,mutation=m,cleanup=c))
+        print(p or 'fresh',m or 'install + cleanup','PASS',flush=True)
+    for tag in ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3'):
+        with tempfile.TemporaryDirectory(prefix='standard-legacy-',dir=OUT) as name:results.append(run(Path(name),previous='V3',cleanup=True,legacy_tag=tag))
+        print('legacy payload',tag,'PASS',flush=True)
+    with tempfile.TemporaryDirectory(prefix='standard-unknown-',dir=OUT) as name:results.append(run(Path(name),previous='V3',cleanup=True,cleanup_unknown=True))
+    assert len({row['package_sha256'] for row in results})==1, 'Package changed during matrix; rerun against frozen ZIP'
+    (OUT/'standard-install-results.json').write_text(json.dumps({'result':'PASS','checks':results,'hardware':'PENDING'},indent=2),encoding='utf-8')
+if __name__=='__main__':main()

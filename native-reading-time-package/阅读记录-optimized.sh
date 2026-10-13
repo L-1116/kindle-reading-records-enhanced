@@ -3,15 +3,20 @@
 # Author: Kindle Reading Records Enhanced
 # Icon: /mnt/us/reading-time/assets/launcher-icon.png
 
-# Kindle 原生阅读记录 V4.  This process exists only while the
+# Kindle 原生阅读记录 9.7.6-5.20.1-vera.  This process exists only while the
 # dashboard is open.  The tracker daemon and reading-time.tsv are untouched.
 BASE="${READING_BASE:-/mnt/us/reading-time}"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="${READING_FBINK:-/var/local/kmc/bin/fbink}"
-RELEASE="$BASE/releases/9.7.5-test"
+RELEASE="${READING_RELEASE:-$BASE/releases/9.7.6-5.20.1-vera}"
+[ -r "$BASE/compat/performance.sh" ] && . "$BASE/compat/performance.sh"
+type rr_perf >/dev/null 2>&1 || rr_perf() { :; }
+rr_perf ui_begin
 UI_DIR="$RELEASE/ui-calendar"
 TOUCH_READER="$RELEASE/bin/reading-insights-touch-ui.lua"
+TOUCH_PROBE="$RELEASE/bin/reading-insights-touch-probe.lua"
+TOUCH_PREFLIGHT="$RELEASE/bin/reading-insights-touch-preflight.sh"
 RENDERER="$RELEASE/bin/reading-insights-render.lua"
 RENDER_ASSETS="$RELEASE/render-assets"
 CACHE_BUILDER="$RELEASE/bin/reading-insights-cache.awk"
@@ -133,12 +138,9 @@ detect_screen() {
 }
 
 find_touch_device() {
-    if [ -n "${READING_TOUCH_DEVICE:-}" ] && [ -r "$READING_TOUCH_DEVICE" ]; then TOUCH="$READING_TOUCH_DEVICE"; return; fi
-    for ep in /sys/class/input/event*; do
-        [ -r "$ep/device/name" ] || continue; en="$(tr '[:upper:]' '[:lower:]' < "$ep/device/name" 2>/dev/null)"
-        case "$en" in *touch*|*zforce*|*cyttsp*|*fts*|*_ts*) c="/dev/input/${ep##*/}"; [ -r "$c" ] && { TOUCH="$c"; return; };; esac
-    done
-    TOUCH="/dev/input/event1"
+    [ -r "$TOUCH_PREFLIGHT" ] || { lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true; fail "缺少触摸兼容层"; }
+    . "$TOUCH_PREFLIGHT"
+    standard_touch_preflight
 }
 
 scale_len() { n=$(( $1*SCALE_NUM/SCALE_DEN )); [ "$n" -gt 0 ] || n=1; echo "$n"; }
@@ -1386,7 +1388,7 @@ cleanup() {
     if [ -n "$legacy_pid" ]; then
         stop_ui_child "$legacy_pid"; legacy_pid=""
     fi
-    lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 0 >/dev/null 2>&1 || true; remove_session
+    lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver "${READING_ORIGINAL_POWER:-0}" >/dev/null 2>&1 || true; remove_session
     if [ "$dashboard_active" -eq 1 ]; then
         lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
         # Library owns its refresh; recovery never executes a runtime
@@ -1457,11 +1459,13 @@ EOF
     perform_draw book_detail_open 1 0 0 0 1272 1696
 }
 
+rr_perf geometry_begin
 detect_screen; find_touch_device
+rr_perf touch_end
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
     [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] && [ -f "$UI_DIR/month_detail.png" ] && [ -f "$UI_DIR/week_trend.png" ] && [ -f "$UI_DIR/book_detail.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
-    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.7.5-test\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
+    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.7.6-5.20.1-vera\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
 lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true; dashboard_active=1
 
@@ -1469,10 +1473,13 @@ mode=daily; view_year="$(date +%Y)"; total_period=week; week_offset=0; book_filt
 first_refresh_mode=GC16_flash
 [ "${COMPAT_PROFILE:-default}" = fw518 ] && first_refresh_mode=GC16_nonflash
 startup_stage first_render_begin
-metric_begin first_open; build_cache || fail "启动缓存构建失败"; selected_date="$today_date"; draw_background || fail "FBInk 无法绘制首屏背景"; draw_dynamic 1 || fail "首屏 Lua/FBInk 渲染失败"
+metric_begin first_open; rr_perf data_begin; build_cache || fail "启动缓存构建失败"; rr_perf data_end; selected_date="$today_date"; rr_perf background_begin; draw_background || fail "FBInk 无法绘制首屏背景"; rr_perf background_end; rr_perf dynamic_begin; draw_dynamic 1 || fail "首屏 Lua/FBInk 渲染失败"
+rr_perf dynamic_end
 startup_stage first_render_done
+rr_perf refresh_begin
 startup_stage first_refresh_begin
 refresh_region 0 0 1272 1696 || fail "FBInk 首屏刷新失败"
+rr_perf refresh_end
 startup_stage first_refresh_done
 metric_end optimized 0 1
 startup_touch_pending=1
@@ -1485,12 +1492,14 @@ while :; do
         # wait is interruptible even while Lua blocks in evdev read(). Keep
         # the same reader/arguments, with no extra process or input polling.
         ui_child_launch=touch
-        lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter" > "$SESSION_DIR/touch-action" & touch_pid=$!; ui_child_launch=""
+        lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter" "$TOUCH_TRANSFORM" "$EVENT_STRUCT_SIZE" "$SCREEN_W" "$SCREEN_H" "$TOUCH_LOG" "$RAW_X_MIN" "$RAW_X_MAX" "$RAW_Y_MIN" "$RAW_Y_MAX" > "$SESSION_DIR/touch-action" & touch_pid=$!; ui_child_launch=""
         wait "$touch_pid"; touch_code=$?; touch_pid=""
-        if [ "$touch_code" -eq 0 ]; then action="$(cat "$SESSION_DIR/touch-action")"; else fail "触摸 Lua 退出码 $touch_code"; fi
+        if [ "$touch_code" -eq 0 ]; then action="$(cat "$SESSION_DIR/touch-action")"; else standard_touch_reader_failed "$touch_code"; fi
     else
-        action="$(lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter")" || fail "触摸 Lua 启动或读取失败"
+        action="$(lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" "$touch_pages" "$touch_page" "$touch_pager_y" "$total_period" "$book_filter" "$TOUCH_TRANSFORM" "$EVENT_STRUCT_SIZE" "$SCREEN_W" "$SCREEN_H" "$TOUCH_LOG" "$RAW_X_MIN" "$RAW_X_MAX" "$RAW_Y_MIN" "$RAW_Y_MAX")" || standard_touch_reader_failed "$?"
     fi
+    READING_PERF_READY_DONE=1; export READING_PERF_READY_DONE
+    standard_touch_action_received
     echo "$(date): dashboard action=$action mode=$mode"
     case "$action" in
       exit) break;;

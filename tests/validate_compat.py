@@ -79,6 +79,8 @@ detect_env = PKG / "compat/detect_env.sh"
 
 cases = {
     "5.19.0": "default",
+    "5.20.1": "default",
+    "5.20.1.0.1": "default",
     "5.18": "fw518",
     "5.18.0": "fw518",
     "5.18.1": "fw518",
@@ -122,18 +124,20 @@ assert comparison.stdout.strip() == "1|-1|0|unknown", comparison.stdout
 # they are optional and must not be launch gates.
 base = SANDBOX / "reading-time"
 docs = SANDBOX / "documents"
-release = base / "releases/9.7.5-test"
+release = base / "releases/9.7.6-5.20.1-vera"
 mockbin = SANDBOX / "mockbin"
 for folder in (base / "bin", base / "compat", base / "fonts", release / "bin", release / "ui-calendar", release / "render-assets", docs, mockbin):
     folder.mkdir(parents=True, exist_ok=True)
 shutil.copy2(detect_env, base / "compat/detect_env.sh")
 shutil.copy2(PKG / "diagnostics.sh", base / "bin/diagnostics.sh")
 shutil.copy2(PKG / "launch.sh", base / "bin/launch.sh")
+shutil.copy2(PKG / "compat/runtime-lock.sh", base / "compat/runtime-lock.sh")
+shutil.copy2(PKG / "compat/lifecycle.sh", base / "compat/lifecycle.sh")
 (base / "reading-time.tsv").write_text("date\tbook_id\tseconds\ttitle\n", encoding="utf-8")
 (base / "fonts/NotoSansCJKsc-Regular.otf").write_bytes(b"font")
 for name in ("daily.png", "total.png", "books.png", "day_detail.png", "month_detail.png", "week_trend.png", "book_detail.png"):
     (release / "ui-calendar" / name).write_bytes(b"png")
-for name in ("reading-insights-touch-ui.lua", "reading-insights-render.lua", "reading-insights-cover.lua", "reading-insights-titles.lua", "reading-insights-title-widths.lua"):
+for name in ("reading-insights-touch-preflight.sh", "reading-insights-touch-probe.lua", "reading-insights-touch-ui.lua", "reading-insights-render.lua", "reading-insights-cover.lua", "reading-insights-titles.lua", "reading-insights-title-widths.lua"):
     (release / "bin" / name).write_text("return true\n", encoding="utf-8")
 for name in ("dynamic-glyphs.pgm", "dynamic-glyphs.tsv"):
     (release / "render-assets" / name).write_text("mock\n", encoding="utf-8")
@@ -143,6 +147,9 @@ fbink = mockbin / "fbink"
 fbink.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
 lua = mockbin / "lua"
 lua.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
+lipc_get=mockbin / "lipc-get-prop"
+lipc_get.write_text("#!/bin/sh\necho 0\n",encoding="utf-8",newline="\n")
+subprocess.run([SH,"-c",'/usr/bin/chmod 755 "$1"',"fixture",lipc_get.as_posix()],check=True)
 lipc_calls = SANDBOX / "lipc-calls.txt"
 lipc = mockbin / "lipc-set-prop"
 lipc.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$READING_TEST_LIPC_LOG"\n', encoding="utf-8", newline="\n")
@@ -150,6 +157,7 @@ subprocess.run([SH, "-c", '/usr/bin/chmod 755 "$@"', "test", (base / "bin/launch
 
 launch_env = {
     "READING_BASE": base.as_posix(),
+    "READING_TMPDIR": SANDBOX.as_posix(),
     "READING_DOCUMENTS": docs.as_posix(),
     "READING_MNT_US": SANDBOX.as_posix(),
     "READING_FBINK": fbink.as_posix(),

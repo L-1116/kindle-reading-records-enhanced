@@ -1,38 +1,45 @@
 # Kindle Reading Records Enhanced
 
-适用于越狱 Kindle 的原生阅读时长统计插件增强版。**建议下载
-[`9.7.5 兼容版 V3`](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-compat-v3)**
-作为全新安装或原地升级包；
-可在设备上查看月历、阅读热力、周/年统计、月份与最近 8 周趋势、当天阅读详情、
-本地书籍封面和单书阅读日历。
+适用于越狱 Kindle 的原生阅读时长统计插件增强版，可在设备上查看月历、阅读热力、累计统计、最近 8 周、月份详情、阅读书籍、本地封面和单书详情。
 
-本项目基于 [Plutoill/kindle-reading-records](https://github.com/Plutoill/kindle-reading-records)
-的代码，经原作者授权后继续迭代。本仓库不是上游项目的官方版本；原始工作归
-Plutoill，本仓库中的后续增强和维护由 L-1116 完成。
+当前正式版本：**[9.7.6-5.20.1-vera](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6-5.20.1-vera)**。
 
-> 这不是 Amazon 官方项目。安装前请确认 Kindle 已越狱，并至少具备
-> SH Integration、KUAL 或 `;log runme` 中的一种可用入口。操作前建议备份
-> `/mnt/us/reading-time/`。
+本项目基于 [Plutoill/kindle-reading-records](https://github.com/Plutoill/kindle-reading-records) 的代码，经原作者授权后继续迭代。本仓库不是上游项目的官方版本；原始工作归 Plutoill，本仓库中的后续增强和维护由 L-1116 完成。
 
-## V4 Test 3 兼容性更新
+本次为 **Standard 普通版正式发布**，不发布 KS 版。已在 **KPW6（Kindle Paperwhite 12 代）、固件 5.20.1、Vera 越狱**环境完成实机验证，启动、计时、覆盖升级、清理入口名称及自删除功能均正常。
 
-[V4 Test 3 Pre-release](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v4-test.3) 是面向正常使用的兼容性更新。普通 Kindle 下载 `ReadingTime-V4.zip`，Kindle Scribe 下载 `ReadingTime-V4-KS.zip`。只解压外层 ZIP 一次，将短文件名安装脚本与安装 tar 一起复制到 `documents`，无需解压 tar；已有用户直接覆盖升级，不要先卸载。V4 修复 FBInk 启动检查误判，使用真实绘制自动选择可用 runtime，并保留数据保护、rollback、5.18.x 刷新和 KS 触摸修复。安装说明见 [V4 Test 3](docs/releases/v4-test3.md)，工程说明见 [V4 安装与运行系统](docs/v4-install-system.md)。
+## 本版改进
 
-## 功能
+- **5.20.1 计时服务恢复**：保留服务配置持久副本、健康检查、按需恢复、Upstart 验证、挂载恢复和生命周期锁。正常服务快速返回，避免重复启动计时进程；原计时规则与 TSV 格式不变。
+- **启动性能优化**：减少启动链重复校验及不必要的等待，保留实际 framebuffer 命令验证、fallback、单实例锁、横屏和电源恢复。KPW6 实机启动速度已达到可接受水平。
+- **两文件简易安装**：首次安装、旧版原地升级和同版修复均自动处理，无需卸载旧版、选择 runtime 或手动安装服务。
+- **安全升级与清理**：按真实路径和已知历史内容迁移旧启动及清理入口，保留一个“阅读记录”。清理入口严格显示 **“确认无误之后，再点这个”**，执行后自删除并请求书库 scanner 更新。
+- **数据与回滚保护**：历史阅读记录、配置、封面缓存和必要服务保留。安装失败恢复旧状态，旧 release 在确认清理时经逐文件验证且无有效引用后才移除；归属不明的文件保留并报告。
 
-- 原生阅读器处于前台且屏幕亮起时统计阅读时长，锁屏或离开阅读器后停止。
-- 月历按日展示阅读热力，可进入当天书籍明细并分页查看。
-- 累计页支持本周、年度与全部历史统计，书籍页支持 7 天、月度、年度和全部历史筛选、本地封面与单书阅读日历。
-- 保留真实书籍进度读取、跨午夜拆分、历史数据保护和兼容模式回退。
-- 逻辑画布为 1272×1696，并提供等比例缩放和触摸坐标转换。
+继续保留既有 5.17、5.18、5.19 和 GC16 兼容路径，目标固件名称不意味着只允许该固件运行。本轮实机验收范围为 KPW6 / 5.20.1 / Vera。已安装 KS 的设备会被普通版安装器安全拒绝，不应使用本包覆盖。自动恢复无法补算停服期间未记录的阅读时长。
 
-## 推荐版本：9.7.5 兼容版 V3
+## 首次安装与覆盖升级
 
-V3 修复了新书无封面的回归：当 Kindle catalog 中同一个 book ID 有多条记录时，旧兼容版可能提前选中第一条空的 `p_thumbnail` / `p_location` 记录，导致明明存在的 Kindle 缩略图无法使用。V3 会选择有可用缩略图和书籍路径的同 ID 记录。此前已缓存的封面继续保留；《北平无战事(上下册)》和《平凡的世界》的新封面已在真实问题 Kindle 上验证成功。
+下载本 Release 的 **`9.7.6-5.20.1-vera.zip`**，不要把 GitHub 自动生成的 Source code 压缩包当作安装包。Kindle 需已越狱并具有可用的 SH Integration 书库 Scriptlet 支持。
 
-V3 还把旧“阅读记录卸载”改为**“安装文件清理”**。安装并确认“阅读记录”能正常打开后，点击一次该入口，它只清除本插件安装、测试和封面诊断过程中留下的安装包、临时脚本、调试入口和报告，最后删除清理入口自身。这样 Kindle 书库中长期只保留“阅读记录”，USB 根目录也不再散落安装文件。**它不是卸载，也不是清空阅读数据**：不会停止插件、删除主程序、阅读历史、统计、用户配置或封面缓存；旧 release 也保留。若以后需要再次升级，重新解压完整安装 ZIP 即可。
+1. 只解压 ZIP 一次，得到 `reading-records-v4-install.sh` 和 `阅读记录安装数据.tar`；**不要继续解压 tar**。脚本保留已有物理文件名，产品版本为 `9.7.6-5.20.1-vera`。
+2. 把两个文件一起复制到 Kindle `documents` 目录，安全弹出。
+3. 点击书库 **“安装阅读记录”** 并等待安装完成。旧普通版用户使用相同步骤直接覆盖升级，**无需先卸载或手动删除旧版**。
+4. 打开 **“阅读记录”**，确认历史记录和新增计时正常。
+5. 点击 **“确认无误之后，再点这个”**。安装文件及已确认无效的旧入口会被安全清理，清理入口随后删除自己，扫描更新后仅保留一个“阅读记录”。
 
-9.7.4、兼容版 V1/V2 仍可直接覆盖升级至 V3，无需清空数据。V1/V2 是历史公开测试版本，不再建议新用户下载。发现问题可在发布本插件的小红书笔记评论区留言、私信作者或提交 GitHub Issue。
+**历史阅读数据可以保留。** 升级与清理不会清空 `reading-time.tsv`、历史备份、用户配置或封面缓存，也不会删除当前 runtime 或必要计时服务。清理入口用于清除安装文件，不卸载插件。scanner 请求接受不等于索引已完成，书库显示更新可能需要等待。
+
+## 验收与安装包校验
+
+已完成 15 项必要离线回归、37 个迁移/故障/清理场景、26 个服务场景及 5 个安装清理后服务恢复场景，并通过上述 KPW6 实机验收。本次直接上传该已验证候选 ZIP，没有在发布过程中修改生产代码或重新构建安装包。
+
+- 文件：`9.7.6-5.20.1-vera.zip`
+- 大小：15,222,419 字节
+- 构建标识：`fc4e9d8b7c1b4403436e`
+- SHA-256：`339a3ff395ca593eff0e2ee851b466decbdabdc7ded521c37b1fee49450de487`
+
+ZIP 顶层严格为两个安装文件。手动上传资产仅有这个 Standard ZIP；KS 构建与交付暂停。原测试基线 `9.7.6-5.20.1-vera-test1` 及既有历史产物、tag 保留。
 
 ## 界面预览
 
@@ -40,39 +47,14 @@ V3 还把旧“阅读记录卸载”改为**“安装文件清理”**。安装�
 |---|---|---|
 | ![每日时长](docs/images/daily.png) | ![阅读书籍](docs/images/books.png) | ![当天详情](docs/images/day-detail.png) |
 
-## 安装与安装文件清理
+## 开发与版本记录
 
-> 请从 [兼容版 V3 Release](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-compat-v3) 的 **Assets** 下载 **`kindle-reading-records-v9.7.5-compat-v3.zip`**；不要下载 GitHub 自动生成的 `Source code` 压缩包，它们不是 Kindle 安装包。
+发布说明见 [正式版本](docs/releases/9.7.6-5.20.1-vera.md)，源码与包的校验记录见 [发布校验清单](docs/releases/9.7.6-5.20.1-vera-verification.json)，版本历史见 [CHANGELOG.md](CHANGELOG.md)。
 
-1. 将 ZIP **全部内容**解压到 Kindle USB 根目录，安全弹出设备。
-2. 在书库点击“阅读记录安装”（需要 SH Integration）；也可用 KUAL → 阅读记录 → 安装 / 升级，或搜索栏执行 `;log runme`。
-3. 确认“阅读记录”可以正常打开，阅读数据和封面正常。
-4. 点击书库中的“安装文件清理”。它只删除白名单列出的安装/调试杂文件和自己的入口，不删除插件或用户数据。清理后书库中本插件的长期入口为“阅读记录”。
-
-安装与升级使用同一个 ZIP，保留阅读历史、配置、封面缓存和旧 release。清理前会验证 V3 已正常安装；验证失败时不会删除安装包。完整路径白名单见 [`cleanup-manifest.txt`](native-reading-time-package/cleanup-manifest.txt)，详细说明见 [安装与回滚说明](docs/安装与回滚.md)。
-
-## 开发与验证
-
-需要 Python 3.11+、POSIX `sh`/`dash`，以及：
-
-```sh
-python -m pip install -r requirements-dev.txt
-python scripts/validate_all.py
-```
-
-验证结果写入 `build/validation/`，安装包写入 `dist/`，两者均不提交到 Git。
-`RUNME.sh`、`documents/`、`extensions/` 与 `native-reading-time-package/` 始终保持可直接解压到 Kindle USB 根目录的结构。
-
-## 版本历史
-
-仓库早期历史由本地发布快照按继承关系重建，每个正式或测试快照都有对应 Git 标签。
-提交时间取自原快照目录的修改时间，只用于恢复时间顺序，并非原始开发提交记录。
-版本摘要见 [CHANGELOG.md](CHANGELOG.md)。
+开发需要 Python 3.11+、POSIX sh/dash 及 `requirements-dev.txt` 中的依赖。完整离线回归和历史归属清单生成需要开发者本地保存的历史安装包与基线快照；它们不是普通用户的安装依赖，也不作为日志、测试数据或构建缓存提交。`scripts/package_release.py` 默认仅生成 Standard 本地候选；本轮发布直接使用已验证 ZIP。注册测试为 `scripts/validate_all.py`，发布源码校验为 `scripts/verify_published_release.py`。结果与缓存写入 `build/`，本地交付文件写入 `dist/`。
 
 ## 授权说明
 
-本仓库不附加通用软件许可证，也不应被视为向第三方授予复制、修改或再发布代码
-的许可。上游代码经原作者明确授权在此发布；如需复用，请分别联系相关权利人。
+本仓库不附加通用软件许可证，也不应被视为向第三方授予复制、修改或再发布代码的许可。上游代码经原作者明确授权在此发布；如需复用，请分别联系相关权利人。
 
-随包 `NotoSansCJKsc-Regular.otf` 字体仍按 SIL Open Font License 1.1 分发，完整
-条款见 `native-reading-time-package/FONT-LICENSE.txt`。
+随包 `NotoSansCJKsc-Regular.otf` 字体仍按 SIL Open Font License 1.1 分发，完整条款见 `native-reading-time-package/FONT-LICENSE.txt`。

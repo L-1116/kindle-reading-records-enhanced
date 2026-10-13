@@ -1,14 +1,17 @@
-# Kindle Reading Records 9.7.5-test legacy inventory.
+# Kindle Reading Records 9.7.6-5.20.1-vera inventory.
 # Cleanup never executes deletion passes from this file; it uses only the
 # exact paths documented in cleanup-manifest.txt and embedded in its core.
 # Format: CLASS|ROOT|RELATIVE_PATH|PURPOSE
 # ROOT is one of BASE, DOCS, MNT_US, UPSTART or TMP. Paths are never eval'ed.
 
 # Program files and application-owned directories.
-SCRIPTLET_FILE|DOCS|阅读记录.sh|library launcher
+SCRIPTLET_FILE|DOCS|reading-records.sh|library launcher
 SYSTEM_FILE|UPSTART|native-reading-time.conf|Upstart service job
 PROGRAM_TREE|BASE|bin|executables and helpers
 PROGRAM_TREE|BASE|compat|firmware compatibility files
+PROGRAM_TREE|BASE|service|persistent service recovery configuration
+PERSISTENT_TREE|BASE|service-events|bounded fault evidence; preserved by cleanup
+PERSISTENT_FILE|BASE|service-status.txt|service and timing status
 PROGRAM_TREE|BASE|releases|versioned application releases
 PROGRAM_TREE|BASE|ui|legacy UI assets
 PROGRAM_TREE|BASE|fonts|bundled application fonts

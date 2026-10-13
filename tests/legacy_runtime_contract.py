@@ -12,10 +12,9 @@ def assert_legacy_core() -> None:
     ], cwd=ROOT).decode("utf-8")
     after = (ROOT / "native-reading-time-package/阅读记录.sh").read_text(encoding="utf-8")
     start = "# Discover the visible framebuffer geometry."
-    old_geometry = before[before.index(start):before.index("\not() {")]
-    new_geometry = after[after.index(start):after.index("\n# The parent has already selected")]
-    old_geometry = old_geometry.replace('[ -x "$FBINK" ] || fail "未找到 Véra/KPM 系统级 FBInk"\n', "")
-    assert old_geometry == new_geometry, "legacy geometry/touch/resource checks changed"
+    # Touch discovery is deliberately replaced; retain exact geometry/scaling.
+    for begin, end in [(start, "\nfind_touch_device()"), ("scale_len()", "\ndetect_screen\n")]:
+        assert before[before.index(begin):before.index(end)] == after[after.index(begin):after.index(end)], "legacy geometry/scaling changed"
     old_body = before[before.index("ot() {"):before.index("\n# Safety invariant:")]
     new_body = after[after.index("ot() {"):after.index("\n# Safety invariant:")]
     new_body = new_body.replace("fb -q", '"$FBINK" -q').replace("done || exit 31", "done")
@@ -23,4 +22,9 @@ def assert_legacy_core() -> None:
         '        if [ "$draw_count" -eq 1 ] && [ "${COMPAT_PROFILE:-default}" = fw518 ]; then "$FBINK" -q -W GC16 -s\n'
         '        else "$FBINK" -q -f -W GC16 -s; fi', '        "$FBINK" -q -f -W GC16 -s')
     assert old_body == new_body, "legacy statistics/layout/draw arguments changed"
-    assert before[before.index('mode="total"; view_year='):] == after[after.index('mode="total"; view_year='):], "legacy interaction loop changed"
+    old_loop = before[before.index('mode="total"; view_year='):]
+    new_loop = after[after.index('mode="total"; view_year='):]
+    # All action handling and statistics remain exact; only reader invocation
+    # adds the preflight ABI/geometry and legacy hit-region selection.
+    assert old_loop[:old_loop.index('    action=')] == new_loop[:new_loop.index('    action=')]
+    assert old_loop[old_loop.index('    echo "$(date): dashboard action='):] == new_loop[new_loop.index('    echo "$(date): dashboard action='):], "legacy action handling changed"

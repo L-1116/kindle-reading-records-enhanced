@@ -70,7 +70,7 @@ wait() { printf 'wait %s\n' "$*" >> "$SELECTION_TRACE"; }
 
     atexit.register(stop_canary)
     base = session / "reading-time"
-    release = base / "releases/9.7.5-test"
+    release = base / "releases/9.7.6-5.20.1-vera"
     for folder in (release / "bin", release / "ui-calendar", base / "fonts"):
         folder.mkdir(parents=True)
     for name in ("total", "day_detail", "month_detail", "week_trend", "book_detail"):
@@ -159,6 +159,8 @@ sleep() {
     [ -z "$WAIT_SIGNAL" ] || kill -"$WAIT_SIGNAL" "$$"
 }
 find_touch_device() { TOUCH="$READING_TOUCH_DEVICE"; }
+standard_touch_action_received() { :; }
+standard_touch_reader_failed() { fail "touch reader failed"; }
 remove_session() { echo REMOVE_SESSION >> "$TRACE"; }
 metric_begin() { :; }; metric_end() { :; }
 build_cache() { today_date=2026-10-02; }

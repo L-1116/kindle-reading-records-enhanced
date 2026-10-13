@@ -67,7 +67,7 @@ def sandbox(label: str) -> tuple[Path, Path, Path, Path, Path, dict[str, str], d
     with zipfile.ZipFile(ARCHIVE) as archive:
         assert archive.testzip() is None
         archive.extractall(us)
-        assert archive.read("native-reading-time-package/阅读记录-optimized.sh") == (ROOT / "native-reading-time-package/阅读记录-optimized.sh").read_bytes()
+        assert archive.read("native-reading-time-package/阅读记录-optimized.sh") == (ROOT / "build/standard-next-baseline/native-reading-time-package/阅读记录-optimized.sh").read_bytes()
     write(base / "releases/9.7.5-test/bin/reading-records.sh", (package / "阅读记录-optimized.sh").read_bytes())
     write(base / "releases/9.7.5-test/bin/reading-insights-cover.lua", (package / "reading-insights-cover.lua").read_bytes())
     write(base / "bin/launch.sh", (package / "launch.sh").read_bytes())

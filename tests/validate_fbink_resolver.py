@@ -19,12 +19,11 @@ def run(source: str, root: Path, **env: str) -> subprocess.CompletedProcess:
 
 if __name__ == "__main__":
     launchers = [(ROOT / path).read_text(encoding="utf-8") for path in (
-        "native-reading-time-package/launch.sh", "ks-package/native-reading-time-package/launch-ks.sh")]
+        "native-reading-time-package/launch.sh",)]
     viewers = [(ROOT / path).read_text(encoding="utf-8") for path in (
-        "native-reading-time-package/阅读记录-optimized.sh", "ks-package/native-reading-time-package/阅读记录-ks.sh",
+        "native-reading-time-package/阅读记录-optimized.sh",
         "native-reading-time-package/阅读记录.sh")]
     resolver = launchers[0].split("READING_FBINK_CANDIDATES=\n", 1)[1].split("\nfbink_candidate_add \"${READING_FBINK:-}\"", 1)[0]
-    assert resolver == launchers[1].split("READING_FBINK_CANDIDATES=\n", 1)[1].split("\nfbink_candidate_add \"${READING_FBINK:-}\"", 1)[0]
     wrappers = [s[s.index("# Candidate resolution"):s.index("\not() {", s.index("# Candidate resolution"))] for s in viewers]
     assert len(set(wrappers)) == 1, "all framebuffer entry points must share the safety contract"
     for s in launchers:

@@ -133,6 +133,7 @@ lua() {
     return "${FAIL_TOUCH:-0}"
 }
 '''
+    mocks += "\nrr_perf() { :; }\n. " + quote(PKG / "reading-insights-touch-preflight.sh") + "\nTOUCH_LOG=\"$BASE/touch-last.log\"\n"
     expected_stages = ["first_render_begin", "first_render_done", "first_refresh_begin", "first_refresh_done", "touch_listener_begin"]
     startup_checks = 0
     for shell in (SH, DASH):

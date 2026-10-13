@@ -44,6 +44,11 @@ for file in sorted(PKG.rglob('*'), key=lambda path: path.relative_to(ROOT).as_po
 assert stable_payload_changes==[
     'native-reading-time-package/cleanup-manifest.txt',
     'native-reading-time-package/compat/detect_env.sh',
+    'native-reading-time-package/compat/lifecycle.sh',
+    'native-reading-time-package/compat/migration.sh',
+    'native-reading-time-package/compat/performance.sh',
+    'native-reading-time-package/compat/runtime-lock.sh',
+    'native-reading-time-package/compat/scanner.sh',
     'native-reading-time-package/diagnostics.sh',
     'native-reading-time-package/install-manifest.txt',
     'native-reading-time-package/Install-Native-Reading-Time-Optimized.sh',
@@ -53,6 +58,8 @@ assert stable_payload_changes==[
     'native-reading-time-package/launcher-icon.png',
     'native-reading-time-package/reading-insights-cache.awk',
     'native-reading-time-package/reading-insights-cover.lua',
+    'native-reading-time-package/reading-insights-touch-preflight.sh',
+    'native-reading-time-package/reading-insights-touch-probe.lua',
     'native-reading-time-package/reading-insights-touch-ui.lua',
     'native-reading-time-package/render-assets/dynamic-glyphs.pgm',
     'native-reading-time-package/render-assets/dynamic-glyphs.tsv',
@@ -60,6 +67,7 @@ assert stable_payload_changes==[
     'native-reading-time-package/resources/kual/reading-records-installer/config.xml',
     'native-reading-time-package/resources/kual/reading-records-installer/menu.json',
     'native-reading-time-package/resources/reading-records-uninstall.sh',
+    'native-reading-time-package/service-manager.sh',
     'native-reading-time-package/ui-calendar/book_detail.png',
     'native-reading-time-package/ui-calendar/books.png',
     'native-reading-time-package/ui-calendar/day_detail.png',
@@ -89,7 +97,7 @@ viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
 old=STABLE_VIEWER.read_text(encoding='utf-8')
 # Preserve device selection/scaling and actual drawing argv. The FBInk wrapper
 # intentionally changes from unchecked execution to actual-use fallback.
-for start,end in [('find_touch_device()', 'fbink_calls=0'), ('ot() {', 'time_text()')]:
+for start,end in [('scale_len()', 'fbink_calls=0'), ('ot() {', 'time_text()')]:
     assert viewer[viewer.index(start):viewer.index(end)] == old[old.index(start):old.index(end)]
 # Orientation recovery may precede screen validation; the viewport transform
 # that controls layout and hitboxes must remain exactly the original code.
@@ -110,7 +118,7 @@ assert 'fb -q -f -W GC16 -s' in refresh and 'fb -q -W GC16 -s' in refresh
 for name in ('page_prev)','page_next)'):
     assert next(x for x in viewer.splitlines() if x.strip().startswith(name))==next(x for x in old.splitlines() if x.strip().startswith(name))
 assert 'mode=daily; view_year=' in viewer
-record('interaction invariants','Default daily, touch discovery and page navigation remain stable; 5.18.x first refresh is nonflashing and refresh failures propagate.')
+record('interaction invariants','Default daily, scaling and page navigation remain stable; capability touch discovery is covered by validate_standard_touch_compat; 5.18.x refresh remains nonflashing.')
 
 # Extract definitions only: never run startup, hardware access, or EXIT cleanup.
 defs=viewer[:viewer.index('\ndetect_screen; find_touch_device')]

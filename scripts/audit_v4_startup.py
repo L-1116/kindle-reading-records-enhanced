@@ -35,10 +35,10 @@ def main() -> None:
                         "requires_loader_heuristic": "requires kindlehf/hard-float runtime" in source})
     assert history[0]["fbink_init_gate"] is False
     assert history[1]["fbink_init_gate"] is True
-    for path, touch in (("native-reading-time-package/launch.sh", ["reading-insights-touch-ui.lua"]),
-                        ("ks-package/native-reading-time-package/launch-ks.sh", ["reading-insights-touch-probe-ks.lua", "reading-insights-touch-ks.lua"])):
+    for path, touch in (("native-reading-time-package/launch.sh", ["reading-insights-touch-probe.lua", "reading-insights-touch-ui.lua"]),):
         source = (ROOT / path).read_text(encoding="utf-8")
         sources = re.findall(r'"\$RELEASE/bin/([^"\n]+\.lua)"', function(source, "probe_lua"))
+        sources = list(dict.fromkeys(sources))
         assert sources == touch + ["reading-insights-render.lua", "reading-insights-cover.lua", "reading-insights-titles.lua", "reading-insights-title-widths.lua"], (path, sources)
     protected_paths = [
         "native-reading-time-package/compat/detect_env.sh",
@@ -46,11 +46,9 @@ def main() -> None:
         "native-reading-time-package/native-reading-time.conf",
         "native-reading-time-package/reading-insights-cache.awk",
         "native-reading-time-package/reading-insights-touch.lua",
-        "native-reading-time-package/reading-insights-touch-ui.lua",
         "ks-package/native-reading-time-package/reading-insights-touch-ks.lua",
         "ks-package/native-reading-time-package/reading-insights-touch-probe-ks.lua",
         "ks-package/native-reading-time-package/force-exit-ks.sh",
-        "v4/cleanup.sh",
     ]
     protected = []
     for path in protected_paths:
@@ -66,11 +64,15 @@ def main() -> None:
             assert raw == baseline_raw.replace(removed, b""), path
             protected.append({"path": path, "baseline": baseline_commit, "sha256": hashlib.sha256(raw).hexdigest(),
                               "unchanged": False, "only_unchecked_fbink_refresh_removed": True})
+        elif path.endswith('/compat/detect_env.sh'):
+            expected = baseline_raw.decode('utf-8').replace('    [ -n "$FIRMWARE_FULL" ] || FIRMWARE_FULL="$(extract_firmware_version "$VERSION_RAW")"', '    FIRMWARE_SOURCE="$PRETTYVERSION_PATH"\n    if [ -z "$FIRMWARE_FULL" ]; then FIRMWARE_FULL="$(extract_firmware_version "$VERSION_RAW")"; FIRMWARE_SOURCE="$VERSION_PATH"; fi').replace('export FIRMWARE_FULL FIRMWARE_MAJOR', 'export FIRMWARE_SOURCE FIRMWARE_FULL FIRMWARE_MAJOR').encode()
+            assert raw == expected, path
+            protected.append({"path": path, "only_firmware_source_annotation": True})
         else:
             assert raw == baseline_raw, path
             protected.append({"path": path, "baseline": baseline_commit, "sha256": hashlib.sha256(raw).hexdigest(), "unchanged": True})
     refresh = []
-    for path in ("native-reading-time-package/阅读记录-optimized.sh", "ks-package/native-reading-time-package/阅读记录-ks.sh"):
+    for path in ("native-reading-time-package/阅读记录-optimized.sh",):
         source = (ROOT / path).read_text(encoding="utf-8")
         assert function(source, "refresh_region") == function(historical(BASELINE, path).decode("utf-8"), "refresh_region")
         refresh.append({"path": path, "refresh_region_unchanged": True})

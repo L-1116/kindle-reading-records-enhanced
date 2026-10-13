@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from service_fixture import service_fixture
 from pathlib import Path
 import shutil
 import subprocess
@@ -177,6 +178,7 @@ def install(package_dir: Path, state: Path, docs: Path, upstart: Path, mock: Pat
         "READING_ARMHF_LOADER_PATH": loader.as_posix(),
         "READING_ARCH_OVERRIDE": "armhf",
     }
+    env.update(service_fixture(mock / "service-fixture", state, upstart, SHELL, running=(state / "bin/native-reading-time-daemon.sh").exists()))
     if route == "core":
         command = [SHELL, (package_dir / "install.sh").as_posix(), "install"]
     else:

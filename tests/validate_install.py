@@ -1,4 +1,5 @@
 """Exercise the installer in a workspace sandbox with all device operations mocked."""
+from service_fixture import service_fixture
 from pathlib import Path
 import atexit, hashlib, json, os, shutil, subprocess, tempfile
 
@@ -14,7 +15,7 @@ etc=SANDBOX/'etc/upstart'; mockbin=SANDBOX/'mockbin'
 for folder in (bin_dir,docs,etc,mockbin):folder.mkdir(parents=True,exist_ok=True)
 def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 daemon=bin_dir/'native-reading-time-daemon.sh'
-viewer=docs/'阅读记录.sh'
+viewer=docs/'reading-records.sh'
 install_entry=docs/'reading-records-install.sh'
 uninstall_entry=docs/'reading-records-uninstall.sh'
 kual=us/'extensions/reading-records-installer'
@@ -56,7 +57,9 @@ def sandbox_installer(package: Path) -> str:
     result=result.replace('lipc-set-prop','"'+lipc.as_posix()+'"')
     return result.replace('PKG="${READING_PACKAGE_DIR:-'+us.as_posix()+'/native-reading-time-package}"','PKG="${READING_PACKAGE_DIR:-'+package.as_posix()+'}"')
 installer=sandbox_installer(PKG)
-prelude='''#!/bin/sh
+fixture_env=service_fixture(SANDBOX/'service-fixture',state,etc,sh if 'sh' in globals() else 'C:/Program Files/Git/usr/bin/sh.exe')
+fixture_exports=''.join('export '+key+'="'+value+'"\n' for key,value in fixture_env.items())
+prelude=fixture_exports+'''#!/bin/sh
 export PATH="'''+mockbin.as_posix()+''':/usr/bin:$PATH"
 id() { echo 0; }
 mntroot() { return 0; }
@@ -106,7 +109,7 @@ failed_script.write_text(prelude+failed_installer,encoding='utf-8',newline='\n')
 p=subprocess.run([sh,failed_script.as_posix()],capture_output=True)
 assert p.returncode==1,(p.stdout,p.stderr)
 assert digest(viewer)==before[str(viewer)] and not (assets/'launcher-icon.png').exists()
-assert not (state/'releases/9.7.5-test/assets/launcher-icon.png').exists()
+assert not (state/'releases/9.7.6-5.20.1-vera/assets/launcher-icon.png').exists()
 scanner_log=SANDBOX/'scanner-calls.log'
 assert scanner_log.exists(),((state/'install.log').read_text(encoding='utf-8'),(SANDBOX/'lipc-calls.log').read_text() if (SANDBOX/'lipc-calls.log').exists() else 'no lipc calls')
 assert digest(data)==before[str(data)] and 'scanner-restored' in scanner_log.read_text()
@@ -115,11 +118,11 @@ assert not (state/'bin/diagnostics.sh').exists()
 assert not (state/'bin/uninstall.sh').exists()
 assert not (state/'install-manifest.txt').exists()
 assert not (state/'compat/detect_env.sh').exists()
-assert not (state/'releases/9.7.5-test/bin/reading-records.sh').exists()
+assert not (state/'releases/9.7.6-5.20.1-vera/bin/reading-records.sh').exists()
 assert install_entry.exists() and not uninstall_entry.exists() and not kual.exists()
 p=subprocess.run([sh,script.as_posix()],capture_output=True)
 assert p.returncode==0,(p.stdout,p.stderr,(state/'install.log').read_text(encoding='utf-8'))
-release=state/'releases/9.7.5-test'
+release=state/'releases/9.7.6-5.20.1-vera'
 assert digest(viewer)==digest(PKG/'阅读记录-entry.sh')
 assert digest(release/'bin/reading-records.sh')==digest(PKG/'阅读记录-optimized.sh')
 assert digest(state/'bin/launch.sh')==digest(PKG/'launch.sh')
@@ -136,7 +139,7 @@ assert digest(conf)==digest(PKG/'native-reading-time.conf')
 assert digest(data)==before[str(data)]
 assert digest(old_cover)==before[str(old_cover)] and digest(old_cover_map)==before[str(old_cover_map)]
 assert digest(state/'reading-time.tsv.bak')==before[str(data)]
-assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.7.5-test'
+assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.7.6-5.20.1-vera'
 assert digest(old_release/'preserved-marker')==before[str(old_release/'preserved-marker')]
 icon=assets/'launcher-icon.png'
 assert digest(icon)==digest(PKG/'launcher-icon.png')
@@ -147,7 +150,7 @@ assert viewer.read_text(encoding='utf-8').splitlines()[:4]==[
 ]
 assert 'scanner-ready' in (SANDBOX/'scanner-calls.log').read_text()
 assert raw_installer.index('atomic_file "$STAGE/release/assets/launcher-icon.png" "$LAUNCHER_ICON" 644') < raw_installer.index('atomic_file "$STAGE/viewer" "$VIEWER" 755') < raw_installer.index('com.lab126.scanner doFullScan 1',raw_installer.index('atomic_file "$STAGE/viewer" "$VIEWER" 755'))
-for f in ['reading-insights-touch-ui.lua','reading-insights-titles.lua','reading-insights-title-widths.lua','reading-insights-cache.awk','reading-insights-cover.lua','reading-insights-render.lua']:
+for f in ['reading-insights-touch-probe.lua','reading-insights-touch-preflight.sh','reading-insights-touch-ui.lua','reading-insights-titles.lua','reading-insights-title-widths.lua','reading-insights-cache.awk','reading-insights-cover.lua','reading-insights-render.lua']:
     assert digest(release/'bin'/f)==digest(PKG/f),f
 assert (state/'book-covers').is_dir()
 optimized_installer=(PKG/'Install-Native-Reading-Time-Optimized.sh').read_text(encoding='utf-8')

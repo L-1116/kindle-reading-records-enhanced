@@ -8,7 +8,7 @@ from pathlib import Path
 import tarfile
 import zipfile
 
-from build_v4 import BOOT_NAME, TAR_NAME, posix_cksum, sources
+from build_v4 import BOOT_NAME, TAR_NAME, posix_cksum, sources, PRODUCT_VERSION, SIMPLE_ARCHIVE
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,8 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> None:
     results = []
-    for variant, name in (("standard", "ReadingTime-V4.zip"), ("ks", "ReadingTime-V4-KS.zip")):
-        path = ROOT / "dist" / name
+    for variant, name in (("standard", SIMPLE_ARCHIVE.name),):
+        path = SIMPLE_ARCHIVE
         with zipfile.ZipFile(path) as archive:
             assert archive.namelist() == [BOOT_NAME, TAR_NAME]
             assert archive.testzip() is None
@@ -28,7 +28,12 @@ def main() -> None:
             payload = archive.read(TAR_NAME)
         assert f"PAYLOAD_SIZE='{len(payload)}'" in bootstrap
         assert f"PAYLOAD_CKSUM='{posix_cksum(payload)}'" in bootstrap
+        assert f"PRODUCT_VERSION='{PRODUCT_VERSION}'" in bootstrap
+        assert "build_id=" in bootstrap or "BUILD_ID='" in bootstrap
         expected = sources(variant)
+        assert not any('-ks' in n.lower() or 'scribe' in n.lower() or '-KS-' in n for n in expected)
+        assert b'variant=standard' in expected['BUILD-INFO']
+        assert b'product_version='+PRODUCT_VERSION.encode() in expected['BUILD-INFO']
         with tarfile.open(fileobj=io.BytesIO(payload)) as archive:
             assert set(archive.getnames()) == set(expected)
             for member in archive:

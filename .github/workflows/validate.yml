@@ -2,15 +2,18 @@ name: Validate
 
 on:
   push:
-    branches: [main, codex/v4-install-system]
+    branches: [main, codex/v4-install-system, codex/release-9.7.6-5.20.1-vera]
     tags: ["v*"]
   pull_request:
+  release:
+    types: [published]
 
 permissions:
   contents: read
 
 jobs:
   offline-validation:
+    if: github.event_name != 'release' && github.ref != 'refs/tags/v9.7.6-5.20.1-vera' && github.ref != 'refs/heads/codex/release-9.7.6-5.20.1-vera'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,3 +26,15 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - run: python -m pip install -r requirements-dev.txt
       - run: python scripts/validate_all.py
+
+  verified-standard-release:
+    if: github.ref == 'refs/tags/v9.7.6-5.20.1-vera' || github.ref == 'refs/heads/codex/release-9.7.6-5.20.1-vera'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python scripts/verify_published_release.py --source-only
+      - if: github.event_name == 'release'
+        run: python scripts/verify_published_release.py --github

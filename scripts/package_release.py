@@ -44,7 +44,7 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def main() -> None:
+def legacy_main() -> None:
     for deployed, canonical in CANONICAL_PAIRS.items():
         assert (ROOT / deployed).read_bytes() == (ROOT / canonical).read_bytes(), deployed
     sources = {path.relative_to(ROOT).as_posix(): path for path in FILES}
@@ -102,6 +102,11 @@ def main() -> None:
     }
     (VALIDATION / "package-results.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def main() -> None:
+    from build_v4 import main as build_standard
+    build_standard()
 
 
 if __name__ == "__main__":

@@ -31,7 +31,7 @@ def shell_path(path: Path) -> str:
 def setup(root: Path, variant: str) -> tuple[Path, dict[str, str], Path, Path]:
     package = ROOT / ("native-reading-time-package" if variant == "standard" else "ks-package/native-reading-time-package")
     base = root / "reading-time"
-    release = base / ("releases/9.7.5-test" if variant == "standard" else "releases/9.7.5-ks-test1")
+    release = base / ("releases/9.7.6-5.20.1-vera" if variant == "standard" else "releases/9.7.5-ks-test1")
     mock = root / "mockbin"
     alternate = root / "alternate"
     ui = "ui-calendar" if variant == "standard" else "ui-scribe"
@@ -48,6 +48,8 @@ def setup(root: Path, variant: str) -> tuple[Path, dict[str, str], Path, Path]:
                             f'fbink_candidate_add {shell_path(alternate)}/fbink')
     launcher.write_text(source, encoding="utf-8", newline="\n")
     shutil.copy2(ROOT / "native-reading-time-package/compat/detect_env.sh", base / "compat/detect_env.sh")
+    shutil.copy2(ROOT / "native-reading-time-package/compat/runtime-lock.sh", base / "compat/runtime-lock.sh")
+    shutil.copy2(ROOT / "native-reading-time-package/compat/lifecycle.sh", base / "compat/lifecycle.sh")
     (base / "reading-time.tsv").write_text("date\tbook_id\tseconds\ttitle\n", encoding="utf-8")
     (base / "fonts/NotoSansCJKsc-Regular.otf").write_bytes(b"font")
     (release / "render-assets/dynamic-glyphs.pgm").write_bytes(b"pgm")
@@ -56,7 +58,7 @@ def setup(root: Path, variant: str) -> tuple[Path, dict[str, str], Path, Path]:
         (release / ui / f"{name}.png").write_bytes(b"png")
     lua_sources = ["reading-insights-render.lua", "reading-insights-cover.lua", "reading-insights-titles.lua",
                    "reading-insights-title-widths.lua"]
-    lua_sources += (["reading-insights-touch-ui.lua"] if variant == "standard" else
+    lua_sources += (["reading-insights-touch-preflight.sh", "reading-insights-touch-probe.lua", "reading-insights-touch-ui.lua"] if variant == "standard" else
                     ["reading-insights-touch-probe-ks.lua", "reading-insights-touch-ks.lua"])
     for name in lua_sources:
         (release / "bin" / name).write_text("return true\n", encoding="utf-8")
@@ -87,13 +89,14 @@ def setup(root: Path, variant: str) -> tuple[Path, dict[str, str], Path, Path]:
                '[ "$1" != -e ] || exit 139\n'
                'case "${FALLBACK_FBINK_MODE:-ok}" in hang) exec sleep 30;; nonzero) exit 6;; signal) exit 139;; esac\nexit 0\n')
     executable(mock / "fbset", 'echo "geometry 1072 1448 1072 1448 8"\n')
+    executable(mock / "lipc-get-prop", 'echo "${READING_TEST_ORIGINAL_POWER:-0}"\n')
     executable(mock / "lipc-set-prop", 'printf "%s\\n" "$*" >> "$READING_TEST_LIPC"\n')
     pretty = root / "prettyversion.txt"
     pretty.write_text("Kindle 5.18.1.1.1\n", encoding="utf-8")
     loader = root / "ld-linux-armhf.so.3"
     loader.write_bytes(b"loader")
     children = root / "children.txt"
-    env = {**os.environ, "READING_BASE": base.as_posix(), "READING_FBINK": (mock / "fbink").as_posix(),
+    env = {**os.environ, "READING_BASE": base.as_posix(), "READING_TMPDIR": root.as_posix(), "READING_FBINK": (mock / "fbink").as_posix(),
            "READING_PRETTYVERSION_PATH": pretty.as_posix(), "READING_ARMHF_LOADER_PATH": loader.as_posix(),
            "READING_ARCH_OVERRIDE": "armv7l", "READING_TEST_CHILDREN": children.as_posix(),
            "READING_TEST_FB_CALLS": (root / "fb-calls.txt").as_posix(),
@@ -133,7 +136,7 @@ def check(variant: str) -> None:
         assert "screen_width=1072\nscreen_height=1448\norientation=portrait" in log
         versions = (FIRMWARES if variant == "standard" else
                     ("5.18.1", "5.18.1.1.1", "5.18.2", "5.18.4", "5.18.6", "5.18.10"))
-        for firmware in versions + ("5.17.1.0.4", "5.19.1", "5.19.2", "5.19.5", "5.19.6"):
+        for firmware in versions + ("5.17.1.0.4", "5.19.1", "5.19.2", "5.19.5", "5.19.6", "5.20.1", "5.20.1.0.1"):
             pretty.write_text(f"Kindle {firmware}\n", encoding="utf-8")
             code, log = run(launcher, env)
             assert code == 0 and f"detected_env={'fw518' if firmware.startswith('5.18') else 'default'}" in log, (variant, firmware, log)
@@ -228,9 +231,4 @@ def check(variant: str) -> None:
 
 if __name__ == "__main__":
     standard_source = (ROOT / "native-reading-time-package/launch.sh").read_text(encoding="utf-8")
-    ks_source = (ROOT / "ks-package/native-reading-time-package/launch-ks.sh").read_text(encoding="utf-8")
-    for begin, end in (("STAGE=runtime_probe\n", "probe_lua() {"),
-                       ("# Keep the historical KMC", "STAGE=runtime_probe\n")):
-        assert standard_source.split(begin, 1)[1].split(end, 1)[0] == ks_source.split(begin, 1)[1].split(end, 1)[0], begin
-    for variant in ("standard", "ks"):
-        check(variant)
+    check("standard")

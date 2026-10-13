@@ -55,7 +55,8 @@ detect_reading_environment() {
     [ -n "$DEVICE_TYPE" ] || DEVICE_TYPE="unknown"
 
     FIRMWARE_FULL="$(extract_firmware_version "$PRETTYVERSION_RAW")"
-    [ -n "$FIRMWARE_FULL" ] || FIRMWARE_FULL="$(extract_firmware_version "$VERSION_RAW")"
+    FIRMWARE_SOURCE="$PRETTYVERSION_PATH"
+    if [ -z "$FIRMWARE_FULL" ]; then FIRMWARE_FULL="$(extract_firmware_version "$VERSION_RAW")"; FIRMWARE_SOURCE="$VERSION_PATH"; fi
     [ -n "$FIRMWARE_FULL" ] || FIRMWARE_FULL="unknown"
 
     FIRMWARE_MAJOR="unknown"
@@ -86,7 +87,7 @@ detect_reading_environment() {
         COMPAT_PROFILE=fw518
     fi
 
-    export FIRMWARE_FULL FIRMWARE_MAJOR FIRMWARE_MINOR DEVICE_TYPE MACHINE KERNEL ARCH HARD_FLOAT COMPAT_PROFILE
+    export FIRMWARE_SOURCE FIRMWARE_FULL FIRMWARE_MAJOR FIRMWARE_MINOR DEVICE_TYPE MACHINE KERNEL ARCH HARD_FLOAT COMPAT_PROFILE
 }
 
 detect_reading_environment

@@ -1,4 +1,5 @@
 #!/bin/sh
+READING_VARIANT=standard; export READING_VARIANT
 
 PKG="${READING_PACKAGE_DIR:-/mnt/us/native-reading-time-package}"
 BASE="${READING_BASE:-/mnt/us/reading-time}"
@@ -8,7 +9,7 @@ JOB="native-reading-time"
 CONF="${READING_UPSTART_DIR:-/etc/upstart}/${JOB}.conf"
 DAEMON="$BASE/bin/native-reading-time-daemon.sh"
 DOCS="${READING_DOCUMENTS:-/mnt/us/documents}"
-VIEWER="$DOCS/阅读记录.sh"
+VIEWER="$DOCS/reading-records.sh"
 UNINSTALL_ENTRY="$DOCS/reading-records-uninstall.sh"
 KUAL_DIR="${READING_MNT_US:-/mnt/us}/extensions/reading-records-installer"
 KUAL_ACTION="$KUAL_DIR/bin/action.sh"
@@ -21,31 +22,33 @@ MANIFEST="$BASE/install-manifest.txt"
 DETECTOR="$BASE/compat/detect_env.sh"
 ASSET_DIR="$BASE/assets"
 LAUNCHER_ICON="$ASSET_DIR/launcher-icon.png"
-RELEASE="$BASE/releases/9.7.5-test"
+PRODUCT_VERSION="9.7.6-5.20.1-vera"
+RELEASE="$BASE/releases/$PRODUCT_VERSION"
 RELEASE_ICON="$RELEASE/assets/launcher-icon.png"
 RELEASE_APP="$RELEASE/bin/reading-records.sh"
 COVER_CACHE_DIR="$BASE/book-covers"
-STAGE="$BASE/.install-9.7.5-test.$$"
+STAGE="$BASE/.install-9.7.6-5.20.1-vera.$$"
 ROOT_RW=0; ACTIVATED=0; SERVICE_WAS_RUNNING=0; ROLLBACK_DONE=0
 
 mkdir -p "$BASE" || exit 1
 exec >> "$LOG" 2>&1
 echo "$(date): optimized installer entered, uid=$(id -u), pid=$$"
 toast() { lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; }
-root_ro() { if [ "$ROOT_RW" -eq 1 ]; then mntroot ro >/dev/null 2>&1 || /usr/sbin/mntroot ro >/dev/null 2>&1 || /sbin/mntroot ro >/dev/null 2>&1 || true; ROOT_RW=0; fi; }
-root_rw() {
-    [ "$ROOT_RW" -eq 1 ] && return 0
-    if mntroot rw >/dev/null 2>&1 || /usr/sbin/mntroot rw >/dev/null 2>&1 || /sbin/mntroot rw >/dev/null 2>&1; then ROOT_RW=1; return 0; fi
-    return 1
-}
-cleanup_stage() { case "$STAGE" in "$BASE"/.install-9.7.5-test.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
+[ -r "$PKG/compat/lifecycle.sh" ] || exit 1
+. "$PKG/compat/lifecycle.sh" || exit 1
+rr_lock || fail "another lifecycle operation is running"
+rr_mount_capture || fail "cannot determine root mount state"
+root_ro() { rr_root_restore; }
+root_rw() { rr_root_rw; }
+cleanup_stage() { [ "${ROLLBACK_FAILED:-0}" = 0 ] || return 0; case "$STAGE" in "$BASE"/.install-9.7.6-5.20.1-vera.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
 
 backup_file() { backup_src="$1"; backup_key="$2"; if [ -f "$backup_src" ]; then cp "$backup_src" "$STAGE/rollback/$backup_key" || return 1; else : > "$STAGE/rollback/no-$backup_key"; fi; }
 restore_file() { restore_key="$1"; restore_dst="$2"; restore_mode="$3"; if [ -f "$STAGE/rollback/$restore_key" ]; then cp "$STAGE/rollback/$restore_key" "$restore_dst.rollback-new" && chmod "$restore_mode" "$restore_dst.rollback-new" && mv "$restore_dst.rollback-new" "$restore_dst"; elif [ -f "$STAGE/rollback/no-$restore_key" ]; then rm -f "$restore_dst"; fi; }
 
 rollback() {
     [ "$ROLLBACK_DONE" -eq 0 ] || return; ROLLBACK_DONE=1
-    echo "$(date): rolling back optimized installation"; /sbin/initctl stop "$JOB" >/dev/null 2>&1 || true
+    echo "$(date): rolling back optimized installation"
+    [ "$SERVICE_WAS_RUNNING" = 1 ] || rr_initctl stop "$JOB" >/dev/null 2>&1 || true
     if [ -f "$STAGE/rollback/daemon" ]; then cp "$STAGE/rollback/daemon" "$DAEMON.rollback-new" && chmod 755 "$DAEMON.rollback-new" && mv "$DAEMON.rollback-new" "$DAEMON"; elif [ -f "$STAGE/rollback/no-daemon" ]; then rm -f "$DAEMON"; fi
     if [ -f "$STAGE/rollback/release-launcher-icon.png" ]; then cp "$STAGE/rollback/release-launcher-icon.png" "$RELEASE_ICON.rollback-new" && chmod 644 "$RELEASE_ICON.rollback-new" && mv "$RELEASE_ICON.rollback-new" "$RELEASE_ICON"; elif [ -f "$STAGE/rollback/no-release-launcher-icon" ]; then rm -f "$RELEASE_ICON"; fi
     if [ -f "$STAGE/rollback/launcher-icon.png" ]; then cp "$STAGE/rollback/launcher-icon.png" "$LAUNCHER_ICON.rollback-new" && chmod 644 "$LAUNCHER_ICON.rollback-new" && mv "$LAUNCHER_ICON.rollback-new" "$LAUNCHER_ICON"; elif [ -f "$STAGE/rollback/no-launcher-icon" ]; then rm -f "$LAUNCHER_ICON"; fi
@@ -55,38 +58,43 @@ rollback() {
     restore_file uninstaller "$UNINSTALLER" 755
     restore_file manifest "$MANIFEST" 644
     restore_file detector "$DETECTOR" 644
+    restore_file service-manager "$BASE/bin/service-manager.sh" 755
+    restore_file lifecycle "$BASE/compat/lifecycle.sh" 644
+    restore_file service-source "$BASE/service/native-reading-time.conf" 644
     restore_file release-app "$RELEASE_APP" 755
     restore_file uninstall-entry "$UNINSTALL_ENTRY" 755
     restore_file kual-action "$KUAL_ACTION" 755
     restore_file kual-config "$KUAL_CONFIG" 644
     restore_file kual-menu "$KUAL_MENU" 644
     restore_file legacy-touch "$BASE/bin/reading-insights-touch.lua" 644
-    if [ -d "$STAGE/rollback/release-tree" ]; then rm -rf "$RELEASE"; mv "$STAGE/rollback/release-tree" "$RELEASE" || true
+    if [ -d "$STAGE/rollback/release-tree" ]; then rm -rf "$RELEASE"; mv "$STAGE/rollback/release-tree" "$RELEASE" || ROLLBACK_FAILED=1
     elif [ -f "$STAGE/rollback/no-release-tree" ]; then rm -rf "$RELEASE"; fi
-    if [ -d "$STAGE/rollback/legacy-ui" ]; then rm -rf "$BASE/ui"; mv "$STAGE/rollback/legacy-ui" "$BASE/ui" || true
+    if [ -d "$STAGE/rollback/legacy-ui" ]; then rm -rf "$BASE/ui"; mv "$STAGE/rollback/legacy-ui" "$BASE/ui" || ROLLBACK_FAILED=1
     elif [ -f "$STAGE/rollback/no-legacy-ui" ]; then rm -rf "$BASE/ui"; fi
-    if [ -d "$STAGE/rollback/fonts" ]; then rm -rf "$BASE/fonts"; mv "$STAGE/rollback/fonts" "$BASE/fonts" || true
+    if [ -d "$STAGE/rollback/fonts" ]; then rm -rf "$BASE/fonts"; mv "$STAGE/rollback/fonts" "$BASE/fonts" || ROLLBACK_FAILED=1
     elif [ -f "$STAGE/rollback/no-fonts" ]; then rm -rf "$BASE/fonts"; fi
     rmdir "$KUAL_DIR/bin" "$KUAL_DIR" 2>/dev/null || true
     if [ -f "$STAGE/rollback/conf" ]; then
-        if root_rw; then cp "$STAGE/rollback/conf" "$CONF.rollback-new" && chmod 644 "$CONF.rollback-new" && mv "$CONF.rollback-new" "$CONF"; else echo "$(date): WARNING: could not remount rootfs during rollback"; fi
+        if cmp -s "$STAGE/rollback/conf" "$CONF"; then :
+        elif root_rw; then cp "$STAGE/rollback/conf" "$CONF.rollback-new" && chmod 644 "$CONF.rollback-new" && mv "$CONF.rollback-new" "$CONF"; else ROLLBACK_FAILED=1; echo "$(date): ERROR: rollback mount failed; retained staging=$STAGE"; fi
     elif [ -f "$STAGE/rollback/no-conf" ]; then
-        if root_rw; then rm -f "$CONF"; else echo "$(date): WARNING: could not remount rootfs during rollback"; fi
+        if root_rw; then rm -f "$CONF"; else ROLLBACK_FAILED=1; echo "$(date): ERROR: rollback mount failed; retained staging=$STAGE"; fi
     fi
-    /sbin/initctl reload-configuration >/dev/null 2>&1 || true; root_ro
+    if ! cmp -s "$STAGE/rollback/conf" "$CONF"; then rr_initctl reload-configuration || ROLLBACK_FAILED=1; fi
+    root_ro || ROLLBACK_FAILED=1
     lipc-set-prop com.lab126.scanner doFullScan 1 >/dev/null 2>&1 || lipc-set-prop com.lab126.scanner triggerUpdate 1 >/dev/null 2>&1 || true
-    [ "$SERVICE_WAS_RUNNING" -eq 1 ] && /sbin/initctl start "$JOB" >/dev/null 2>&1 || true
+    if [ "$SERVICE_WAS_RUNNING" -eq 1 ]; then rr_initctl status "$JOB" 2>/dev/null | grep -q 'start/running' || rr_initctl start "$JOB" >/dev/null 2>&1 || ROLLBACK_FAILED=1; fi
 }
-fail() { echo "$(date): ERROR: $1"; [ "$ACTIVATED" -eq 1 ] && rollback; root_ro; cleanup_stage; toast "Installation failed: $1"; exit 1; }
+fail() { echo "$(date): ERROR: $1"; [ "$ACTIVATED" -eq 1 ] && rollback; root_ro || ROLLBACK_FAILED=1; cleanup_stage; toast "Installation failed: $1"; exit 1; }
 trap 'fail "installer interrupted"' INT TERM HUP
-trap 'root_ro' EXIT
+trap 'rr_cancel; root_ro || exit 1; rr_unlock' EXIT
 
 atomic_file() { src="$1"; dst="$2"; mode="$3"; tmp="${dst}.new.$$"; cp "$src" "$tmp" || return 1; chmod "$mode" "$tmp" || { rm -f "$tmp"; return 1; }; mv "$tmp" "$dst"; }
 
 [ "$(id -u)" -eq 0 ] || [ "${READING_ALLOW_NONROOT_TEST:-0}" = 1 ] || fail "not running as root; use ;log runme"
-[ -x /sbin/initctl ] || fail "Upstart not found"
+[ -x "${READING_INITCTL:-/sbin/initctl}" ] || fail "Upstart not found"
 command -v cmp >/dev/null 2>&1 || fail "cmp unavailable"
-for f in native-reading-time-daemon.sh native-reading-time.conf 阅读记录.sh 阅读记录-entry.sh 阅读记录-optimized.sh launch.sh diagnostics.sh uninstall.sh install-manifest.txt cleanup-manifest.txt compat/detect_env.sh reading-insights-touch.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-cover.lua reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt launcher-icon.png; do [ -f "$PKG/$f" ] || fail "missing payload: $f"; done
+for f in native-reading-time-daemon.sh native-reading-time.conf 阅读记录.sh 阅读记录-entry.sh 阅读记录-optimized.sh launch.sh diagnostics.sh uninstall.sh install-manifest.txt cleanup-manifest.txt compat/detect_env.sh reading-insights-touch.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-cover.lua reading-insights-touch-probe.lua reading-insights-touch-preflight.sh reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt launcher-icon.png; do [ -f "$PKG/$f" ] || fail "missing payload: $f"; done
 for f in resources/reading-records-uninstall.sh resources/kual/reading-records-installer/bin/action.sh resources/kual/reading-records-installer/config.xml resources/kual/reading-records-installer/menu.json; do [ -f "$PKG/$f" ] || fail "missing lifecycle resource: $f"; done
 for f in total.png daily.png books.png day-1.png day-31.png; do [ -f "$PKG/ui/$f" ] || fail "missing UI asset: $f"; done
 for f in total.png daily.png books.png day_detail.png month_detail.png week_trend.png book_detail.png; do [ -f "$PKG/ui-calendar/$f" ] || fail "missing calendar UI: $f"; done
@@ -101,7 +109,7 @@ cmp -s "$PKG/阅读记录-optimized.sh" "$STAGE/release/bin/reading-records.sh" 
 cp "$PKG/resources/reading-records-uninstall.sh" "$STAGE/uninstall-entry" && cp "$PKG/resources/kual/reading-records-installer/bin/action.sh" "$STAGE/kual/bin/action.sh" && cp "$PKG/resources/kual/reading-records-installer/config.xml" "$STAGE/kual/config.xml" && cp "$PKG/resources/kual/reading-records-installer/menu.json" "$STAGE/kual/menu.json" || fail "cannot stage lifecycle entries"
 cp "$PKG/阅读记录.sh" "$STAGE/release/bin/reading-records-v9.6.3.sh" && cp "$PKG/reading-insights-touch.lua" "$STAGE/release/bin/" && cp "$PKG/reading-insights-render.lua" "$STAGE/release/bin/" && cp "$PKG/reading-insights-cache.awk" "$STAGE/release/bin/" && cp "$PKG/reading-insights-cover.lua" "$STAGE/release/bin/" || fail "cannot stage dashboard helpers"
 cp "$PKG"/ui-calendar/*.png "$STAGE/release/ui-calendar/" || fail "cannot stage calendar UI"
-for f in reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do cp "$PKG/$f" "$STAGE/release/bin/$f" || fail "cannot stage calendar helper"; done
+for f in reading-insights-touch-probe.lua reading-insights-touch-preflight.sh reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do cp "$PKG/$f" "$STAGE/release/bin/$f" || fail "cannot stage calendar helper"; done
 cp "$PKG"/ui/*.png "$STAGE/release/ui/" && cp "$PKG"/render-assets/* "$STAGE/release/render-assets/" || fail "cannot stage render assets"
 cp "$PKG/launcher-icon.png" "$STAGE/release/assets/launcher-icon.png" || fail "cannot stage launcher icon"
 cp "$PKG/NotoSansCJKsc-Regular.otf" "$STAGE/font" && cp "$PKG/FONT-LICENSE.txt" "$STAGE/font-license" || fail "cannot stage font"
@@ -109,7 +117,7 @@ chmod 755 "$STAGE/viewer" "$STAGE/uninstall-entry" "$STAGE/kual/bin/action.sh" "
 cmp -s "$STAGE/daemon" "$PKG/native-reading-time-daemon.sh" || fail "staged daemon differs from validated payload"
 echo "$(date): staged daemon matches validated payload byte-for-byte"
 
-/sbin/initctl status "$JOB" 2>/dev/null | grep -q 'start/running' && SERVICE_WAS_RUNNING=1
+rr_initctl status "$JOB" 2>/dev/null | grep -q 'start/running' && SERVICE_WAS_RUNNING=1
 if [ -f "$DAEMON" ]; then cp "$DAEMON" "$STAGE/rollback/daemon" || fail "cannot back up current daemon"; else : > "$STAGE/rollback/no-daemon"; fi
 if [ -f "$RELEASE_ICON" ]; then cp "$RELEASE_ICON" "$STAGE/rollback/release-launcher-icon.png" || fail "cannot back up current release launcher icon"; else : > "$STAGE/rollback/no-release-launcher-icon"; fi
 if [ -f "$LAUNCHER_ICON" ]; then cp "$LAUNCHER_ICON" "$STAGE/rollback/launcher-icon.png" || fail "cannot back up current launcher icon"; else : > "$STAGE/rollback/no-launcher-icon"; fi
@@ -119,6 +127,7 @@ backup_file "$DIAGNOSTICS" diagnostics || fail "cannot back up diagnostics"
 backup_file "$UNINSTALLER" uninstaller || fail "cannot back up uninstaller"
 backup_file "$MANIFEST" manifest || fail "cannot back up install manifest"
 backup_file "$DETECTOR" detector || fail "cannot back up environment detector"
+backup_file "$BASE/bin/service-manager.sh" service-manager && backup_file "$BASE/compat/lifecycle.sh" lifecycle && backup_file "$BASE/service/native-reading-time.conf" service-source || fail "cannot back up service helpers"
 backup_file "$RELEASE_APP" release-app || fail "cannot back up UI entry"
 backup_file "$UNINSTALL_ENTRY" uninstall-entry || fail "cannot back up uninstall Scriptlet"
 backup_file "$KUAL_ACTION" kual-action || fail "cannot back up KUAL action"
@@ -130,15 +139,15 @@ if [ -d "$BASE/ui" ]; then cp -R "$BASE/ui" "$STAGE/rollback/legacy-ui" || fail 
 if [ -d "$BASE/fonts" ]; then cp -R "$BASE/fonts" "$STAGE/rollback/fonts" || fail "cannot back up installed fonts"; else : > "$STAGE/rollback/no-fonts"; fi
 if [ -f "$CONF" ]; then cp "$CONF" "$STAGE/rollback/conf" || fail "cannot back up current Upstart job"; else : > "$STAGE/rollback/no-conf"; fi
 
-/sbin/initctl stop "$JOB" >/dev/null 2>&1 || true; ACTIVATED=1
+ACTIVATED=1
 if [ -f "$DATA" ]; then
     if [ ! -e "$DATA.bak" ]; then cp "$DATA" "$DATA.bak.new.$$" || fail "cannot create reading history backup"; mv "$DATA.bak.new.$$" "$DATA.bak" || fail "cannot publish reading history backup"; echo "$(date): created reading-time.tsv.bak"
     else echo "$(date): preserved existing reading-time.tsv.bak"; fi
 fi
-mkdir -p "$BASE/bin" "$BASE/compat" "$BASE/ui" "$BASE/fonts" "$ASSET_DIR" "$COVER_CACHE_DIR" "$RELEASE/bin" "$RELEASE/ui" "$RELEASE/ui-calendar" "$RELEASE/render-assets" "$RELEASE/assets" "$DOCS" "$KUAL_DIR/bin" || fail "cannot create installation directories"
+mkdir -p "$BASE/bin" "$BASE/compat" "$BASE/ui" "$BASE/fonts" "$ASSET_DIR" "$COVER_CACHE_DIR" "$RELEASE/bin" "$RELEASE/ui" "$RELEASE/ui-calendar" "$RELEASE/render-assets" "$RELEASE/assets" "$DOCS" || fail "cannot create installation directories"
 chmod 700 "$COVER_CACHE_DIR" || fail "cannot set cover cache directory permissions"
 for f in "$STAGE/release/ui-calendar/"*.png; do atomic_file "$f" "$RELEASE/ui-calendar/${f##*/}" 644 || fail "cannot install calendar UI"; done
-for f in reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do atomic_file "$STAGE/release/bin/$f" "$RELEASE/bin/$f" 644 || fail "cannot install calendar helper"; done
+for f in reading-insights-touch-probe.lua reading-insights-touch-preflight.sh reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do atomic_file "$STAGE/release/bin/$f" "$RELEASE/bin/$f" 644 || fail "cannot install calendar helper"; done
 for f in "$STAGE/release/ui/"*.png; do atomic_file "$f" "$RELEASE/ui/${f##*/}" 644 || fail "cannot install optimized UI"; done
 for f in "$STAGE/release/render-assets/"*; do atomic_file "$f" "$RELEASE/render-assets/${f##*/}" 644 || fail "cannot install render assets"; done
 atomic_file "$STAGE/release/assets/launcher-icon.png" "$RELEASE_ICON" 644 || fail "cannot install release launcher icon"
@@ -166,35 +175,40 @@ atomic_file "$STAGE/font-license" "$BASE/fonts/FONT-LICENSE.txt" 644 || fail "ca
 atomic_file "$STAGE/daemon" "$DAEMON" 755 || fail "cannot install tracker daemon"
 atomic_file "$STAGE/launch" "$LAUNCHER" 755 || fail "cannot install core launcher"
 atomic_file "$STAGE/diagnostics" "$DIAGNOSTICS" 755 || fail "cannot install diagnostics"
-atomic_file "$STAGE/uninstaller" "$UNINSTALLER" 755 || fail "cannot install uninstaller"
+[ "${READING_SIMPLE_INSTALL:-0}" = 1 ] || atomic_file "$STAGE/uninstaller" "$UNINSTALLER" 755 || fail "cannot install uninstaller"
 atomic_file "$STAGE/install-manifest.txt" "$MANIFEST" 644 || fail "cannot install manifest"
 atomic_file "$STAGE/compat/detect_env.sh" "$DETECTOR" 644 || fail "cannot install environment detector"
 
-root_rw || fail "cannot remount rootfs"
-atomic_file "$STAGE/conf" "$CONF" 644 || fail "cannot install Upstart job"
-/sbin/initctl reload-configuration >/dev/null 2>&1 || true; root_ro
+# Shared ensure deploys the job only when necessary; healthy services keep running.
 atomic_file "$STAGE/release/assets/launcher-icon.png" "$LAUNCHER_ICON" 644 || fail "cannot install launcher icon"
+if [ "${READING_SIMPLE_INSTALL:-0}" != 1 ]; then
+mkdir -p "$KUAL_DIR/bin" || fail "cannot create KUAL directory"
 atomic_file "$STAGE/uninstall-entry" "$UNINSTALL_ENTRY" 755 || fail "cannot install uninstall Scriptlet"
 atomic_file "$STAGE/kual/bin/action.sh" "$KUAL_ACTION" 755 || fail "cannot install KUAL action"
 atomic_file "$STAGE/kual/config.xml" "$KUAL_CONFIG" 644 || fail "cannot install KUAL config"
 atomic_file "$STAGE/kual/menu.json" "$KUAL_MENU" 644 || fail "cannot install KUAL menu"
-atomic_file "$STAGE/viewer" "$VIEWER" 755 || fail "cannot activate optimized dashboard"
-lipc-set-prop com.lab126.scanner doFullScan 1 >/dev/null 2>&1 || lipc-set-prop com.lab126.scanner triggerUpdate 1 >/dev/null 2>&1 || true
-/sbin/initctl start "$JOB" >/dev/null 2>&1 || true; sleep 2
-/sbin/initctl status "$JOB" 2>/dev/null | grep -q 'start/running' || fail "tracker service did not start"
+fi
+for recovery_helper in runtime-lock.sh migration.sh scanner.sh performance.sh; do
+    atomic_file "$PKG/compat/$recovery_helper" "$BASE/compat/$recovery_helper" 644 || fail "cannot install $recovery_helper"
+done
+[ ! -r "$PKG/migration-manifest.tsv" ] || atomic_file "$PKG/migration-manifest.tsv" "$BASE/migration-manifest.tsv" 644 || fail "cannot install migration inventory"
+rr_install_helpers || fail "cannot install service recovery resources"
+/bin/sh "$BASE/bin/service-manager.sh" ensure || fail "tracker service verification failed"
 cmp -s "$DAEMON" "$PKG/native-reading-time-daemon.sh" || fail "installed daemon differs from validated payload"
 [ -r "$DATA" ] || fail "reading history is missing or unreadable after service start"
+atomic_file "$STAGE/viewer" "$VIEWER" 755 || fail "cannot activate optimized dashboard"
+lipc-set-prop com.lab126.scanner doFullScan 1 >/dev/null 2>&1 || lipc-set-prop com.lab126.scanner triggerUpdate 1 >/dev/null 2>&1 || true
 [ -x "$RELEASE_APP" ] && cmp -s "$RELEASE_APP" "$PKG/阅读记录-optimized.sh" || fail "active resolver is missing, non-executable, or differs from payload"
 [ -x "$LAUNCHER" ] && cmp -s "$LAUNCHER" "$PKG/launch.sh" || fail "active launcher is missing, non-executable, or differs from payload"
 [ -x "$VIEWER" ] && cmp -s "$VIEWER" "$PKG/阅读记录-entry.sh" || fail "library entry is missing, non-executable, or differs from payload"
-grep -Fqx 'RELEASE="$BASE/releases/9.7.5-test"' "$LAUNCHER" && grep -Fqx 'MAIN="$RELEASE/bin/reading-records.sh"' "$LAUNCHER" || fail "launcher does not target the active release resolver"
+grep -Fqx 'PRODUCT_VERSION="9.7.6-5.20.1-vera"' "$LAUNCHER" && grep -Fqx 'RELEASE="${READING_RELEASE:-$BASE/releases/$PRODUCT_VERSION}"' "$LAUNCHER" && grep -Fqx 'MAIN="$RELEASE/bin/reading-records.sh"' "$LAUNCHER" || fail "launcher does not target the active release resolver"
 for required_helper in reading-insights-cover.lua reading-insights-cache.awk reading-insights-render.lua reading-insights-touch-ui.lua; do
     [ -r "$RELEASE/bin/$required_helper" ] || fail "installed helper is missing or unreadable: $required_helper"
 done
 [ -d "$COVER_CACHE_DIR" ] && [ -w "$COVER_CACHE_DIR" ] || fail "cover cache is not writable after service start"
 echo "$(date): final sanity resolver=ok launcher=ok entry=ok helpers=ok history=ok cover_cache=ok"
-printf '9.7.5-test\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
+printf '9.7.6-5.20.1-vera\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
 
-ACTIVATED=0; cleanup_stage; trap - INT TERM HUP; root_ro; sync
+ACTIVATED=0; cleanup_stage; trap - INT TERM HUP; root_ro || fail "cannot restore root mount state"; sync
 echo "$(date): V4 installed and running, daemon_cmp=identical"
-toast "阅读记录 V4 安装完成"; exit 0
+toast "阅读记录 9.7.6-5.20.1-vera 安装完成"; exit 0

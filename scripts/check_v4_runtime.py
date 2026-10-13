@@ -11,6 +11,7 @@ import tarfile
 import zipfile
 
 
+from build_v4 import SIMPLE_ARCHIVE
 ROOT = Path(__file__).resolve().parents[1]
 CHECKPOINT = "982ea7131c81a198997315602a79c684bb4f3d7d"
 EXCLUDED = {
@@ -22,8 +23,13 @@ EXCLUDED = {
     "native-reading-time-package/resources/kual/reading-records-installer/bin/action.sh",
 }
 ALLOWED_CHANGED = {
+    "native-reading-time-package/阅读记录-entry.sh",
+    "native-reading-time-package/diagnostics.sh",
+    "ks-package/native-reading-time-package/diagnostics-ks.sh",
+    "native-reading-time-package/compat/detect_env.sh",
     "native-reading-time-package/阅读记录.sh",
     "native-reading-time-package/阅读记录-optimized.sh",
+    "native-reading-time-package/reading-insights-touch-ui.lua",
     "ks-package/native-reading-time-package/阅读记录-ks.sh",
     "native-reading-time-package/launch.sh",
     "ks-package/native-reading-time-package/launch-ks.sh",
@@ -50,8 +56,8 @@ def main() -> None:
             entry = {"file": name, "checkpoint_sha256": sha(baseline), "current_sha256": sha(current)}
             (allowed_changed if name in ALLOWED_CHANGED else changed).append(entry)
     packaged = {}
-    for variant, archive_name in (("standard", "ReadingTime-V4.zip"), ("ks", "ReadingTime-V4-KS.zip")):
-        with zipfile.ZipFile(ROOT / "dist" / archive_name) as outer:
+    for variant, archive_name in (("standard", SIMPLE_ARCHIVE.name),):
+        with zipfile.ZipFile(SIMPLE_ARCHIVE) as outer:
             tar_bytes = outer.read(BOOT_TAR)
         with tarfile.open(fileobj=io.BytesIO(tar_bytes)) as archive:
             names_in_tar = set(archive.getnames())
@@ -71,7 +77,10 @@ def main() -> None:
                         mismatches.append(f"missing: {name}")
                     continue
                 checked += 1
-                if sha(archive.extractfile(member).read()) != hashes[name]:
+                expected_hash = hashes[name]
+                if variant == "ks" and name == "native-reading-time-package/阅读记录.sh":
+                    expected_hash = sha((ROOT / "ks-package/native-reading-time-package/阅读记录.sh").read_bytes())
+                if sha(archive.extractfile(member).read()) != expected_hash:
                     mismatches.append(name)
             packaged[variant] = {"checked_files": checked, "mismatches": mismatches}
     report = {"checkpoint": CHECKPOINT, "checked_files": len(runtime), "allowed_changed": allowed_changed, "changed": changed, "packaged_runtime": packaged, "key_hashes": {name: digest for name, digest in hashes.items() if name.endswith(("阅读记录-optimized.sh", "阅读记录-ks.sh", "reading-insights-touch.lua", "reading-insights-touch-ks.lua", "reading-insights-touch-probe-ks.lua", "native-reading-time-daemon.sh", "reading-insights-cache.awk"))}}

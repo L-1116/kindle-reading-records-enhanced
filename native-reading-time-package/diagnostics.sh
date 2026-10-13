@@ -49,6 +49,9 @@ if [ -n "$CHINESE_REPORT" ]; then mkdir -p "$DOCS" 2>/dev/null || exit 1; fi
     echo "Kindle Reading Records diagnostic"
     echo "generated=$(date 2>/dev/null || echo unknown)"
     echo
+    echo "[Build identity]"
+    [ ! -r "$BASE/release-info" ] || cat "$BASE/release-info"
+    [ ! -r "$BASE/bin/service-manager.sh" ] || /bin/sh "$BASE/bin/service-manager.sh" audit
     echo "[Device]"
     printf 'prettyversion=%s\n' "$(sed -n '1p' "$PRETTYVERSION_PATH" 2>/dev/null || echo unavailable)"
     printf 'version.txt=%s\n' "$(sed -n '1p' "$VERSION_PATH" 2>/dev/null || echo unavailable)"
@@ -78,14 +81,14 @@ if [ -n "$CHINESE_REPORT" ]; then mkdir -p "$DOCS" 2>/dev/null || exit 1; fi
     echo "[Plugin]"
     permission_status "$BASE"
     permission_status "$BASE/bin/launch.sh"
-    permission_status "$BASE/releases/9.7.5-test/bin/reading-records.sh"
+    permission_status "$BASE/releases/9.7.6-5.20.1-vera/bin/reading-records.sh"
     if command -v cksum >/dev/null 2>&1; then
-        diagnostic_resolver="$BASE/releases/9.7.5-test/bin/reading-records.sh"
+        diagnostic_resolver="$BASE/releases/9.7.6-5.20.1-vera/bin/reading-records.sh"
         if [ -r "$diagnostic_resolver" ]; then
             printf 'installed resolver checksum=%s\n' "$(cksum < "$diagnostic_resolver")"
         fi
     fi
-    permission_status "$BASE/releases/9.7.5-test/bin/reading-insights-cover.lua"
+    permission_status "$BASE/releases/9.7.6-5.20.1-vera/bin/reading-insights-cover.lua"
     permission_status "$BASE/reading-time.tsv"
     permission_status "$BASE/book-covers"
     permission_status "$DOCS/阅读记录.sh"
@@ -126,6 +129,8 @@ if [ -n "$CHINESE_REPORT" ]; then mkdir -p "$DOCS" 2>/dev/null || exit 1; fi
     permission_status "$BASE/book-cover-cache.tsv"
     permission_status "$BASE/book-cover-misses.tsv"
     if [ -r "$BASE/cover-debug.log" ]; then tail -n 120 "$BASE/cover-debug.log"; else echo "cover debug log unavailable"; fi
+    printf '\n[Service status; actual timing not automatically verified]\n'
+    [ ! -r "$BASE/bin/service-manager.sh" ] || /bin/sh "$BASE/bin/service-manager.sh" status || true
 } > "$REPORT_TMP" 2>&1 || { rm -f "$REPORT_TMP"; exit 1; }
 
 chmod 600 "$REPORT_TMP" 2>/dev/null || true

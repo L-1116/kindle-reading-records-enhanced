@@ -1,11 +1,19 @@
 #!/bin/sh
 
 BASE="${READING_BASE:-/mnt/us/reading-time}"
+if [ "${READING_SERVICE_CHECKED:-0}" != 1 ] && [ -r "$BASE/bin/service-manager.sh" ]; then
+    READING_SERVICE_CHECKED=1; export READING_SERVICE_CHECKED
+    /bin/sh "$BASE/bin/service-manager.sh" launch >/dev/null 2>&1 || true
+fi
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="${READING_FBINK:-/var/local/kmc/bin/fbink}"
 UI_DIR="$BASE/ui"
-TOUCH_READER="$BASE/bin/reading-insights-touch.lua"
+TOUCH_READER="${READING_RELEASE:-$BASE/releases/9.7.6-5.20.1-vera}/bin/reading-insights-touch-ui.lua"
+TOUCH_PROBE="${READING_RELEASE:-$BASE/releases/9.7.6-5.20.1-vera}/bin/reading-insights-touch-probe.lua"
+TOUCH_PREFLIGHT="${READING_RELEASE:-$BASE/releases/9.7.6-5.20.1-vera}/bin/reading-insights-touch-preflight.sh"
+SESSION_DIR="/tmp/native-reading-dashboard.$$"
+trap 'rm -rf "$SESSION_DIR"' EXIT
 CC_DB="/var/local/cc.db"
 PROGRESS_DB="$BASE/cc-progress-viewer.db"
 PROGRESS_CACHE="$BASE/book-progress.tsv"
@@ -56,20 +64,9 @@ detect_screen() {
 }
 
 find_touch_device() {
-    if [ -n "${READING_TOUCH_DEVICE:-}" ] && [ -r "$READING_TOUCH_DEVICE" ]; then
-        TOUCH="$READING_TOUCH_DEVICE"; return
-    fi
-    for event_path in /sys/class/input/event*; do
-        [ -r "$event_path/device/name" ] || continue
-        event_name="$(cat "$event_path/device/name" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
-        case "$event_name" in
-            *touch*|*zforce*|*cyttsp*|*fts*|*_ts*)
-                candidate="/dev/input/${event_path##*/}"
-                [ -r "$candidate" ] && { TOUCH="$candidate"; return; }
-                ;;
-        esac
-    done
-    TOUCH="/dev/input/event1"
+    [ -r "$TOUCH_PREFLIGHT" ] || { lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true; fail "缺少触摸兼容层"; }
+    . "$TOUCH_PREFLIGHT"
+    standard_touch_preflight
 }
 
 scale_len() {
@@ -449,9 +446,10 @@ lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true
 lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true
 cleanup() {
     lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true
-    lipc-set-prop com.lab126.powerd preventScreenSaver 0 >/dev/null 2>&1 || true
+    lipc-set-prop com.lab126.powerd preventScreenSaver "${READING_ORIGINAL_POWER:-0}" >/dev/null 2>&1 || true
     lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
     fbink_stop_child
+    rm -rf "$SESSION_DIR"
     # The native Library performs its own refresh.
 }
 trap cleanup EXIT
@@ -468,7 +466,8 @@ while :; do
     draw
     dim="$(days_in_month "$daily_y" "$daily_m")"; offset="$(weekday_offset "$daily_y" "$daily_m")"
     action="$(lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" \
-        "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H")" || action="exit"
+        "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" 1 1 1576 week 7d "$TOUCH_TRANSFORM" "$EVENT_STRUCT_SIZE" "$SCREEN_W" "$SCREEN_H" "$TOUCH_LOG" "$RAW_X_MIN" "$RAW_X_MAX" "$RAW_Y_MIN" "$RAW_Y_MAX" legacy)" || standard_touch_reader_failed "$?"
+    standard_touch_action_received
     echo "$(date): dashboard action=$action mode=$mode"
     case "$action" in
         exit) break;;

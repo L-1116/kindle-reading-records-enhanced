@@ -3,7 +3,9 @@
 # Author: Kindle Reading Records Enhanced
 # Icon: /mnt/us/reading-time/assets/launcher-icon.png
 
-LAUNCHER="/mnt/us/reading-time/bin/launch.sh"
+BASE="${READING_BASE:-/mnt/us/reading-time}"
+# product_version=9.7.6-5.20.1-vera
+LAUNCHER="$BASE/bin/launch.sh"
 if [ -x "$LAUNCHER" ]; then
     exec "$LAUNCHER"
 fi
