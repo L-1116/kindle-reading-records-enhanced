@@ -60,10 +60,10 @@ case "$ACTION" in
 esac
 
 STAGE=environment
-if [ -e "$BASE/bin/launch-ks.sh" ] || [ -d "$BASE/releases/9.7.5-ks-test1" ] ||
-   { [ -r "$BASE/release-info" ] && grep -Fqx 'variant=ks' "$BASE/release-info"; }; then
-    fail "KS installation detected; Standard upgrade refused"
-fi
+rr_device_log() { log "$*"; }
+[ -r "$PKG/compat/device_variant.sh" ] || fail "device variant detector missing"
+. "$PKG/compat/device_variant.sh" || fail "device variant detector unavailable"
+rr_standard_install_guard || fail "$RR_DEVICE_ERROR"
 rr_lock || fail "another install or repair is running"
 rr_mount_capture && rr_root_rw && rr_root_restore || fail "root mount preflight failed"
 [ "$(id -u)" -eq 0 ] || [ "${READING_ALLOW_NONROOT_TEST:-0}" = 1 ] || fail "installer must run as root (Scriptlet, KUAL or ;log runme)"
@@ -98,10 +98,10 @@ if [ ! -f "$BASE/bin/native-reading-time-daemon.sh" ]; then
     log "fresh install: running base installer"
     rr_run 120 /bin/sh "$PKG/Install-Native-Reading-Time.sh" || fail "base installer failed with exit code $?"
 fi
-log "running Standard 9.7.6-5.20.1-vera installer"
+log "running Standard ${READING_PRODUCT_VERSION:-9.7.6-5.20.1-vera} installer"
 rr_run 120 /bin/sh "$PKG/Install-Native-Reading-Time-Optimized.sh" || fail "optimized installer failed with exit code $?"
 
 STAGE=complete
 log "core installation completed"
-toast "阅读记录 9.7.6-5.20.1-vera 安装完成"
+toast "阅读记录 ${READING_PRODUCT_VERSION:-9.7.6-5.20.1-vera} 安装完成"
 exit 0

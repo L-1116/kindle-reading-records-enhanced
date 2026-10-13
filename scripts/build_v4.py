@@ -14,8 +14,10 @@ from package_release import FILES as STANDARD_FILES
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCT_VERSION = "9.7.6-5.20.1-vera"
-DIST = ROOT / "build/formal-candidate"
+PRODUCT_VERSION = "9.7.6-5.20.1-vera-test2"
+# Internal runtime paths stay identical to the hardware-accepted release.
+RUNTIME_VERSION = "9.7.6-5.20.1-vera"
+DIST = ROOT / "build/standard-test2"
 SIMPLE_ARCHIVE = DIST / f"{PRODUCT_VERSION}.zip"
 BOOT_NAME = "reading-records-v4-install.sh"
 TAR_NAME = "阅读记录安装数据.tar"
@@ -59,7 +61,7 @@ def sources(variant: str) -> dict[str, bytes]:
     bootstrap_path = f"/mnt/us/documents/{BOOT_NAME}"
     cleanup_path = "/mnt/us/documents/reading-records-install-cleanup.sh"
     result["RUNME.sh"] = f'#!/bin/sh\n# READING_RECORDS_V4_RUNME\nexec /bin/sh "{bootstrap_path}"\n'.encode()
-    result["README.txt"] = ("Kindle 阅读记录 9.7.6-5.20.1-vera 安装包\n优先使用 documents 中的两个简易安装文件。\n此完整包保留 ;log runme 和 KUAL 入口。\n").encode()
+    result["README.txt"] = (f"Kindle 阅读记录 {PRODUCT_VERSION} Standard 测试安装包\n优先使用 documents 中的两个简易安装文件。\n此完整包保留 ;log runme 和 KUAL 入口。\n").encode()
     legacy_document = "documents/reading-records-install.sh" if variant == "standard" else "documents/reading-records-ks-install.sh"
     result[legacy_document] = f'#!/bin/sh\n# Name: 安装阅读记录\nexec /bin/sh "{bootstrap_path}"\n'.encode()
     kual = f'''#!/bin/sh
@@ -123,7 +125,7 @@ def build(variant: str) -> dict:
     tar_bytes = make_tar(payload_files)
     cksum = str(posix_cksum(tar_bytes))
     bootstrap = (ROOT / "v4/bootstrap.template.sh").read_text(encoding="utf-8")
-    bootstrap = bootstrap.replace("@LIFECYCLE@", (ROOT / "native-reading-time-package/compat/lifecycle.sh").read_text(encoding="utf-8")).replace("@PRODUCT_VERSION@", PRODUCT_VERSION).replace("@BUILD_ID@", payload_files["BUILD-INFO"].decode().split("build_id=")[1].strip()).replace("@VARIANT@", variant).replace("@SIZE@", str(len(tar_bytes))).replace("@CKSUM@", cksum).encode("utf-8")
+    bootstrap = bootstrap.replace("@DEVICE_VARIANT@", (ROOT / "native-reading-time-package/compat/device_variant.sh").read_text(encoding="utf-8")).replace("@RUNTIME_VERSION@", RUNTIME_VERSION).replace("@LIFECYCLE@", (ROOT / "native-reading-time-package/compat/lifecycle.sh").read_text(encoding="utf-8")).replace("@PRODUCT_VERSION@", PRODUCT_VERSION).replace("@BUILD_ID@", payload_files["BUILD-INFO"].decode().split("build_id=")[1].strip()).replace("@VARIANT@", variant).replace("@SIZE@", str(len(tar_bytes))).replace("@CKSUM@", cksum).encode("utf-8")
     simple = SIMPLE_ARCHIVE
     make_zip(simple, {BOOT_NAME: bootstrap, TAR_NAME: tar_bytes})
     with tarfile.open(fileobj=io.BytesIO(tar_bytes)) as archive:

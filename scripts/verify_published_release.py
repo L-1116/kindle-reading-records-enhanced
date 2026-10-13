@@ -3,12 +3,14 @@ from pathlib import Path
 import argparse,hashlib,io,json,tarfile,urllib.request,zipfile
 ROOT=Path(__file__).resolve().parents[1]
 REPO='L-1116/kindle-reading-records-enhanced'
-REPORT=ROOT/'docs/releases/9.7.6-5.20.1-vera-verification.json'
+HISTORICAL_REPORT=ROOT/'docs/releases/9.7.6-5.20.1-vera-verification.json'
+REPLACEMENT_REPORT=ROOT/'docs/releases/9.7.6-5.20.1-vera-replacement-verification.json'
+REPORT=REPLACEMENT_REPORT if REPLACEMENT_REPORT.exists() else HISTORICAL_REPORT
 def sha(raw):return hashlib.sha256(raw).hexdigest()
 def verify_source(report):
     for name,expected in report['production_source_sha256'].items():
         assert sha((ROOT/name).read_bytes())==expected,'Frozen production source differs: '+name
-    assert report['variant']=='standard' and report['tag']=='v'+report['product_version']
+    assert report['variant']=='standard' and report['tag']=='v'+report.get('release_version',report['product_version'])
 def verify_zip(raw,report):
     assert len(raw)==report['zip_size'] and sha(raw)==report['zip_sha256'],'Release ZIP differs from approved candidate'
     with zipfile.ZipFile(io.BytesIO(raw)) as outer:
@@ -35,12 +37,13 @@ def main():
     parser.add_argument('--source-only',action='store_true')
     parser.add_argument('--zip',type=Path)
     parser.add_argument('--github',action='store_true')
+    parser.add_argument('--report',type=Path,default=REPORT,help='Use an explicit historical or replacement verification record')
     args=parser.parse_args()
-    report=json.loads(REPORT.read_text(encoding='utf-8'));verify_source(report)
+    report=json.loads(args.report.read_text(encoding='utf-8'));verify_source(report)
     if args.zip:verify_zip(args.zip.read_bytes(),report)
     if args.github:
         release=json.loads(fetch('https://api.github.com/repos/'+REPO+'/releases/tags/'+report['tag']))
-        assert release['name']==report['product_version'] and not release['draft'] and not release['prerelease']
+        assert release['name']==report.get('release_version',report['product_version']) and not release['draft'] and not release['prerelease']
         assert len(release['assets'])==1 and release['assets'][0]['name']==report['zip_file']
         asset=release['assets'][0]
         assert asset['size']==report['zip_size'] and asset['state']=='uploaded'

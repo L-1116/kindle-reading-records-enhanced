@@ -35,6 +35,8 @@ CHECKS = [
     ROOT / "scripts/build_v4.py",
     ROOT / "tests/validate_v4.py",
     ROOT / "tests/validate_5201_install.py",
+    ROOT / "tests/validate_device_variant.py",
+    ROOT / "tests/validate_device_variant_permissions.py",
     ROOT / "scripts/check_v4_runtime.py",
     ROOT / "scripts/audit_v4_startup.py",
     ROOT / "scripts/verify_v4_artifacts.py",

@@ -23,7 +23,7 @@ def execute(check):
     print(name,'PASS' if result.returncode==0 else 'FAIL',row['elapsed_seconds'],flush=True)
     return row
 builder=next(c for c in CHECKS if c.name=='build_v4.py')
-packages=[c for c in CHECKS if c.name in ('validate_v4.py','validate_5201_install.py')]
+packages=[c for c in CHECKS if c.name in ('validate_v4.py','validate_5201_install.py','validate_device_variant.py')]
 last=[c for c in CHECKS if c.name in ('check_v4_runtime.py','audit_v4_startup.py','verify_v4_artifacts.py','validate_standard_migration_safety.py','validate_startup_performance.py','validate_launcher_state.py')]
 first=[c for c in CHECKS if c not in [builder,*packages,*last]]
 for phase,workers in [(first,3),([builder],1),(packages,2),([c for c in last if c.name!='validate_startup_performance.py'],3),([c for c in last if c.name=='validate_startup_performance.py'],1)]:

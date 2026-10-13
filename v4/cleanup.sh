@@ -6,8 +6,9 @@
 MNT_US="${READING_MNT_US:-/mnt/us}"
 DOCS="${READING_DOCUMENTS:-$MNT_US/documents}"
 BASE="${READING_BASE:-$MNT_US/reading-time}"
-PRODUCT_VERSION=9.7.6-5.20.1-vera
-RELEASE="$BASE/releases/$PRODUCT_VERSION"
+PRODUCT_VERSION=9.7.6-5.20.1-vera-test2
+RUNTIME_VERSION=9.7.6-5.20.1-vera
+RELEASE="$BASE/releases/$RUNTIME_VERSION"
 SELF="$DOCS/reading-records-install-cleanup.sh"
 BOOT="$DOCS/reading-records-v4-install.sh"
 PAYLOAD="$DOCS/阅读记录安装数据.tar"

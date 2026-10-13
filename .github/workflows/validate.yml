@@ -36,5 +36,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: python scripts/verify_published_release.py --source-only
+      - if: github.event_name == 'push'
+        run: python tests/validate_device_variant_permissions.py
       - if: github.event_name == 'release'
         run: python scripts/verify_published_release.py --github

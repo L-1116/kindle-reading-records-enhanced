@@ -6,6 +6,7 @@
 
 VARIANT='@VARIANT@'
 PRODUCT_VERSION='@PRODUCT_VERSION@'
+RUNTIME_VERSION='@RUNTIME_VERSION@'
 BUILD_ID='@BUILD_ID@'
 PAYLOAD_SIZE='@SIZE@'
 PAYLOAD_CKSUM='@CKSUM@'
@@ -29,12 +30,18 @@ ORIGINAL_SERVICE_RUNNING=0
 @LIFECYCLE@
 COMMITTED=0
 READING_VARIANT=$VARIANT; export READING_VARIANT
+READING_PRODUCT_VERSION=$PRODUCT_VERSION; export READING_PRODUCT_VERSION
+@DEVICE_VARIANT@
+rr_device_log() { note "$*"; }
 
 toast() { command -v lipc-set-prop >/dev/null 2>&1 && rr_run 1 lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; }
 note() { printf '%s: %s\n' "$(date)" "$*" >> "$LOG" 2>/dev/null || true; }
 result() {
     case "$2" in in_progress) install_state=in_progress;; none) install_state=installed;; timing_error_requires_repair) install_state=needs_repair;; *) install_state=failed;; esac
-    printf 'timestamp=%s\nexit_code=%s\nerror=%s\nvariant=%s\ntiming_status=unverified\ninstallation_status=%s\nproduct_version=%s\nbuild_id=%s\nformal_entry=%s\n' "$(date)" "$1" "$2" "$VARIANT" "$install_state" "$PRODUCT_VERSION" "$BUILD_ID" "$DOCS/reading-records.sh" > "$RESULT.new.$$" && mv "$RESULT.new.$$" "$RESULT"
+    {
+        printf 'timestamp=%s\nexit_code=%s\nerror=%s\nvariant=%s\ntiming_status=unverified\ninstallation_status=%s\nproduct_version=%s\nbuild_id=%s\nformal_entry=%s\n' "$(date)" "$1" "$2" "$VARIANT" "$install_state" "$PRODUCT_VERSION" "$BUILD_ID" "$DOCS/reading-records.sh"
+        printf 'device_variant=%s\ndevice_decision=%s\ndevice_reason=%s\ndevice_sources=%s\n' "${RR_DEVICE_VARIANT:-unchecked}" "${RR_DEVICE_DECISION:-unchecked}" "${RR_DEVICE_REASON:-not_checked}" "${RR_DEVICE_SOURCES:-none}"
+    } > "$RESULT.new.$$" && mv "$RESULT.new.$$" "$RESULT"
 }
 fail() { note "ERROR exit_code=$1 error=$2"; result "$1" "$2"; toast "$3"; exit "$1"; }
 save_path() { if [ -e "$1" ] || [ -L "$1" ]; then cp -R "$1" "$ROLLBACK_DIR/$2" || return 1; else : > "$ROLLBACK_DIR/no-$2" || return 1; fi; }
@@ -114,15 +121,8 @@ if command -v cksum >/dev/null 2>&1; then
     [ "$actual_cksum" = "$PAYLOAD_CKSUM" ] || fail 1 'payload checksum mismatch' '安装数据损坏，请重新复制'
 else note 'cksum unavailable; size and archive checks remain active'; fi
 
-device_file="${READING_DEVICETYPE_PATH:-/var/local/deviceType.txt}"
-device_type=$(sed -n '1p' "$device_file" 2>/dev/null || true)
-case "$device_type" in
-    *[Ss]cribe*|*KS*) device_variant=ks;;
-    '') fail 1 'device variant unknown' '无法识别 Kindle 机型，已保留安装日志';;
-    *) device_variant=standard;;
-esac
 [ "$VARIANT" = standard ] || fail 1 'KS build paused' '本安装包只支持普通版 Kindle'
-[ "$device_variant" = "$VARIANT" ] || fail 1 'device variant mismatch' '安装包与 Kindle 机型不符'
+rr_standard_install_guard || fail 1 "$RR_DEVICE_ERROR" '检测到 KS 或设备识别冲突，已停止安装并保留日志'
 
 if [ -e "$BASE/bin/launch-ks.sh" ] || [ -d "$BASE/releases/9.7.5-ks-test1" ]; then fail 1 'cross-variant upgrade refused' '检测到 KS 运行文件，已停止普通版安装'; fi
 installed_variant=
@@ -188,7 +188,7 @@ if [ "$VARIANT" = ks ]; then
     launcher="$BASE/bin/launch-ks.sh"; resolver="$BASE/releases/9.7.5-ks-test1/bin/reading-records-ks.sh"
     [ -x "$BASE/bin/force-exit-ks.sh" ] || fail 1 'verified activation failed: force exit' '安装验证失败，请查看安装日志'
 else
-    launcher="$BASE/bin/launch.sh"; resolver="$BASE/releases/$PRODUCT_VERSION/bin/reading-records.sh"
+    launcher="$BASE/bin/launch.sh"; resolver="$BASE/releases/$RUNTIME_VERSION/bin/reading-records.sh"
 fi
 [ -x "$launcher" ] && [ -x "$resolver" ] && [ -x "$DOCS/reading-records.sh" ] && [ -x "$BASE/bin/native-reading-time-daemon.sh" ] && [ -r "$BASE/reading-time.tsv" ] && [ -r "${READING_UPSTART_DIR:-/etc/upstart}/native-reading-time.conf" ] || fail 1 'verified activation failed' '安装验证失败，请查看安装日志'
 version=$PRODUCT_VERSION

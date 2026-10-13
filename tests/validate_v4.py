@@ -6,7 +6,7 @@ import hashlib,io,json,os,shutil,subprocess,sys,tarfile,tempfile,zipfile
 from service_fixture import service_fixture
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'scripts'))
-from build_v4 import PRODUCT_VERSION,SIMPLE_ARCHIVE,BOOT_NAME as BOOT,TAR_NAME as TAR,make_tar,posix_cksum
+from build_v4 import PRODUCT_VERSION,RUNTIME_VERSION,SIMPLE_ARCHIVE,BOOT_NAME as BOOT,TAR_NAME as TAR,make_tar,posix_cksum
 OUT=ROOT/'build/validation';OUT.mkdir(exist_ok=True)
 SHELL=shutil.which('sh') or 'C:/Program Files/Git/usr/bin/sh.exe'
 CLEAN='reading-records-install-cleanup.sh'
@@ -71,6 +71,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
     env={**os.environ,'PATH':mock.as_posix()+':/usr/bin:/bin:'+os.environ.get('PATH',''),'READING_MNT_US':us.as_posix(),'READING_BASE':base.as_posix(),'READING_DOCUMENTS':docs.as_posix(),'READING_TMPDIR':tmp.as_posix(),'READING_ALLOW_NONROOT_TEST':'1','READING_UI_LOCK':(tmp/'ui.lock').as_posix(),'SCANNER_CALLS':(session/'scanner-calls').as_posix()}
     env.update(service_fixture(session/'service-fixture',base,upstart,SHELL,running=bool(previous)))
     model=session/'device';put(model,b'KPW6');env['READING_DEVICETYPE_PATH']=model.as_posix()
+    for key,name in [('READING_USID_PATH','usid'),('READING_PROC_MODEL_PATH','proc-model'),('READING_SYS_MODEL_PATH','sys-model')]:env[key]=(session/name).as_posix()
     pretty=session/'pretty';put(pretty,b'Kindle 5.20.1');env['READING_PRETTYVERSION_PATH']=pretty.as_posix()
     env['READING_ARMHF_LOADER_PATH']=(session/'loader').as_posix();put(session/'loader',b'loader')
     if previous in ('test1','test1-cleaned'):
@@ -131,7 +132,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert (docs/'reading-records.sh').read_bytes()==(ROOT/'native-reading-time-package/阅读记录-entry.sh').read_bytes()
         if previous is None:assert (base/'reading-time.tsv').read_bytes()==b'date\tbook_id\tseconds\ttitle\n'
         assert (base/'VERSION').read_text().strip()==PRODUCT_VERSION
-        assert (base/f'releases/{PRODUCT_VERSION}/bin/reading-records.sh').read_bytes()==(ROOT/'native-reading-time-package/阅读记录-optimized.sh').read_bytes()
+        assert (base/f'releases/{RUNTIME_VERSION}/bin/reading-records.sh').read_bytes()==(ROOT/'native-reading-time-package/阅读记录-optimized.sh').read_bytes()
         assert (docs/CLEAN).is_file() and (base/'.previous-install').is_dir()
         assert (docs/CLEAN).read_text(encoding='utf-8').splitlines()[1]=='# Name: 确认无误之后，再点这个'
         owned_viewers=[p.name for p in docs.glob('*.sh') if '# Name: 阅读记录' in p.read_text(encoding='utf-8',errors='replace').splitlines()]
@@ -147,7 +148,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         if mutation=='scanner_failure':assert 'scanner_request=request_failed index_completion=unverified' in log
         if cleanup:
             backup=session/'cleanup-copy.sh';shutil.copy2(docs/CLEAN,backup)
-            active_runtime={p:p.read_bytes() for folder in (base/f'releases/{PRODUCT_VERSION}',base/'compat',base/'service') for p in folder.rglob('*') if p.is_file()}
+            active_runtime={p:p.read_bytes() for folder in (base/f'releases/{RUNTIME_VERSION}',base/'compat',base/'service') for p in folder.rglob('*') if p.is_file()}
             active_runtime.update({p:p.read_bytes() for p in (base/'bin/launch.sh',base/'bin/service-manager.sh',base/'bin/native-reading-time-daemon.sh',upstart/'native-reading-time.conf')})
             scanner_before=len((session/'scanner-calls').read_text(encoding='utf-8').splitlines())
             if cleanup_unknown:put(us/'native-reading-time-package/user-extra.txt',b'user unknown')
@@ -182,10 +183,15 @@ def main():
     cases += [('mixed',m,False) for m in ('core_failure','activation_failure','interrupted','missing_payload','bad_checksum','cross_variant','ks_residue','wrong_device','unknown_formal','unknown_alias','duplicate','orphan','scanner_failure','lost_service','stopped_service','initial_rw','busy_ui')]
     cases += [('test1','',True),('test1-cleaned','',True),(None,'scanner_failure',True)]
     cases += [('test1',m,False) for m in ('core_failure','activation_failure','interrupted')]
+    if '--device-fix' in sys.argv:
+        # Same real package/transaction fixture; focus this device-only change
+        # on fresh install, accepted-release upgrade, repair, and safety faults.
+        cases=[(None,'',True),('V4','',True),('test1-cleaned','',True)]
+        cases += [('mixed',m,False) for m in ('core_failure','activation_failure','interrupted','missing_payload','bad_checksum','cross_variant','ks_residue','wrong_device','unknown_formal','unknown_alias','duplicate','orphan','lost_service','stopped_service','initial_rw','busy_ui')]
     for p,m,c in cases:
         with tempfile.TemporaryDirectory(prefix='standard-install-',dir=OUT) as name:results.append(run(Path(name),previous=p,mutation=m,cleanup=c))
         print(p or 'fresh',m or 'install + cleanup','PASS',flush=True)
-    for tag in ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3'):
+    for tag in (() if '--device-fix' in sys.argv else ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3')):
         with tempfile.TemporaryDirectory(prefix='standard-legacy-',dir=OUT) as name:results.append(run(Path(name),previous='V3',cleanup=True,legacy_tag=tag))
         print('legacy payload',tag,'PASS',flush=True)
     with tempfile.TemporaryDirectory(prefix='standard-unknown-',dir=OUT) as name:results.append(run(Path(name),previous='V3',cleanup=True,cleanup_unknown=True))
