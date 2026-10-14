@@ -1,14 +1,29 @@
-# Kindle Reading Records — 9.7.6-5.18-springbreak
+# Kindle 阅读记录 — 9.7.6-5.18-springbreak
 
-本分支从 `3acda144ee7bf3a09d7472628efdffd9c09ab240` 隔离建立，适用 **KPW4 / firmware 5.18.1.1.1 / 已有 Scriptlet 的 SpringBreak**。2026-10-12 用户反馈 Test 2 实机成功；按要求命名为 `9.7.6-5.18-springbreak`。仅提交并推送源码分支，不创建 GitHub Release。包内身份同步，已测触摸/绘制/退出/安装逻辑保持不变。
+已在**一台 Kindle Paperwhite 4（KPW4，10 代）、固件 5.18.1.1.1、SpringBreak 越狱环境**的机器上运行成功。实机验证范围仅为这台设备及该固件/越狱组合；不据此宣称其他型号或其他 5.18 固件均已通过。
 
-本地包为 `dist/ReadingTime-9.7.6-5.18-springbreak.zip`。解压一次，将两个 ASCII 文件一起放入 Kindle 的 documents，点击“安装阅读记录”。保留已有 reading-time 目录，可覆盖升级和 repair。每次打开约两分钟后走原清理流程自动退出；失败保留安装文件，不点击清理入口。
+适用范围：KPW4 / **固件 5.18.1.1.1** / SpringBreak，且已有 Scriptlet 安装入口可用。安装器保留精确固件和型号检查。不适用于 KS/Scribe，也不扩展到其他固件。
 
-- 中文安装/简短确认：[说明](docs/中文说明.md)
-- 上游依赖、历史触摸证据、改动及边界：[审计](docs/springbreak-kpw4-audit.md)
-- 实机与离线证据：[记录](docs/springbreak-hardware-confirmation.md)
-- 本地完整回归：`python scripts/validate_all.py`
-- 最终包与实测计数报告：回归通过后运行 `python scripts/report_springbreak.py`，见 `build/validation/springbreak-final-report.md`。
+[下载公开版本](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6-5.18-springbreak)。本次发布既有 ZIP 原文件，插件运行代码、安装逻辑和 UI 均不修改。
+
+## 安装方式
+
+1. 下载 `ReadingTime-9.7.6-5.18-springbreak.zip`，**只解压一次**。
+2. 将得到的 `reading-records-9.7.6-install.sh` 与 `reading-records-9.7.6-data.tar` 两个文件一起复制到 Kindle 的 `documents` 文件夹。**不要继续解压 TAR**。
+3. 安全断开 USB，在书库点击“安装阅读记录”，等待安装完成提示，然后打开“阅读记录”。已有版本可直接覆盖安装，保留阅读历史、备份、配置、封面和统计缓存；不要删除原有 `reading-time` 文件夹。
+4. 确认安装正常后，可使用安装清理入口移除安装文件。出现安装或使用异常时保留两个安装文件，便于修复。
+
+## 使用说明
+
+保留每次会话约 120 秒自动退出的安全保护；也可点击左上角退出。历史时长、书籍封面、用户配置和统计缓存继续保留。不需要执行命令、选择 runtime 或替换系统依赖。
+
+- [完整中文说明](docs/中文说明.md)
+- [实机及离线验证记录](docs/springbreak-hardware-confirmation.md)
+- [历史适配审计](docs/springbreak-kpw4-audit.md)
+
+## 开发者验证
+
+`python scripts/validate_all.py` 执行全部离线回归，`python scripts/report_springbreak.py` 校验当前包。离线或 Windows/MSYS 模拟不代表真机性能测量。
 
 ## 保留的 Vera 基线历史记录
 

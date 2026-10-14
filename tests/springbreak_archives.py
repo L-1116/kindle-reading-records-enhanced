@@ -1,6 +1,8 @@
 """Recreate pinned historical fixtures without ignored developer directories."""
 from pathlib import Path
 import ast, hashlib, io, subprocess, sys, tarfile, zipfile
+from unittest.mock import patch
+from zlib_ng import zlib_ng
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from scripts.package_release import BOOTSTRAP, PAYLOAD, cksum
@@ -46,7 +48,10 @@ def historical_zip(kind):
     payload=buffer.getvalue();checksum,size=cksum(payload)
     boot=boot.replace(b'@PAYLOAD_CKSUM@',str(checksum).encode()).replace(b'@PAYLOAD_SIZE@',str(size).encode())
     buffer=io.BytesIO()
-    with zipfile.ZipFile(buffer,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as archive:
+    # Original Windows archives used zlib-ng. Pin the fixture compressor only,
+    # so Linux CI reproduces the same bytes without weakening any SHA assertion.
+    # The production builder and the public release ZIP remain unchanged.
+    with patch.object(zipfile,'zlib',zlib_ng), zipfile.ZipFile(buffer,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as archive:
         for name,raw,mode in ((BOOTSTRAP,boot,0o755),(PAYLOAD,payload,0o644)):
             entry=zipfile.ZipInfo(name,date_time=(2026,10,4,0,0,0));entry.create_system=3
             entry.external_attr=(0o100000|mode)<<16

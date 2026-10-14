@@ -69,7 +69,7 @@ def main():
   'runtime_delta':'Only version identity; all other runtime bytes match hardware-tested checkpoint.',
   'naming_checks':len(naming['checks']),'current_full_suite_verified':bool(full_current),
   'current_full_case_counts':counts,'test_assert_integrity':integrity,
-  'hardware_feedback':'User reports Test 2 successful; renamed ZIP not separately hardware-tested.',
+  'hardware_feedback':'2026-10-14: user confirms this version runs successfully on one KPW4 / 5.18.1.1.1 / SpringBreak device; no broader hardware claim.',
   'head':git('rev-parse','HEAD').decode().strip(),'github_release_created':False}
  (OUT/'springbreak-final-results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
  (ARCHIVE.parent/(ARCHIVE.stem+'.sha256.txt')).write_text(package['zip_sha256']+'  '+ARCHIVE.name+'\n',encoding='ascii')
@@ -77,7 +77,7 @@ def main():
   f'大小：{package["zip_bytes"]:,} bytes；SHA-256：`{package["zip_sha256"]}`。','',
   'ZIP CRC、两文件顶层、65 个 regular TAR 条目、manifest 全项、bootstrap 校验和/大小、源文件字节均通过。',
   f'Test 2 检查点 `{TESTED}`；原 ZIP SHA-256 `{evidence["zip_sha256"]}`。',
-  '用户 2026-10-12 反馈 Test 2 实机成功，范围仅 KPW4 / 5.18.1.1.1 / SpringBreak；未推断逐项异常场景均已实机通过。',
+  '用户 2026-10-14 确认本版本在一台 KPW4 / 5.18.1.1.1 / SpringBreak 实机运行成功；未推断其他设备/固件或逐项异常场景均已通过。',
   '当前包除版本身份外全部运行字节与 Test 2 相同；120 秒保护、触摸/Lua/坐标/绘制/安装架构保持。',
   f'原 Test 2 完整离线回归：16 阶段 / 709 项 PASS。当前命名/精确 Test 2 升级专项：{len(naming["checks"])} 项 PASS。',
   f'当前名称完整回归单独核验：{bool(full_current)}'+(f'；{len(suite["stages"])} 阶段 / {sum(counts.values())} 项 PASS。' if full_current else '；不把历史全回归冒充当前重新执行。'),
