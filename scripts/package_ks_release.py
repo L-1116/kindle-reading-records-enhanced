@@ -38,7 +38,7 @@ def source_map() -> dict[str, Path]:
         "reading-insights-cache.awk", "reading-insights-cover.lua", "reading-insights-titles.lua",
         "reading-insights-title-widths.lua", "NotoSansCJKsc-Regular.otf", "FONT-LICENSE.txt",
         "launcher-icon.png", "uninstall.sh", "cleanup-manifest.txt",
-        "compat/detect_env.sh",
+        "compat/detect_env.sh", "compat/lifecycle.sh", "service-manager.sh",
         "resources/reading-records-uninstall.sh", "resources/kual/reading-records-installer/config.xml",
     ]
     for relative in common_files:

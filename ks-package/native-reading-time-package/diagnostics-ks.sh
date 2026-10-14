@@ -39,6 +39,8 @@ REPORT_TMP="${REPORT}.new.$$"
     if [ -r "$LOG" ]; then tail -n 200 "$LOG"; else echo unavailable; fi
     printf '\n[Last stderr, last 80 lines]\n'
     if [ -r "$BASE/last-launch.stderr" ]; then tail -n 80 "$BASE/last-launch.stderr"; else echo unavailable; fi
+    printf '\n[Service status; actual timing not automatically verified]\n'
+    [ ! -r "$BASE/bin/service-manager.sh" ] || /bin/sh "$BASE/bin/service-manager.sh" status || true
 } > "$REPORT_TMP" 2>&1 || { rm -f "$REPORT_TMP"; exit 1; }
 chmod 600 "$REPORT_TMP" 2>/dev/null || true
 mv "$REPORT_TMP" "$REPORT" || exit 1

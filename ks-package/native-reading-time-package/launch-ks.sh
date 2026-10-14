@@ -1,6 +1,14 @@
 #!/bin/sh
 BASE="${READING_BASE:-/mnt/us/reading-time}"
-RELEASE="$BASE/releases/9.7.5-ks-test1"
+PRODUCT_VERSION="9.7.6-5.20.1-vera-KS-test1"
+RELEASE="${READING_RELEASE:-$BASE/releases/9.7.5-ks-test1}"
+LOCK="${READING_UI_LOCK:-${READING_TMPDIR:-/tmp}/reading-records-ui.lock}"
+LOCK_OWNED=0
+[ -r "$BASE/compat/performance.sh" ] && . "$BASE/compat/performance.sh"
+type rr_perf >/dev/null 2>&1 || rr_perf() { :; }
+[ "${READING_PERF:-0}" != 1 ] || : > "$READING_PERF_LOG"
+rr_perf entry
+[ "${READING_PERF:-0}" != 1 ] || printf 'metric_origin=script_entry physical_display_completion=unverified\n' >> "$READING_PERF_LOG"
 MAIN="$RELEASE/bin/reading-records-ks.sh"
 DETECT_ENV="$BASE/compat/detect_env.sh"
 DIAGNOSTICS="$BASE/bin/diagnostics-ks.sh"
@@ -12,18 +20,46 @@ FALLBACK_USED=0
 SELECTED_LUA=none
 SELECTED_FBINK=none
 PROBE_PID=
+PROBE_WORK=
+[ ! -r "$BASE/compat/lifecycle.sh" ] || . "$BASE/compat/lifecycle.sh"
 UI_PID=
 UI_CHILD_PENDING=0
 
+# Shared bounded check; faults are preserved before recovery. History UI remains usable.
+if [ "${READING_SERVICE_CHECKED:-0}" != 1 ] && [ -r "$BASE/bin/service-manager.sh" ]; then
+    READING_SERVICE_CHECKED=1; export READING_SERVICE_CHECKED
+    rr_perf service_begin
+    /bin/sh "$BASE/bin/service-manager.sh" launch >/dev/null 2>&1 || READING_PRESERVE_LAUNCH_LOGS=1
+    rr_perf service_end
+fi
+[ -r "$BASE/compat/runtime-lock.sh" ] || { printf "runtime lock missing\n" >&2; exit 1; }
+. "$BASE/compat/runtime-lock.sh" || exit 1
+launcher_cleanup() {
+    if [ "${POWER_SAVED:-0}" = 1 ]; then
+        lipc-set-prop com.lab126.powerd preventScreenSaver "$READING_ORIGINAL_POWER" >/dev/null 2>&1 || true
+    fi
+    cleanup_probe
+    release_runtime_lock
+}
+trap launcher_cleanup EXIT
+acquire_runtime_lock || { release_runtime_lock; exit 75; }
+# Exclude installs without taking the lifecycle mutex for a long-lived UI.
+if [ -d "${READING_LIFECYCLE_LOCK:-${READING_TMPDIR:-/tmp}/reading-records-lifecycle.lock}" ]; then exit 75; fi
+rr_perf lock_acquired
 mkdir -p "$BASE" 2>/dev/null || exit 1
-: > "$LOG" 2>/dev/null || exit 1
-: > "$BASE/touch-last.log" 2>/dev/null || exit 1
-printf 'timestamp=%s\nreader_error=touch_preflight_not_reached\n' "$(date '+%Y-%m-%dT%H:%M:%S%z' 2>/dev/null || echo unknown)" > "$BASE/touch-last.log"
-: > "$BASE/last-launch.stdout" 2>/dev/null || true
-: > "$BASE/last-launch.stderr" 2>/dev/null || true
+if [ "${READING_PRESERVE_LAUNCH_LOGS:-0}" = 1 ] || ! : > "$LOG" 2>/dev/null; then
+    # A failed evidence write must not erase the original logs or prevent
+    # a readable history UI. Emergency output is one fixed temporary file.
+    READING_PRESERVE_LAUNCH_LOGS=1
+    LOG="${READING_TMPDIR:-/tmp}/reading-records-emergency-launch.log"
+    STATUS="${READING_TMPDIR:-/tmp}/reading-records-emergency-launch-status.txt"
+    : > "$LOG" 2>/dev/null || exit 1
+else
+    : > "$BASE/last-launch.stdout" 2>/dev/null || true
+    : > "$BASE/last-launch.stderr" 2>/dev/null || true
+fi
 exec >> "$LOG" 2>&1
 printf 'timestamp=%s\nui_entry=%s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z' 2>/dev/null || echo unknown)" "$MAIN"
-printf 'package=V4-KS\n'
 printf 'firmware=unknown\nkernel=unknown\nmachine=unknown\narch=unknown\ndetected_env=unknown\nhard_float=unknown\n'
 printf 'selected_runtime=none\nselected_lua=none\nselected_fbink=pending_actual_use\n'
 printf 'screen_width=unknown\nscreen_height=unknown\norientation=unknown\n'
@@ -45,7 +81,7 @@ restore_native() {
     # plugin preflight failed before our first framebuffer write.
     if command -v lipc-set-prop >/dev/null 2>&1; then
         lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true
-        lipc-set-prop com.lab126.powerd preventScreenSaver 0 >/dev/null 2>&1 || true
+        if [ "${POWER_SAVED:-0}" = 1 ]; then lipc-set-prop com.lab126.powerd preventScreenSaver "$READING_ORIGINAL_POWER" >/dev/null 2>&1 || true; fi
         lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
     fi
     # Recovery never depends on FBInk. The native Library owns its refresh;
@@ -63,7 +99,6 @@ fail() {
     fi
     printf 'error=%s\nerror_stage=%s\nexit_code=%s\n' "$*" "$STAGE" "$failure_code"
     write_status "$failure_code" "$*"
-    # Keep normal support to one file without changing touch selection/reader.
     if [ "$UI_ENTERED" = 1 ] && [ -r "$BASE/touch-last.log" ]; then
         printf 'touch_support_begin\n'
         cat "$BASE/touch-last.log" 2>/dev/null || true
@@ -72,11 +107,13 @@ fail() {
     restore_native
     command -v lipc-set-prop >/dev/null 2>&1 && \
         lipc-set-prop com.lab126.system toasterMessage '阅读记录启动失败，请查看 launch-last.log' >/dev/null 2>&1 || true
-    cp "$LOG" "$BASE/last-launch.stderr" 2>/dev/null || true
+    [ "${READING_PRESERVE_LAUNCH_LOGS:-0}" != 1 ] && cp "$LOG" "$BASE/last-launch.stderr" 2>/dev/null || true
     [ -r "$DIAGNOSTICS" ] && READING_DIAGNOSTIC_INTERNAL=1 /bin/sh "$DIAGNOSTICS" >/dev/null 2>&1 || true
     exit "$failure_code"
 }
 cleanup_probe() {
+    if type rr_cancel >/dev/null 2>&1; then rr_cancel; fi
+    if [ -n "$PROBE_WORK" ]; then rm -f "$PROBE_WORK/timeout"; rmdir "$PROBE_WORK" 2>/dev/null || true; PROBE_WORK=; fi
     [ -n "$PROBE_PID" ] || return 0
     kill -TERM "$PROBE_PID" 2>/dev/null || true
     sleep 1
@@ -87,6 +124,7 @@ cleanup_probe() {
 trap 'STAGE=interrupted; fail 70 "launcher interrupted"' INT TERM HUP
 
 STAGE=environment
+rr_perf environment_begin
 [ -r "$DETECT_ENV" ] || fail 20 "missing environment detector: $DETECT_ENV"
 . "$DETECT_ENV" || fail 21 'environment detection failed'
 case "$HARD_FLOAT:$COMPAT_PROFILE:$ARCH" in
@@ -96,7 +134,9 @@ esac
 printf 'firmware=%s\nkernel=%s\nmachine=%s\narch=%s\ndetected_env=%s\nhard_float=%s\n' \
     "$FIRMWARE_FULL" "${KERNEL:-unknown}" "${MACHINE:-unknown}" "$ARCH" "$COMPAT_PROFILE" "$HARD_FLOAT"
 
+rr_perf environment_end
 STAGE=preflight
+rr_perf files_begin
 for required_cmd in sh awk sed sort grep date cp mv mkdir sleep; do
     command -v "$required_cmd" >/dev/null 2>&1 || fail 30 "missing required command: $required_cmd"
 done
@@ -115,6 +155,7 @@ done
 [ -r "$BASE/reading-time.tsv" ] || fail 41 'reading history is missing or unreadable'
 [ -w "$BASE" ] || fail 40 'plugin directory is not writable'
 
+rr_perf files_end
 geometry="$(fbset 2>/dev/null | awk '/geometry/{print $2 " " $3;exit}')"
 set -- $geometry
 SCREEN_W="${1:-unknown}"; SCREEN_H="${2:-unknown}"
@@ -145,6 +186,16 @@ fbink_candidate_add() {
     }
     fc_real=$(realpath "$fc_path" 2>/dev/null || readlink -f "$fc_path" 2>/dev/null || printf '%s' "$fc_path")
     fc_inode=$(stat -Lc '%d:%i' "$fc_path" 2>/dev/null || true)
+    # Resolve cheap identity duplicates before rereading an executable's bytes.
+    while IFS="$(printf '\t')" read -r fc_old fc_old_real fc_old_inode fc_old_sum; do
+        [ -n "$fc_old" ] || continue
+        if [ "$fc_path" = "$fc_old" ] || [ "$fc_real" = "$fc_old_real" ] ||
+           { [ "$fc_inode" != - ] && [ -n "$fc_inode" ] && [ "$fc_inode" = "$fc_old_inode" ]; }; then
+            printf 'fbink_candidate=%s duplicate_of=%s\n' "$fc_path" "$fc_old"; return 0
+        fi
+    done <<EOF
+$FBINK_IDENTITIES
+EOF
     fc_sum=$(cksum < "$fc_path" 2>/dev/null || true)
     while IFS="$(printf '\t')" read -r fc_old fc_old_real fc_old_inode fc_old_sum; do
         [ -n "$fc_old" ] || continue
@@ -179,13 +230,28 @@ FBINK_PRIMARY=${READING_FBINK_CANDIDATES%%
 printf 'primary_lua=%s\nprimary_fbink=%s\n' "${LUA_PRIMARY:-missing}" "${FBINK_PRIMARY:-missing}"
 
 STAGE=runtime_probe
-# The launcher is the watchdog. No separate timer process can outlive it.
+rr_perf lua_begin
+# Normal probes use the lifecycle bound and reap their timer; the inline
+# watchdog below also supports a damaged installation missing that library.
 # A direct background child makes $! the exact runtime PID, never a process group.
-if sleep 0.1 2>/dev/null; then PROBE_SLEEP=0.2; PROBE_MAX_TICKS=15
+if sleep 0.01 2>/dev/null; then PROBE_SLEEP=0.05; PROBE_MAX_TICKS=60
 else PROBE_SLEEP=1; PROBE_MAX_TICKS=3; fi
 printf 'probe_timeout_seconds=3\n'
 probe_process() {
     PROBE_EXIT_CODE=none
+    if type rr_run >/dev/null 2>&1; then
+        PROBE_WORK="${READING_TMPDIR:-/tmp}/reading-records-lua.$$"
+        mkdir "$PROBE_WORK" || { PROBE_WORK=; PROBE_RESULT=nonzero_exit; return 1; }
+        RR_TIMEOUT_MARKER="$PROBE_WORK/timeout"; RR_PROBE_TRACK=1
+        rr_run 3 "$@"; PROBE_EXIT_CODE=$?
+        RR_PROBE_TRACK=0; RR_TIMEOUT_MARKER=
+        if [ -f "$PROBE_WORK/timeout" ]; then PROBE_RESULT=timeout
+        elif [ "$PROBE_EXIT_CODE" = 0 ]; then PROBE_RESULT=ok
+        elif [ "$PROBE_EXIT_CODE" -ge 128 ]; then PROBE_RESULT=signal
+        else PROBE_RESULT=nonzero_exit; fi
+        rm -f "$PROBE_WORK/timeout"; rmdir "$PROBE_WORK"; PROBE_WORK=
+        [ "$PROBE_RESULT" = ok ]; return $?
+    fi
     "$@" & PROBE_PID=$!
     printf 'probe_child_pid=%s\n' "$PROBE_PID"
     probe_ticks=0
@@ -216,21 +282,23 @@ probe_lua() {
     if [ -z "$probe_candidate" ]; then PROBE_RESULT=missing
     elif [ ! -x "$probe_candidate" ]; then PROBE_RESULT=not_executable
     else
-        printf 'lua_probe_basic_begin=%s\n' "$probe_candidate"
-        probe_process "$probe_candidate" -e 'assert(type(loadfile)=="function")'
-        printf 'lua_probe_basic_result=%s\nlua_probe_basic_exit_code=%s\n' "$PROBE_RESULT" "${PROBE_EXIT_CODE:-none}"
-        if [ "$PROBE_RESULT" = ok ]; then
-            for source in "$RELEASE/bin/reading-insights-touch-probe-ks.lua" "$RELEASE/bin/reading-insights-touch-ks.lua" \
-                "$RELEASE/bin/reading-insights-render.lua" "$RELEASE/bin/reading-insights-cover.lua" \
-                "$RELEASE/bin/reading-insights-titles.lua" "$RELEASE/bin/reading-insights-title-widths.lua"; do
-                printf 'lua_probe_source_begin=%s\n' "$source"
-                READING_PROBE_SOURCE="$source"; export READING_PROBE_SOURCE
-                probe_process "$probe_candidate" -e 'assert(loadfile(os.getenv("READING_PROBE_SOURCE")))'
-                printf 'lua_probe_source_result=%s\nlua_probe_source_exit_code=%s\n' "$PROBE_RESULT" "${PROBE_EXIT_CODE:-none}"
-                [ "$PROBE_RESULT" = ok ] || { [ "$PROBE_RESULT" != nonzero_exit ] || PROBE_RESULT=syntax_probe_failed; break; }
-            done
-            unset READING_PROBE_SOURCE
-        fi
+        # One bounded Lua process checks capability and every source. The checks
+        # are unchanged; seven interpreter launches/polling waits become one.
+        READING_PROBE_SOURCE="$RELEASE/bin/reading-insights-touch-probe-ks.lua"
+        READING_PROBE_SOURCES=
+        for source in "$RELEASE/bin/reading-insights-touch-probe-ks.lua" "$RELEASE/bin/reading-insights-touch-ks.lua" \
+            "$RELEASE/bin/reading-insights-render.lua" "$RELEASE/bin/reading-insights-cover.lua" \
+            "$RELEASE/bin/reading-insights-titles.lua" "$RELEASE/bin/reading-insights-title-widths.lua"; do
+            printf 'lua_probe_source_begin=%s\n' "$source"
+            READING_PROBE_SOURCES="$READING_PROBE_SOURCES
+$source"
+        done
+        export READING_PROBE_SOURCE READING_PROBE_SOURCES
+        probe_process "$probe_candidate" -e 'if type(loadfile)~="function" then os.exit(6) end; assert(io.open and os.rename and os.exit); for path in os.getenv("READING_PROBE_SOURCES"):gmatch("[^\n]+") do assert(loadfile(path)) end'
+        printf 'lua_probe_basic_result=%s\nlua_probe_basic_exit_code=%s\n' "$PROBE_RESULT" "$PROBE_EXIT_CODE"
+        [ "$PROBE_EXIT_CODE" != 2 ] || PROBE_RESULT=syntax_probe_failed
+        printf 'lua_probe_source_result=%s\n' "$PROBE_RESULT"
+        unset READING_PROBE_SOURCE READING_PROBE_SOURCES
     fi
     printf 'probe_phase=lua_%s_end\nlua_%s_result=%s\n' "$probe_label" "$probe_label" "$PROBE_RESULT"
     [ "$PROBE_RESULT" = ok ]
@@ -253,6 +321,7 @@ else
         fi
     done
 fi
+rr_perf lua_end
 fbink_result=deferred_actual_use
 printf 'primary_probe_result=lua:%s,fbink:%s\nfallback_used=%s\n' "$lua_result" "$fbink_result" "$FALLBACK_USED"
 printf 'selected_lua=%s\n' "$SELECTED_LUA"
@@ -265,19 +334,24 @@ PATH="${SELECTED_LUA%/*}:$PATH"; export PATH
 READING_FBINK="$FBINK_PRIMARY"; export READING_FBINK
 READING_LUA_BINARY="$SELECTED_LUA"; export READING_LUA_BINARY
 READING_LAUNCHER_CAPTURE=1; export READING_LAUNCHER_CAPTURE
+READING_RELEASE="$RELEASE"; export READING_RELEASE
+printf 'product_version=%s\nvariant=ks\nruntime_release=%s\nformal_entry=%s\n' "$PRODUCT_VERSION" "$RELEASE" "${READING_DOCUMENTS:-/mnt/us/documents}/reading-records.sh"
+[ ! -r "$BASE/release-info" ] || cat "$BASE/release-info"
+STAGE=power_snapshot
+READING_ORIGINAL_POWER=$(lipc-get-prop com.lab126.powerd preventScreenSaver 2>/dev/null) || fail 33 'cannot save power state'
+case "$READING_ORIGINAL_POWER" in ''|*[!0-9]*) fail 33 'invalid saved power state';; esac
+POWER_SAVED=1; export READING_ORIGINAL_POWER
 STAGE=ui
 printf 'launch_command=%s\n' "$MAIN"
 write_status 0 starting
+rr_perf ui_dispatch
 UI_ENTERED=1
 UI_CHILD_PENDING=1
 "$MAIN" & UI_PID=$!; UI_CHILD_PENDING=0
 wait "$UI_PID"; launch_code=$?; UI_PID=
-if [ "$launch_code" -ne 0 ]; then
-    grep -q '^error_stage=touch$' "$LOG" 2>/dev/null && STAGE=touch
-    fail "$launch_code" 'UI process exited unexpectedly'
-fi
+[ "$launch_code" -eq 0 ] || fail "$launch_code" 'UI process exited unexpectedly'
 STAGE=complete
 printf 'exit_code=0\nerror_stage=none\n'
 write_status 0 ''
-cp "$LOG" "$BASE/last-launch.stdout" 2>/dev/null || true
+[ "${READING_PRESERVE_LAUNCH_LOGS:-0}" != 1 ] && cp "$LOG" "$BASE/last-launch.stdout" 2>/dev/null || true
 exit 0

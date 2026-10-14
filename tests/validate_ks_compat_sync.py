@@ -37,6 +37,8 @@ def setup(root: Path, *, version: str, geometry: str, lock: str, actions: str = 
     shutil.copy2(KS / "diagnostics-ks.sh", base / "bin/diagnostics-ks.sh")
     shutil.copy2(KS / "install.sh", root / "install-ks.sh")
     shutil.copy2(COMMON / "compat/detect_env.sh", base / "compat/detect_env.sh")
+    for helper in ("runtime-lock.sh", "lifecycle.sh"):
+        shutil.copy2(COMMON / "compat" / helper, base / "compat" / helper)
     for helper in ("reading-insights-render.lua", "reading-insights-cache.awk", "reading-insights-cover.lua",
                    "reading-insights-titles.lua", "reading-insights-title-widths.lua"):
         shutil.copy2(COMMON / helper, release / "bin" / helper)
@@ -68,6 +70,7 @@ printf 'mode "%sx%s"\\n    geometry %s %s %s %s 8\\nendmode\\n' "$width" "$heigh
 if [ "$2" = orientationLock ]; then
     [ "${KS_SIM_LOCK_FAIL:-0}" = 0 ] || exit 1
     printf '%s\n' "$KS_SIM_LOCK"
+elif [ "$2" = preventScreenSaver ]; then printf '0\n'
 else printf 'U\n'; fi
 ''')
     script(base / "bin/lipc-set-prop", '''

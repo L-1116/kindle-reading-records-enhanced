@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from service_fixture import service_fixture
 import hashlib
 import os
 from pathlib import Path
@@ -13,7 +14,7 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ARCHIVE = ROOT / "dist/ReadingTime-v9.7.5-KS-touch-compat-hotfix.zip"
+ARCHIVE = ROOT / "build/ks-test1/ks-payload.zip"
 SHELL = next(
     path for path in (shutil.which("sh"), r"C:\Program Files\Git\bin\sh.exe")
     if path and Path(path).is_file()
@@ -38,7 +39,7 @@ with tempfile.TemporaryDirectory(prefix="ks-install-", dir=ROOT / "build") as na
         archive.extractall(usb)
 
     daemon = base / "bin/native-reading-time-daemon.sh"
-    daemon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
+    shutil.copy2(ROOT / "native-reading-time-package/native-reading-time-daemon.sh", daemon)
     history = base / "reading-time.tsv"
     history.write_text(
         "date\tbook_id\tseconds\ttitle\n"
@@ -67,7 +68,15 @@ with tempfile.TemporaryDirectory(prefix="ks-install-", dir=ROOT / "build") as na
         "READING_MNT_US": usb.as_posix(),
         "READING_ALLOW_NONROOT_TEST": "1",
     }
+    environment.update(service_fixture(sandbox / "service-fixture", base, sandbox / "upstart", SHELL))
+    model = sandbox / "model"
+    model.write_text("Kindle Scribe 2028", encoding="utf-8")
+    environment["READING_DEVICETYPE_PATH"] = model.as_posix()
+    for key in ("READING_USID_PATH", "READING_PROC_MODEL_PATH", "READING_SYS_MODEL_PATH"):
+        environment[key] = (sandbox / (key + "-absent")).as_posix()
+    (mockbin / "lipc-get-prop").write_text('#!/bin/sh\ncase "$2" in preventScreenSaver) echo 7;; *) echo U;; esac\n', encoding="utf-8", newline="\n")
     installer = package_root / "Install-Native-Reading-Time-KS.sh"
+    shutil.copy2(package_root / "native-reading-time.conf", sandbox / "upstart/native-reading-time.conf")
     for attempt in (1, 2):
         result = subprocess.run(
             [SHELL, installer.as_posix()],
@@ -89,10 +98,10 @@ with tempfile.TemporaryDirectory(prefix="ks-install-", dir=ROOT / "build") as na
     assert (base / "bin/force-exit-ks.sh").is_file()
     assert (base / "bin/diagnostics-ks.sh").is_file()
     assert (base / "compat/detect_env.sh").is_file()
-    assert (documents / "阅读记录.sh").is_file()
+    assert (documents / "reading-records.sh").is_file()
     assert (documents / "reading-records-ks-force-exit.sh").is_file()
     assert (usb / "extensions/reading-records-installer/menu.json").is_file()
-    assert (base / "VERSION").read_text(encoding="utf-8").strip() == "9.7.5-ks-test1-touch-compat"
+    assert (base / "VERSION").read_text(encoding="utf-8").strip() == "9.7.6-5.20.1-vera-KS-test1"
     assert not (base / "releases/9.7.5-test/bin/reading-records.sh").exists()
 
     # Start through the installed launcher, render once, consume an exit touch
