@@ -1,0 +1,209 @@
+{
+  "format": 1,
+  "repository": "L-1116/kindle-reading-records-enhanced",
+  "version": "9.7.6",
+  "tag": "v9.7.6",
+  "title": "Kindle 阅读记录 v9.7.6｜多固件兼容版",
+  "baseline_commit": "b46407c3b73cd1d5445a3db2159662ca9ffd4c75",
+  "baseline_role": "approved_standard_runtime_source",
+  "recommended_tag_baseline": "reviewed_release_engineering_commit_selected_with_release_commit",
+  "introduction": "适用于已越狱 Kindle 的本地阅读记录插件，提供月历热力、每日与累计统计、阅读书籍、本地封面、月份及单书详情。本页面集中提供已验证的 Standard 安装包，按固件、越狱方式与机型选择；验证范围不等于所有设备均已测试。",
+  "changes": [
+    "相较 9.7.5 正式兼容版 V3，5.19 Vera 修复横屏阅读后进入插件时的白屏，保留原地升级及历史数据。",
+    "5.20.1 Vera 延续已验收的计时服务恢复、启动链优化、两文件安装及安全迁移；当前原包含 test2 设备识别修复，内部身份如实保留。",
+    "5.18 SpringBreak 提供 KPW4 / 5.18.1.1.1 专用适配；正常使用期间每次会话约 120 秒自动退出，也可主动退出。",
+    "发布结构改为单一正式版本页面；本次迁移仅规范外层 Assets 名称、记录来源与校验，不修改已验证安装包内容。"
+  ],
+  "variants": [
+    {
+      "id": "520-vera",
+      "firmware_label": "5.20",
+      "firmware_scope": "5.20.1（保留 5.17 / 5.18 / 5.19 及 GC16 兼容路径，未据此追加实机结论）",
+      "jailbreak": "vera",
+      "models": "普通 Kindle（排除 Scribe / KS）",
+      "variant": "standard",
+      "asset_name": "Kindle-Reading-Records-v9.7.6-5.20-vera.zip",
+      "status": "hardware",
+      "publish": true,
+      "hardware_scope": "用户确认当前 test2 实机成功，具体机型未注明；此前原基线为 KPW6 / 5.20.1 / Vera",
+      "hardware_evidence": "https://github.com/L-1116/kindle-reading-records-enhanced/blob/b46407c3b73cd1d5445a3db2159662ca9ffd4c75/docs/standard-test2-device-identification.md",
+      "source_branch": "codex/release-9.7.6-5.20.1-vera",
+      "source_commit": "b46407c3b73cd1d5445a3db2159662ca9ffd4c75",
+      "product_version": "9.7.6-5.20.1-vera-test2",
+      "approved_asset_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6-5.20.1-vera/9.7.6-5.20.1-vera.zip",
+      "sha256": "45d333a6c677e66a927d48c5cb3e3de1d182b94e73e1ad4db96f0736e82d4a44",
+      "size": 15227772,
+      "top_level": [
+        "reading-records-v4-install.sh",
+        "阅读记录安装数据.tar"
+      ],
+      "bootstrap_sha256": "0e4b82805d4c27a93afe857a751295ed1feaeacc04fee4eb3ec7bf770827e9fb",
+      "payload_sha256": "877c6a1bc4410247fb90c472f4ec8aba62f2cc01145ac6c34ce07c1c1c16fe8d",
+      "payload_files": 92,
+      "format": "standard-v4",
+      "entry_requirement": "需已有可用的 SH Integration 书库 Scriptlet。",
+      "cleanup_label": "确认无误之后，再点这个",
+      "installer_markers": [
+        "rr_standard_install_guard",
+        "compat/device_variant.sh"
+      ],
+      "build": {
+        "script": "scripts/build_v4.py",
+        "output": "build/standard-test2/9.7.6-5.20.1-vera-test2.zip",
+        "inputs": [
+          {
+            "local_path": "build/standard-next-baseline/artifacts/9.7.6-5.20.1-vera.zip",
+            "destination": "build/standard-next-baseline/artifacts/9.7.6-5.20.1-vera.zip",
+            "sha256": "4db841ddc25feb53f1f087f5aff79a7c1218759504288b1c20d2ceb5e150523f"
+          },
+          {
+            "local_path": "dist/kindle-reading-records-v9.7.4.zip",
+            "destination": "dist/kindle-reading-records-v9.7.4.zip",
+            "sha256": "fd5152c061d2aec77d0ed2fa5eeffbf46699d82c63531ec05af4852bb4ab5d72"
+          },
+          {
+            "local_path": "dist/kindle-reading-records-v9.7.5-compat-v2.zip",
+            "destination": "dist/kindle-reading-records-v9.7.5-compat-v2.zip",
+            "sha256": "34559c9b87010f098d1f29ba9fc5982030dc65229c4c9b4e2a8253921c43c19b"
+          },
+          {
+            "local_path": "dist/kindle-reading-records-v9.7.5-compat-v3-cover-test.zip",
+            "destination": "dist/kindle-reading-records-v9.7.5-compat-v3-cover-test.zip",
+            "sha256": "65c9bcfd2e70c382c57af60293a0e2b5fd29bd05b1d7470be0b557be3cb4a6be"
+          },
+          {
+            "local_path": "dist/kindle-reading-records-v9.7.5-compat-v3-fw518-hotfix.zip",
+            "destination": "dist/kindle-reading-records-v9.7.5-compat-v3-fw518-hotfix.zip",
+            "sha256": "ca33a5f7bec47ecd662112a6cb163eb2b2da0f87f9ff9c46510a57cb5b6dcde8"
+          },
+          {
+            "local_path": "dist/kindle-reading-records-v9.7.5-compat-v3.zip",
+            "destination": "dist/kindle-reading-records-v9.7.5-compat-v3.zip",
+            "sha256": "3016b83d1ca270b72e8f16d865d70281a45321f9eec87ee1df8ea82109303e09"
+          },
+          {
+            "local_path": "dist/kindle-reading-records-v9.7.5-test.zip",
+            "destination": "dist/kindle-reading-records-v9.7.5-test.zip",
+            "sha256": "30dc27a883cd2bf5c483973a26106166d8bd624a74c2abcef58c7b348d66e533"
+          },
+          {
+            "local_path": "dist/standard-test1/9.7.6-5.20.1-vera-test1.zip",
+            "destination": "dist/standard-test1/9.7.6-5.20.1-vera-test1.zip",
+            "sha256": "76684335a5629f16a2155ce65d0dedcaae6023c125fed7cf8dd77c77520d2fe3"
+          }
+        ],
+        "history_inventory": [
+          "13b6ce10a3149f1db72f922a7763655cddd7e1b9",
+          "1fc28d15cb6196df8939764e775f8f495538e3c8",
+          "305e42f7c7f6b80d3c9688dab0fa766a79130253",
+          "b3449866aa966db078e38f2c903608a1daa14315",
+          "df5fd1e128d6a943435ea0ee8426b8f9f166b250"
+        ]
+      },
+      "source_verification": "docs/releases/9.7.6-5.20.1-vera-replacement-verification.json"
+    },
+    {
+      "id": "519-vera",
+      "firmware_label": "5.19",
+      "firmware_scope": "5.19.x",
+      "jailbreak": "vera",
+      "models": "普通 Kindle（已验收 KPW6；排除 Scribe / KS）",
+      "variant": "standard",
+      "asset_name": "Kindle-Reading-Records-v9.7.6-5.19-vera.zip",
+      "status": "hardware",
+      "publish": true,
+      "hardware_scope": "KPW6 / 5.19.6 / Vera",
+      "hardware_evidence": "https://github.com/L-1116/kindle-reading-records-enhanced/blob/341ee3d14f9adb289334f99d4374fe2c6cd54fd2/docs/5.19-vera-eattapmode-fix.md",
+      "source_branch": "9.7.6-5.19-vera",
+      "source_commit": "341ee3d14f9adb289334f99d4374fe2c6cd54fd2",
+      "product_version": "9.7.6-5.19-normal",
+      "approved_asset_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6-5.19-vera/ReadingTime-9.7.6-5.19-vera.zip",
+      "sha256": "454b0a2a38a2ab7b5c79d9fe6af1032f621c0600238cd32a8b764d3b1836f820",
+      "size": 15166534,
+      "top_level": [
+        "reading-records-9.7.6-install.sh",
+        "reading-records-9.7.6-data.tar"
+      ],
+      "bootstrap_sha256": "2e679032b4682c1326f5a5f580d193400a61df03fc978a59750b4b4622a38471",
+      "payload_sha256": "0a10d5554a0a781faf5f6b44ff9e51203d65c133cb80d96e0b0dcaef440f66d4",
+      "payload_files": 65,
+      "format": "standard-976",
+      "entry_requirement": "需已有可用的 SH Integration 书库 Scriptlet。",
+      "cleanup_label": "安装好之后，确认无误了再点这个",
+      "installer_markers": [
+        "5.19.*",
+        "禁止混装"
+      ],
+      "build": {
+        "script": "scripts/package_release.py",
+        "output": "dist/ReadingTime-9.7.6-5.19-vera.zip",
+        "inputs": []
+      }
+    },
+    {
+      "id": "518-springbreak",
+      "firmware_label": "5.18",
+      "firmware_scope": "仅 5.18.1.1.1",
+      "jailbreak": "springbreak",
+      "models": "仅 KPW4（Paperwhite 10 代）",
+      "variant": "standard",
+      "asset_name": "Kindle-Reading-Records-v9.7.6-5.18-springbreak.zip",
+      "status": "hardware",
+      "publish": true,
+      "hardware_scope": "一台 KPW4 / 5.18.1.1.1 / SpringBreak",
+      "hardware_evidence": "https://github.com/L-1116/kindle-reading-records-enhanced/blob/0e1e9c1f17661a96ba9e786f341c578cb54b8951/docs/springbreak-hardware-confirmation.md",
+      "source_branch": "9.7.6-5.18-springbreak",
+      "source_commit": "0e1e9c1f17661a96ba9e786f341c578cb54b8951",
+      "product_version": "9.7.6-5.18-springbreak",
+      "approved_asset_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6-5.18-springbreak/ReadingTime-9.7.6-5.18-springbreak.zip",
+      "sha256": "24aa298857ad99e18b339d8fea91f91191f21e12f3152ce73147bbe80c891221",
+      "size": 15167569,
+      "top_level": [
+        "reading-records-9.7.6-install.sh",
+        "reading-records-9.7.6-data.tar"
+      ],
+      "bootstrap_sha256": "f62435f522ad2dc4c754a9c10089e2518c131ed8ecc4334f5ca842ef8d0c1433",
+      "payload_sha256": "676a57ad7e5405202b6a00d10ac74f2bd104e6e034ab13189c8e94112e84035a",
+      "payload_files": 65,
+      "format": "standard-976",
+      "entry_requirement": "需已有可用的书库 Scriptlet 执行支持；这是此 KPW4 的已确认入口，不推广到其他 SpringBreak 环境。",
+      "cleanup_label": "安装好之后，确认无误了再点这个",
+      "installer_markers": [
+        "5.18.1.1.1",
+        "禁止混装"
+      ],
+      "build": {
+        "script": "scripts/package_release.py",
+        "output": "dist/ReadingTime-9.7.6-5.18-springbreak.zip",
+        "inputs": []
+      }
+    },
+    {
+      "id": "518-vera",
+      "firmware_label": "5.18",
+      "firmware_scope": "5.18.x",
+      "jailbreak": "vera",
+      "models": "普通 Kindle（排除 Scribe / KS）",
+      "variant": "standard",
+      "asset_name": "Kindle-Reading-Records-v9.7.6-5.18-vera.zip",
+      "status": "automated",
+      "publish": false,
+      "source_commit": "3acda144ee7bf3a09d7472628efdffd9c09ab240",
+      "source_branch": "9.7.6-5.18-vera",
+      "sha256": "2b2ad142542295627cfd7a6e4870dcff28d4445088320a728f46887af100693d",
+      "reason": "候选已构建，13 阶段 / 425 项历史离线回归通过；当前分支文档明确仍待真机验收。"
+    },
+    {
+      "id": "520-vera-ks",
+      "firmware_label": "5.20",
+      "firmware_scope": "5.20.x（计划）",
+      "jailbreak": "vera",
+      "models": "Kindle Scribe / KS",
+      "variant": "ks",
+      "asset_name": "Kindle-Reading-Records-v9.7.6-5.20-vera-KS.zip",
+      "status": "paused",
+      "publish": false,
+      "reason": "有本地实验产物及未提交开发文件，但没有本轮正式交付资格；9.7.5 KS 预发布保持历史版本，不更名。"
+    }
+  ]
+}

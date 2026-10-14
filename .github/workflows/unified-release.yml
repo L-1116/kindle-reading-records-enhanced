@@ -1,0 +1,69 @@
+name: Unified release preparation
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+    paths:
+      - "release/**"
+      - "scripts/unified_release.py"
+      - "tests/validate_unified_release.py"
+      - ".github/workflows/unified-release.yml"
+  pull_request:
+    paths:
+      - "release/**"
+      - "scripts/unified_release.py"
+      - "tests/validate_unified_release.py"
+      - ".github/workflows/unified-release.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Formal plugin version to prepare (no tag creation or publication)"
+        default: "9.7.6"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python tests/validate_unified_release.py
+
+  prepare-approved-assets:
+    if: github.event_name == 'workflow_dispatch' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Resolve reviewed matrix
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os,re
+          version=os.environ['INPUT_VERSION'] or os.environ['TAG_NAME'].removeprefix('v')
+          if not re.fullmatch(r'\d+\.\d+\.\d+',version): raise SystemExit('Invalid version')
+          with open(os.environ['GITHUB_ENV'],'a') as f: f.write('RELEASE_VERSION='+version+'\n')
+          PY
+      - name: Verify and prepare accepted bytes only
+        run: python scripts/unified_release.py --matrix "release/$RELEASE_VERSION.json" --release-commit "$GITHUB_SHA" --fetch --output build/unified-ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reviewed-unified-release
+          path: build/unified-ci/
+          if-no-files-found: error
+      # This workflow cannot create tags, upload Release assets or publish.

@@ -1,0 +1,697 @@
+{
+  "audit_date": "2026-10-14 Asia/Shanghai",
+  "repository": "L-1116/kindle-reading-records-enhanced",
+  "releases_total": 23,
+  "public_releases": 18,
+  "drafts": 5,
+  "tags_total": 26,
+  "immutability": {
+    "enabled": false,
+    "enforced_by_owner": false
+  },
+  "latest_tag": "v9.7.6-5.20.1-vera",
+  "releases": [
+    {
+      "tag": "v4-test.3",
+      "name": "V4 Test 3",
+      "tag_commit": "615928173cde6106767a82ed8bd2cf127977181c",
+      "target_commitish": "615928173cde6106767a82ed8bd2cf127977181c",
+      "draft": true,
+      "prerelease": true,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/untagged-afbbc04948905bace763",
+      "assets": [
+        {
+          "id": 609361416,
+          "name": "ReadingTime-V4-KS.zip",
+          "size": 15182708,
+          "digest": "sha256:780447b50296e6f746d07153a5b22459336785dcbf202f77707096121e7d5ef6",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/untagged-afbbc04948905bace763/ReadingTime-V4-KS.zip"
+        },
+        {
+          "id": 609361342,
+          "name": "ReadingTime-V4.zip",
+          "size": 15189054,
+          "digest": "sha256:579b998dc54176e4163eb473503b79b8c2d7976a54ceae13612c980cea5c030a",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/untagged-afbbc04948905bace763/ReadingTime-V4.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v4-test.2",
+      "name": "V4 Test 2",
+      "tag_commit": "0dc8c1b30b52974702885bdc73c911b3a49f8143",
+      "target_commitish": "0dc8c1b30b52974702885bdc73c911b3a49f8143",
+      "draft": true,
+      "prerelease": true,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/untagged-cb80f703c9aa130146ab",
+      "assets": [
+        {
+          "id": 607977823,
+          "name": "ReadingTime-V4-KS-Test2.zip",
+          "size": 15180322,
+          "digest": "sha256:49c6b3f689ad01448007938c9455ba6d3b0488d106efefc66a53e961af637b81",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/untagged-cb80f703c9aa130146ab/ReadingTime-V4-KS-Test2.zip"
+        },
+        {
+          "id": 607977728,
+          "name": "ReadingTime-V4-Test2.zip",
+          "size": 15186481,
+          "digest": "sha256:e63326f0a06346e94ebdca7e8b2b4bd8fdfd7a4cf60343b6dfcb6a2039114a4f",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/untagged-cb80f703c9aa130146ab/ReadingTime-V4-Test2.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v4-test.1",
+      "name": "V4 Test 1",
+      "tag_commit": "88164e9dd6750463a2b829b99293a00fb2f1fa2e",
+      "target_commitish": "88164e9dd6750463a2b829b99293a00fb2f1fa2e",
+      "draft": true,
+      "prerelease": true,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/untagged-0c5e3644eb2b8980f259",
+      "assets": [
+        {
+          "id": 607372074,
+          "name": "ReadingTime-V4-KS-Test.zip",
+          "size": 15179697,
+          "digest": "sha256:6807b31762d6f2bc6721a4790fdf20e6bccade078e6ab21bed2074cf06965c8b",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/untagged-0c5e3644eb2b8980f259/ReadingTime-V4-KS-Test.zip"
+        },
+        {
+          "id": 607371974,
+          "name": "ReadingTime-V4-Test.zip",
+          "size": 15185847,
+          "digest": "sha256:dec1ae9cc64a327c35f761e01ae5e4c9db4b3de2ddd84f35a602adff0e820667",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/untagged-0c5e3644eb2b8980f259/ReadingTime-V4-Test.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.5-compat-v2",
+      "name": "Kindle 阅读记录 9.7.5兼容版-V2",
+      "tag_commit": "e9ba8b478412e4e5bb78c1fbe299a248da3870fe",
+      "target_commitish": "e9ba8b478412e4e5bb78c1fbe299a248da3870fe",
+      "draft": true,
+      "prerelease": true,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/untagged-22e7393f03cad02b0172",
+      "assets": [
+        {
+          "id": 588830807,
+          "name": "kindle-reading-records-v9.7.5-compat-v2.zip",
+          "size": 15185932,
+          "digest": "sha256:34559c9b87010f098d1f29ba9fc5982030dc65229c4c9b4e2a8253921c43c19b",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/untagged-22e7393f03cad02b0172/kindle-reading-records-v9.7.5-compat-v2.zip"
+        },
+        {
+          "id": 588831143,
+          "name": "SHA256SUMS.txt",
+          "size": 111,
+          "digest": "sha256:13f3a5dcbbb9e9f127e757656e53a323e84a96768edc7a3ac3dc54d321127543",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/untagged-22e7393f03cad02b0172/SHA256SUMS.txt"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.5-test.1",
+      "name": "Kindle 阅读记录 9.7.5兼容版-V1",
+      "tag_commit": "42cf722b45764a032bceed90ea93264bc0dffceb",
+      "target_commitish": "42cf722b45764a032bceed90ea93264bc0dffceb",
+      "draft": true,
+      "prerelease": true,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/untagged-96d8d25d99297be27529",
+      "assets": [
+        {
+          "id": 581596238,
+          "name": "kindle-reading-records-v9.7.5-compat-v1.zip",
+          "size": 15184942,
+          "digest": "sha256:2ba2a25eabd656684441af58bd9683d8d018356c06863bef14a75bb7c85921db",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/untagged-96d8d25d99297be27529/kindle-reading-records-v9.7.5-compat-v1.zip"
+        },
+        {
+          "id": 588835632,
+          "name": "SHA256SUMS.txt",
+          "size": 110,
+          "digest": "sha256:3861e15b43dd4c8ba901e2bc650f8a532c930451edd771289ba4bc02693a5c2d",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/untagged-96d8d25d99297be27529/SHA256SUMS.txt"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.6-5.18-springbreak",
+      "name": "9.7.6-5.18-springbreak",
+      "tag_commit": "0e1e9c1f17661a96ba9e786f341c578cb54b8951",
+      "target_commitish": "0e1e9c1f17661a96ba9e786f341c578cb54b8951",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6-5.18-springbreak",
+      "assets": [
+        {
+          "id": 639662249,
+          "name": "ReadingTime-9.7.6-5.18-springbreak.zip",
+          "size": 15167569,
+          "digest": "sha256:24aa298857ad99e18b339d8fea91f91191f21e12f3152ce73147bbe80c891221",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6-5.18-springbreak/ReadingTime-9.7.6-5.18-springbreak.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.6-5.20.1-vera",
+      "name": "9.7.6-5.20.1-vera",
+      "tag_commit": "28659950aa12d4626fb87413f3f62223474aaca3",
+      "target_commitish": "28659950aa12d4626fb87413f3f62223474aaca3",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6-5.20.1-vera",
+      "assets": [
+        {
+          "id": 637580899,
+          "name": "9.7.6-5.20.1-vera.zip",
+          "size": 15227772,
+          "digest": "sha256:45d333a6c677e66a927d48c5cb3e3de1d182b94e73e1ad4db96f0736e82d4a44",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6-5.20.1-vera/9.7.6-5.20.1-vera.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.6-5.19-vera",
+      "name": "9.7.6-5.19-vera",
+      "tag_commit": "341ee3d14f9adb289334f99d4374fe2c6cd54fd2",
+      "target_commitish": "341ee3d14f9adb289334f99d4374fe2c6cd54fd2",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6-5.19-vera",
+      "assets": [
+        {
+          "id": 622355567,
+          "name": "ReadingTime-9.7.6-5.19-vera.zip",
+          "size": 15166534,
+          "digest": "sha256:454b0a2a38a2ab7b5c79d9fe6af1032f621c0600238cd32a8b764d3b1836f820",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6-5.19-vera/ReadingTime-9.7.6-5.19-vera.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.5-KS-1",
+      "name": "9.7.5-KS-1",
+      "tag_commit": "57772b05950c699c5542a9772dc5a90ff02e52ef",
+      "target_commitish": "57772b05950c699c5542a9772dc5a90ff02e52ef",
+      "draft": false,
+      "prerelease": true,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-KS-1",
+      "assets": [
+        {
+          "id": 595173154,
+          "name": "compare-books.png",
+          "size": 130638,
+          "digest": "sha256:8076567519178fb83c3a10c23e7eba898001109d766085dcd4604ddf518733c2",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-KS-1/compare-books.png"
+        },
+        {
+          "id": 595173209,
+          "name": "compare-total.png",
+          "size": 89651,
+          "digest": "sha256:07147a708ad8d22826a6a81df4cfeca9a9b2831e20a84061768977da350bd848",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-KS-1/compare-total.png"
+        },
+        {
+          "id": 595173110,
+          "name": "ks-book-detail-preview.png",
+          "size": 52852,
+          "digest": "sha256:42052e3de2c0825936e702237124f574b8c8e10460f2ffc60639aeee02b6675b",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-KS-1/ks-book-detail-preview.png"
+        },
+        {
+          "id": 595173002,
+          "name": "ks-books-preview.png",
+          "size": 63077,
+          "digest": "sha256:7a70795a0e9991b16c3ae485510c0552dfa7b6bb55ce6d04690384cbd281da6a",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-KS-1/ks-books-preview.png"
+        },
+        {
+          "id": 595172954,
+          "name": "ks-daily-preview.png",
+          "size": 67316,
+          "digest": "sha256:dea0c270f4a727c8acf88d5e24b17faa9e285a92e892032a69e5ab0b27e35615",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-KS-1/ks-daily-preview.png"
+        },
+        {
+          "id": 595173059,
+          "name": "ks-total-preview.png",
+          "size": 39260,
+          "digest": "sha256:d524aed6c6171c6367b0cb239ffc9e79c278ee214d29e03fe0b3cf1f7f5e8488",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-KS-1/ks-total-preview.png"
+        },
+        {
+          "id": 595172911,
+          "name": "ks-week-preview.png",
+          "size": 29278,
+          "digest": "sha256:bbc3329e798bbc6f57a9fa7e4c56e43d96eadfe75586f93c5fe8607f349e8dc6",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-KS-1/ks-week-preview.png"
+        },
+        {
+          "id": 595172871,
+          "name": "ReadingTime-v9.7.5-KS-test1.manifest.json",
+          "size": 16238,
+          "digest": "sha256:635136bb53387824a8961b48cf535437cbcd2014192fa239951a44076e75c8c1",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-KS-1/ReadingTime-v9.7.5-KS-test1.manifest.json"
+        },
+        {
+          "id": 595172722,
+          "name": "ReadingTime-v9.7.5-KS-test1.zip",
+          "size": 15183822,
+          "digest": "sha256:d8d2538ab81c9c80d63db21af2bd2405a620a7249608654ff4d800253839c93f",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-KS-1/ReadingTime-v9.7.5-KS-test1.zip"
+        },
+        {
+          "id": 595172835,
+          "name": "SHA256SUMS-KS.txt",
+          "size": 99,
+          "digest": "sha256:a6f52abf7721f210d664136745c3d52ef28867c4d889f06c6fdb17a5710be7f8",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-KS-1/SHA256SUMS-KS.txt"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.5-compat-v3",
+      "name": "Kindle 阅读记录 9.7.5 兼容版 V3｜封面修复与安装文件清理",
+      "tag_commit": "53a0044f1787f792bbd684ee90091fc4a3c2bea7",
+      "target_commitish": "53a0044f1787f792bbd684ee90091fc4a3c2bea7",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-compat-v3",
+      "assets": [
+        {
+          "id": 590945916,
+          "name": "kindle-reading-records-v9.7.5-compat-v3.zip",
+          "size": 15193068,
+          "digest": "sha256:247557cbd8bb80e7c19d28fcdfa7eab08cbd97fcd0e2fa2f976ed21f731999b0",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-compat-v3/kindle-reading-records-v9.7.5-compat-v3.zip"
+        },
+        {
+          "id": 590946021,
+          "name": "SHA256SUMS.txt",
+          "size": 111,
+          "digest": "sha256:afe9e1b2afe7806665dacc27f44633ce72eed9f68d72a9e8302de4a62c946a1c",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-compat-v3/SHA256SUMS.txt"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.5-测试版",
+      "name": "9.7.5-测试版",
+      "tag_commit": "e41707492b985284d77e0ec5ec5ceffe98209a89",
+      "target_commitish": "main",
+      "draft": false,
+      "prerelease": true,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-%E6%B5%8B%E8%AF%95%E7%89%88",
+      "assets": [
+        {
+          "id": 576824590,
+          "name": "kindle-reading-records-v9.7.5-test.zip",
+          "size": 15166262,
+          "digest": "sha256:e2cb63be35194f311c110073c35e16f421fb6c1c657250b4e7338c9bebd10c2f",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-%E6%B5%8B%E8%AF%95%E7%89%88/kindle-reading-records-v9.7.5-test.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.4",
+      "name": "Kindle Reading Records Enhanced v9.7.4",
+      "tag_commit": "eb4424fc8b3da949e0e2bd105f27168ee1360006",
+      "target_commitish": "main",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.4",
+      "assets": [
+        {
+          "id": 563489664,
+          "name": "kindle-reading-records-v9.7.4.zip",
+          "size": 15569912,
+          "digest": "sha256:fd5152c061d2aec77d0ed2fa5eeffbf46699d82c63531ec05af4852bb4ab5d72",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.4/kindle-reading-records-v9.7.4.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.1-install-fix",
+      "name": "v9.7.1-install-fix｜首次安装/升级安装包",
+      "tag_commit": "08b1cfe9a67316e9f9f64edb677115a980d18c7a",
+      "target_commitish": "08b1cfe9a67316e9f9f64edb677115a980d18c7a",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.1-install-fix",
+      "assets": [
+        {
+          "id": 559328565,
+          "name": "Kindle-Reading-Records-v9.7.1-install-fix.zip",
+          "size": 14649577,
+          "digest": "sha256:0eb6acc78e11320d9075c4e78a511eb6820d93bdcb00081d8f37510994c34ab4",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.1-install-fix/Kindle-Reading-Records-v9.7.1-install-fix.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.3-测试版",
+      "name": "v9.7.3 · 单书详情测试版",
+      "tag_commit": "282dbbf32d0555e187246cfc82adda3abe93a487",
+      "target_commitish": "main",
+      "draft": false,
+      "prerelease": true,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.3-%E6%B5%8B%E8%AF%95%E7%89%88",
+      "assets": [
+        {
+          "id": 557520392,
+          "name": "kindle-reading-records-v9.7.3-test.zip",
+          "size": 14659998,
+          "digest": "sha256:1851b78d9daf0349631474faaa24f771ede10aff7b249cfac28262def6df2196",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.3-%E6%B5%8B%E8%AF%95%E7%89%88/kindle-reading-records-v9.7.3-test.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.2-测试版",
+      "name": "v9.7.2 · 测试版",
+      "tag_commit": "69909f96921927618552af7646417d3695832823",
+      "target_commitish": "main",
+      "draft": false,
+      "prerelease": true,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.2-%E6%B5%8B%E8%AF%95%E7%89%88",
+      "assets": [
+        {
+          "id": 557318756,
+          "name": "kindle-reading-records-v9.7.2-test.zip",
+          "size": 14668267,
+          "digest": "sha256:84604aad983e4382ce5b4eeac3fb891dfb1932d4a893af26f26a257a8e658ed1",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.2-%E6%B5%8B%E8%AF%95%E7%89%88/kindle-reading-records-v9.7.2-test.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.7.1-day-detail",
+      "name": "v9.7.1 · 日期详情",
+      "tag_commit": "61e6a2cf085d0b5cca5afaa1459c74a88dd99281",
+      "target_commitish": "main",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.1-day-detail",
+      "assets": [
+        {
+          "id": 556475243,
+          "name": "kindle-reading-records-v9.7.1-day-detail.zip",
+          "size": 14649235,
+          "digest": "sha256:038445be1dc2cff1d19779983268eb63b0d9fc9260b9e59d5d60ca52c4700229",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.1-day-detail/kindle-reading-records-v9.7.1-day-detail.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.6.10-ui-layout-fix",
+      "name": "v9.6.10 · 布局修复",
+      "tag_commit": "3e3151ba278286fc4367b5f69906cbd07726fb1c",
+      "target_commitish": "main",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.6.10-ui-layout-fix",
+      "assets": [
+        {
+          "id": 556473056,
+          "name": "kindle-reading-records-v9.6.10-ui-layout-fix.zip",
+          "size": 14578282,
+          "digest": "sha256:6bd0f580c1f5303fa208734873bbfbb11b4fe29cc32a9ea0f4f1b99541dc64eb",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.10-ui-layout-fix/kindle-reading-records-v9.6.10-ui-layout-fix.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.6.9-calendar-heatmap",
+      "name": "v9.6.9 · 日历热力图",
+      "tag_commit": "37ec6d27d2c8c5ab3ff73bc08d3231c22f90935a",
+      "target_commitish": "main",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.6.9-calendar-heatmap",
+      "assets": [
+        {
+          "id": 556472896,
+          "name": "kindle-reading-records-v9.6.9-calendar-heatmap.zip",
+          "size": 14577439,
+          "digest": "sha256:cfedddd66c66e37ed53e89d8ec976349f0f1109a2f72dec0a231cebe45169901",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.9-calendar-heatmap/kindle-reading-records-v9.6.9-calendar-heatmap.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.6.8-summary-sync-fix",
+      "name": "v9.6.8 · 汇总同步修复",
+      "tag_commit": "93a338c711d0a3eb47ea83a30a1e334109a07e5e",
+      "target_commitish": "main",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.6.8-summary-sync-fix",
+      "assets": [
+        {
+          "id": 556468397,
+          "name": "kindle-reading-records-v9.6.8-summary-sync-fix.zip",
+          "size": 14577249,
+          "digest": "sha256:eadbcdc96a680585ffb5ae95e8a81c05146fa4a13bbd1af4a349b8c8a578b6af",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.8-summary-sync-fix/kindle-reading-records-v9.6.8-summary-sync-fix.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.6.7-week-view",
+      "name": "v9.6.7 · 周视图",
+      "tag_commit": "3f59ca6022e0329dcd34be389c0e2fd749da3b67",
+      "target_commitish": "main",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.6.7-week-view",
+      "assets": [
+        {
+          "id": 556468159,
+          "name": "kindle-reading-records-v9.6.7-week-view.zip",
+          "size": 14577241,
+          "digest": "sha256:00416a2f4229047de69c33116b308eb73f35fae6c31a6b5181d87bfedbb31da7",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.7-week-view/kindle-reading-records-v9.6.7-week-view.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.6.6-stats-filters",
+      "name": "v9.6.6 · 统计筛选",
+      "tag_commit": "cc65edeb2b2b6b4f0582050cedad8410daa71f02",
+      "target_commitish": "main",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.6.6-stats-filters",
+      "assets": [
+        {
+          "id": 556467680,
+          "name": "kindle-reading-records-v9.6.6-stats-filters.zip",
+          "size": 14550220,
+          "digest": "sha256:d037514dc64117d977b1aba4fef80dfd7e9ed24e588ee5418201c888420dcfdf",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.6-stats-filters/kindle-reading-records-v9.6.6-stats-filters.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.6.5-ui-polish",
+      "name": "v9.6.5 · 界面优化",
+      "tag_commit": "e2985691af7dffe17f324f1c5694dc80c47b964d",
+      "target_commitish": "main",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.6.5-ui-polish",
+      "assets": [
+        {
+          "id": 556467499,
+          "name": "kindle-reading-records-v9.6.5-ui-polish.zip",
+          "size": 14438946,
+          "digest": "sha256:47df9cc1f9faf220f8591af140be343b2b5e88abd5e5d21ca8c0990dd9d14787",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.5-ui-polish/kindle-reading-records-v9.6.5-ui-polish.zip"
+        }
+      ]
+    },
+    {
+      "tag": "v9.6.4-ui-calendar",
+      "name": "v9.6.4 · 日历界面",
+      "tag_commit": "bb42f04fadb934db64d35a267367b7cadc48c00d",
+      "target_commitish": "main",
+      "draft": false,
+      "prerelease": false,
+      "immutable": false,
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.6.4-ui-calendar",
+      "assets": [
+        {
+          "id": 556467007,
+          "name": "kindle-reading-records-v9.6.4-ui-calendar.zip",
+          "size": 14015427,
+          "digest": "sha256:a1ccbf29f2f1210d7a101962302957dab8c6f804f4b41c39988f36b57ac14c0a",
+          "browser_download_url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.4-ui-calendar/kindle-reading-records-v9.6.4-ui-calendar.zip"
+        }
+      ]
+    }
+  ],
+  "tags": [
+    {
+      "tag": "v9.7.6-5.20.1-vera",
+      "commit": "28659950aa12d4626fb87413f3f62223474aaca3"
+    },
+    {
+      "tag": "v9.7.6-5.19-vera",
+      "commit": "341ee3d14f9adb289334f99d4374fe2c6cd54fd2"
+    },
+    {
+      "tag": "v9.7.6-5.18-springbreak",
+      "commit": "0e1e9c1f17661a96ba9e786f341c578cb54b8951"
+    },
+    {
+      "tag": "v9.7.5-test.1",
+      "commit": "42cf722b45764a032bceed90ea93264bc0dffceb"
+    },
+    {
+      "tag": "v9.7.5-compat-v3",
+      "commit": "53a0044f1787f792bbd684ee90091fc4a3c2bea7"
+    },
+    {
+      "tag": "v9.7.5-compat-v2",
+      "commit": "e9ba8b478412e4e5bb78c1fbe299a248da3870fe"
+    },
+    {
+      "tag": "v9.7.5-KS-1",
+      "commit": "57772b05950c699c5542a9772dc5a90ff02e52ef"
+    },
+    {
+      "tag": "v9.7.5-测试版",
+      "commit": "e41707492b985284d77e0ec5ec5ceffe98209a89"
+    },
+    {
+      "tag": "v9.7.4",
+      "commit": "eb4424fc8b3da949e0e2bd105f27168ee1360006"
+    },
+    {
+      "tag": "v9.7.3-测试版",
+      "commit": "282dbbf32d0555e187246cfc82adda3abe93a487"
+    },
+    {
+      "tag": "v9.7.2-测试版",
+      "commit": "69909f96921927618552af7646417d3695832823"
+    },
+    {
+      "tag": "v9.7.1-install-fix",
+      "commit": "08b1cfe9a67316e9f9f64edb677115a980d18c7a"
+    },
+    {
+      "tag": "v9.7.1-day-detail",
+      "commit": "61e6a2cf085d0b5cca5afaa1459c74a88dd99281"
+    },
+    {
+      "tag": "v9.6.10-ui-layout-fix",
+      "commit": "3e3151ba278286fc4367b5f69906cbd07726fb1c"
+    },
+    {
+      "tag": "v9.6.9-calendar-heatmap",
+      "commit": "37ec6d27d2c8c5ab3ff73bc08d3231c22f90935a"
+    },
+    {
+      "tag": "v9.6.8-summary-sync-fix",
+      "commit": "93a338c711d0a3eb47ea83a30a1e334109a07e5e"
+    },
+    {
+      "tag": "v9.6.7-week-view",
+      "commit": "3f59ca6022e0329dcd34be389c0e2fd749da3b67"
+    },
+    {
+      "tag": "v9.6.6-stats-filters",
+      "commit": "cc65edeb2b2b6b4f0582050cedad8410daa71f02"
+    },
+    {
+      "tag": "v9.6.5-ui-polish",
+      "commit": "e2985691af7dffe17f324f1c5694dc80c47b964d"
+    },
+    {
+      "tag": "v9.6.4-ui-calendar",
+      "commit": "bb42f04fadb934db64d35a267367b7cadc48c00d"
+    },
+    {
+      "tag": "v9.6.3",
+      "commit": "cdcdf9284872432f0db891b042605453baa35dfc"
+    },
+    {
+      "tag": "v9.6.3-optimized-pw6-5.19.6-cmp-fix",
+      "commit": "56f56c4de2161343cf8fd6de0616567feacd510b"
+    },
+    {
+      "tag": "v9.6.3-optimized",
+      "commit": "82a3b621a23dff2f382806e651f3fc8be48e15bd"
+    },
+    {
+      "tag": "v4-test.3",
+      "commit": "615928173cde6106767a82ed8bd2cf127977181c"
+    },
+    {
+      "tag": "v4-test.2",
+      "commit": "0dc8c1b30b52974702885bdc73c911b3a49f8143"
+    },
+    {
+      "tag": "v4-test.1",
+      "commit": "88164e9dd6750463a2b829b99293a00fb2f1fa2e"
+    }
+  ],
+  "branches": [
+    {
+      "name": "9.7.6-5.18-springbreak",
+      "commit": "0e1e9c1f17661a96ba9e786f341c578cb54b8951"
+    },
+    {
+      "name": "9.7.6-5.18-vera",
+      "commit": "3acda144ee7bf3a09d7472628efdffd9c09ab240"
+    },
+    {
+      "name": "9.7.6-5.19-vera",
+      "commit": "341ee3d14f9adb289334f99d4374fe2c6cd54fd2"
+    },
+    {
+      "name": "codex/ks-release-9.7.5",
+      "commit": "57772b05950c699c5542a9772dc5a90ff02e52ef"
+    },
+    {
+      "name": "codex/release-9.7.6-5.20.1-vera",
+      "commit": "b46407c3b73cd1d5445a3db2159662ca9ffd4c75"
+    },
+    {
+      "name": "codex/v4-install-system",
+      "commit": "615928173cde6106767a82ed8bd2cf127977181c"
+    },
+    {
+      "name": "fix/v9.7.1-fresh-install",
+      "commit": "08b1cfe9a67316e9f9f64edb677115a980d18c7a"
+    },
+    {
+      "name": "main",
+      "commit": "53a0044f1787f792bbd684ee90091fc4a3c2bea7"
+    }
+  ]
+}
