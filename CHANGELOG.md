@@ -6,7 +6,7 @@
 - 矩阵已确认 5.20.1 Vera、5.19 Vera、KPW4 / 5.18.1.1.1 SpringBreak 三个实机确认原包。5.18 Vera 仍待真机验收，KS 暂停，不纳入正式附件。
 - 新增统一入口，验证原包字节、内层清单、安装入口、运行资源和真实源提交；规范外层名称并生成 SHA256SUMS、来源清单与 Release 正文。支持固定输入的隔离分支构建及显式草稿上传，无覆盖或公开发布操作。
 - README 使用 latest 下载入口和选包表；本轮未修改计时、UI、daemon、触摸或安装器运行逻辑。
-- [流程与命令](docs/unified-release-process.md) · [审计与迁移方案](docs/releases/9.7.6-unified-audit.md)。
+- [流程与命令](docs/unified-release-process.md) · [发布来源矩阵](release/9.7.6.json)。
 - 发布前提交阶段：建议统一 Tag 指向包含发布工具的新工程提交，新增显式 `--release-commit` 并校验运行源码未变，保留三包独立来源；本轮仅本地提交，尚未创建 Tag、push 或上传。
 
 ## 9.7.6-5.20.1-vera 附件更新 — 2026-10-14
@@ -14,7 +14,7 @@
 - 用实机测试成功的 test2 原包替换同一正式 Release 下载附件；包内版本保持 test2，外层下载名称保持正式版。原 Tag 不移动，旧包和初次校验保留。
 - 型号缺失允许尝试 Standard；多来源确认 KS、来源冲突或 KS 残留时拒绝。首次安装、覆盖与 repair 共用规则，不记录完整序列号。
 - 203 个识别/入口用例、6 个权限用例、20 个安装安全场景、12 项相关回归通过；78 个既有运行文件保持原样。
-- [本次发布说明](docs/releases/9.7.6-5.20.1-vera-replacement.md)。
+- [设备识别修复说明](docs/standard-test2-device-identification.md)。
 
 ## 9.7.6-5.20.1-vera — 2026-10-13
 

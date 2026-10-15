@@ -40,7 +40,7 @@ python scripts/unified_release.py --matrix release/9.7.6.json --rebuild --output
 
 5.20.1 的成熟构建器会读取历史安装包、原基线、test1 及 Git 历史以生成安全归属清单。统一入口将这些依赖逐文件枚举到矩阵 `build.inputs`，固定 SHA-256 和目标路径，另固定相关历史修订集合。缺失、改变或新增历史输入须审阅，不悄悄绕过。clone 设置 `core.autocrlf=false`、`core.eol=lf`，保证 XML 等 `text=auto` 资源不会在 Windows 检出时变为 CRLF；这是构建环境固定，不是修改安装器源码。
 
-本轮重建必须和已验收原包 **整个 ZIP 的 SHA-256 相同** 才可继续。不同则拒绝，不上传重建文件，比较报告写入 `build/unified-release-audit/*-rebuild-mismatch.json`。初轮检查发现并修复了临时 clone 的 XML 换行问题，原失败日志保留。未来新功能版本的候选须先用原构建器完成必要回归与设备验证，再把其完整提交、字节哈希和证据登记到新版本矩阵；统一入口不把新构建自动晋升为已验收。
+本轮重建必须和已验收原包 **整个 ZIP 的 SHA-256 相同** 才可继续。不同则拒绝，不上传重建文件，比较报告写入 `build/unified-release-audit/*-rebuild-mismatch.json`。未来新功能版本的候选须先用原构建器完成必要回归与设备验证，再把其完整提交、字节哈希和证据登记到新版本矩阵；统一入口不把新构建自动晋升为已验收。生成的报告、预览、差异和临时 clone 均放在忽略跟踪的 `build/` 中，审阅结束后清除；固定构建输入和仍在使用的 worktree 须保留。
 
 ## 显式草稿上传
 
@@ -59,9 +59,9 @@ gh release create v9.7.6 --repo L-1116/kindle-reading-records-enhanced --draft -
 python scripts/unified_release.py --fetch --release-commit $releaseCommit --output dist/unified/v9.7.6-release --upload-draft
 ```
 
-上传要求可用且已认证的 GitHub CLI `gh`。本轮在 PATH、标准安装位置、WinGet/Scoop/Chocolatey 目录、工作区及安装注册表中均未发现 gh；没有声称完成真实草稿上传。已有 Git Credential Manager 凭据经只读 API 确认属于 L-1116，具备仓库 push/admin 权限；这不等于 gh 已有登录配置。统一脚本只支持 gh 草稿上传，认证 API 仅用于读取，没有绕过 gh 的另一个上传后门。不要运行旧 build 临时发布脚本。
+上传要求可用且已认证的 GitHub CLI `gh`。统一脚本只支持 gh 草稿上传，认证 API 仅用于读取。使用 `gh --version` 和 `gh auth status --hostname github.com` 检查本机环境；不能以 Git Credential Manager 已登录代替 gh 认证。
 
-Windows 安装建议使用官方列出的 WinGet 方式，当前已找到 winget：
+Windows 可使用 WinGet 安装：
 
 ```powershell
 winget install --id GitHub.cli --exact --source winget
@@ -69,7 +69,7 @@ gh --version
 gh auth status --hostname github.com
 ```
 
-如 WinGet 不可用，使用 [GitHub CLI 官方 Release](https://github.com/cli/cli/releases) 对应架构的 MSI。安装后新开终端或确认 `C:\Program Files\GitHub CLI` 已加入进程 PATH。本轮仅给出方法，没有安装。登录可使用 gh 的安全身份验证流程；如复用已有效的 GCM 凭据，应只在维护者进程内存中交给 gh，不能打印 Token、使用 `--show-token`、保存明文脚本/日志或提交配置。需要拉起浏览器的操作由用户自己进行，或先取得当次屏幕操控同意。[官方安装说明](https://github.com/cli/cli#installation)。
+如 WinGet 不可用，使用 [GitHub CLI 官方 Release](https://github.com/cli/cli/releases) 对应架构的 MSI。安装后新开终端或确认 `C:\Program Files\GitHub CLI` 已加入进程 PATH。登录可使用 gh 的安全身份验证流程；如复用已有效的 GCM 凭据，应只在维护者进程内存中交给 gh，不能打印 Token、使用 `--show-token`、保存明文脚本/日志或提交配置。需要拉起浏览器的操作由用户自己进行，或先取得当次屏幕操控同意。[官方安装说明](https://github.com/cli/cli#installation)。
 
 本轮 Git 默认 schannel 曾遇到 TLS 握手错误，使用仅对该条命令生效的 `-c http.sslBackend=openssl` 后只读 ls-remote 成功；没有修改全局配置或关闭证书验证。后续 push 前须再次读远端并确认 fast-forward；远端若改变就停止，不使用 force。
 

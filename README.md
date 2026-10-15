@@ -43,9 +43,24 @@
 
 详细变更放在 Releases 和 CHANGELOG。历史源码标签保留；此前已有五个历史草稿不在公开列表中，本次不改变其状态。
 
-开发需要 Python 3.11+、POSIX sh/dash 与 `requirements-dev.txt`。统一发布矩阵见 [release/9.7.6.json](release/9.7.6.json)，流程、草稿命令和未来版本维护见 [统一发布流程](docs/unified-release-process.md)，本轮事实与迁移方案见 [审计报告](docs/releases/9.7.6-unified-audit.md)。默认入口为 `python scripts/unified_release.py --fetch`，只在本地校验与准备附件；不创建 Tag 或公开发布。正式草稿准备另用 `--release-commit 完整工程SHA`，分别记录 Tag 工程基线、Standard 运行基线及各包真实源提交。输出位于 `dist/unified/`，来源记录在 `release-manifest.json`。
+开发需要 Python 3.11+、POSIX sh/dash 与 `requirements-dev.txt`。统一发布矩阵见 [release/9.7.6.json](release/9.7.6.json)，流程、草稿命令和未来版本维护见 [统一发布流程](docs/unified-release-process.md)。默认入口为 `python scripts/unified_release.py --fetch`，只在本地校验与准备附件；不创建 Tag 或公开发布。正式草稿准备另用 `--release-commit 完整工程SHA`，分别记录 Tag 工程基线、Standard 运行基线及各包真实源提交。输出位于 `dist/unified/`，来源记录在 `release-manifest.json`。
 
 现有构建与安装器继续沿用各自分支，不合并运行代码。完整 Standard 回归入口仍为 `scripts/validate_all.py`；其中历史安装包与基线快照是开发依赖。统一流程的安全测试为 `tests/validate_unified_release.py`，冻结生产源码验证为 `scripts/verify_published_release.py`。KS 历史源码及本地实验产物保留。
+
+项目目录按以下用途维护，固件适配继续保留在现有分支和 worktree 中：
+
+| 目录 | 用途 |
+|---|---|
+| `native-reading-time-package/` | Standard 源码、资源及 `compat/` 固件适配 |
+| `ks-package/` | KS 适配源码与尚未完成的开发 |
+| `documents/`、`extensions/`、`v4/` | 书库、KUAL 安装入口与两文件安装器模板 |
+| `scripts/`、`release/` | 构建、验证、发布工具及固定来源矩阵 |
+| `tests/` | 回归测试、fixtures 与历史基线 |
+| `docs/` | 安装说明、当前开发文档、发布流程与必需的冻结校验记录 |
+| `tools/`、`debug/` | 微信读书同步、封面调查及诊断工具 |
+| `build/`、`dist/` | 忽略跟踪的构建、测试输出和安装包 |
+
+`build/`、`dist/` 目前还保存构建所需的历史输入、KS 开发基线和已注册 worktree，不能整体删除。固定构建输入由 `release/9.7.6.json` 的 `build.inputs` 列出；`build/standard-next-baseline/` 的精简源码用于历史回归，KS 原包用于精确迁移归属。`build/standard-touch-candidate-workspace/` 含独立 Git 历史和未提交源码，继续保留。生成的审计、验证、预览和差异文件应放在 `build/`，不再堆入 `docs/`；历史报告和 Release 正文可从 Git 历史及 Releases 查阅。
 
 ## 致谢与授权
 
