@@ -39,6 +39,11 @@ with tempfile.TemporaryDirectory(prefix='idle-') as tmp:
     assert shell(head+'idle_enabled=1; idle_minutes=3; rr_config_save; echo $?').strip()=='1'
     assert list((base/'user.conf').iterdir())==[]; (base/'user.conf').rmdir(); (base/'user.conf').write_bytes(saved); check()
 
+    # Legacy text configurations need not have a terminating newline.
+    (base/'user.conf').write_bytes(b'other=keep')
+    assert shell(head+'idle_enabled=1; idle_minutes=3; rr_config_save; rr_config_read; echo "$idle_enabled $idle_minutes"').strip()=='1 3'
+    assert (base/'user.conf').read_bytes().startswith(b'other=keep\n');check()
+
     # Execute the real decoder. EOF is the expected terminal failure for a finite stream.
     def decode(events, size=16, start=1000, limit=120):
         stream=base/'events'; snap=base/'snapshot'

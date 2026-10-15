@@ -22,7 +22,7 @@ rr_config_save() {
     config_tmp="$BASE/user.conf.new.$$"
     (umask 077
         { if [ -f "$BASE/user.conf" ]; then
-            sed '/^idle_pause_enabled=/d; /^idle_pause_minutes=/d' "$BASE/user.conf" || exit 1
+            awk '!/^idle_pause_enabled=/ && !/^idle_pause_minutes=/' "$BASE/user.conf" || exit 1
           fi
           printf 'idle_pause_enabled=%s\nidle_pause_minutes=%s\n' "$idle_enabled" "$idle_minutes"
         } > "$config_tmp"

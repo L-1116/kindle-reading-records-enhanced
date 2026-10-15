@@ -5,7 +5,7 @@ idle_remove_files() {
     if [ -n "$idle_dir" ]; then rm -f "$idle_dir/snapshot" "$idle_dir/snapshot.new" "$idle_dir/touch-last.log" "$idle_dir/events" "$idle_dir/probe" "$idle_dir/error" "$idle_dir/owner-pipe" "$idle_dir/listener.pid"; rmdir "$idle_dir" 2>/dev/null || true; fi
 }
 idle_guard_stat() {
-    [ -n "$idle_pid" ] && IFS= read -r idle_stat < "/proc/$idle_pid/stat" 2>/dev/null || return 1
+    [ -n "$idle_pid" ] && IFS= read -r idle_stat 2>/dev/null < "/proc/$idle_pid/stat" || return 1
     idle_stat="${idle_stat##*) }"; set -- $idle_stat
     [ "$1" != Z ] && [ "$2" = "$$" ] || return 1
     idle_stat_birth="${20}"
@@ -16,9 +16,9 @@ idle_guard_alive() {
 idle_stop_orphan() {
     # If only the guard was killed, retain enough private identity to stop its
     # reader without targeting a reused PID. No full process census is needed.
-    [ -n "$idle_dir" ] && IFS=' ' read -r idle_orphan idle_orphan_birth < "$idle_dir/listener.pid" 2>/dev/null || return 0
+    [ -n "$idle_dir" ] && IFS=' ' read -r idle_orphan idle_orphan_birth 2>/dev/null < "$idle_dir/listener.pid" || return 0
     case "$idle_orphan:$idle_orphan_birth" in *[!0-9:]*|:*|*:) return 0;; esac
-    IFS= read -r idle_stat < "/proc/$idle_orphan/stat" 2>/dev/null || return 0
+    IFS= read -r idle_stat 2>/dev/null < "/proc/$idle_orphan/stat" || return 0
     idle_stat="${idle_stat##*) }"; set -- $idle_stat
     [ "${20}" != "$idle_orphan_birth" ] || kill "$idle_orphan" 2>/dev/null || true
 }

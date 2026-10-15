@@ -4,7 +4,8 @@ import concurrent.futures, hashlib, json, shutil, subprocess, sys, time
 from validate_all import ROOT, CHECKS
 
 OUT=ROOT/'build/validation'; OUT.mkdir(parents=True,exist_ok=True)
-REPORT=OUT/'idle-release-results.json'
+PRIVATE='--private-only' in sys.argv
+REPORT=OUT/('idle-private-results.json' if PRIVATE else 'idle-release-results.json')
 # Historical migration permutations and comparisons with old host startup
 # chains remain available through validate_all; this target uses the actual
 # accepted 9.7.6 daemon and the same transaction/cleanup fixtures.
@@ -26,6 +27,11 @@ if changed:
     affected={'validate_idle_pause.py','validate_idle_guard.py','validate_settings_ui.py','validate_install.py','build_v4.py'}
     prior={name:{**row,'reused_after_private_idle_fix':True} for name,row in prior.items()
            if Path(name.split(' ')[0]).name not in affected}
+certificate=OUT/'idle-private-results.json'
+if not PRIVATE and certificate.exists():
+    certified=json.loads(certificate.read_text())
+    if certified['result']=='PASS' and certified['source_hashes']==HASHES:
+        prior.update({r['check']:r for r in certified['checks']})
 recheck={arg.split('=',1)[1] for arg in sys.argv if arg.startswith('--recheck=')}
 rows=[]
 def run(item):
@@ -42,9 +48,17 @@ def run(item):
     if package_sha:row['package_sha256']=package_sha
     print(name,'PASS' if p.returncode==0 else 'FAIL',flush=True)
     return row
-phases=[(PRE,3),([ROOT/'scripts/build_v4.py'],1),
-        ([(ROOT/'tests/validate_v4.py',['--idle-upgrade']),*POST],3),
+timer=ROOT/'tests/validate_idle_pause.py'
+devices=ROOT/'tests/validate_device_variant.py'
+# Freeze the ZIP first; long independent fixtures run together, while every
+# package-consuming check sees the same checksum. Delivery remains gated on
+# all validation phases, including the final whole startup chain.
+phases=[([ROOT/'scripts/build_v4.py'],1),
+        ([(ROOT/'tests/validate_v4.py',['--idle-upgrade']),timer,devices,
+          *[c for c in PRE+POST if c not in (timer,devices)]],3),
         ([(ROOT/'tests/validate_startup_performance.py',['--current-only'])],1)]
+if PRIVATE:
+    phases=[([ROOT/'tests'/name for name in ('validate_idle_pause.py','validate_idle_guard.py','validate_settings_ui.py','validate_install.py')],3)]
 for checks,workers in phases:
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool: rows.extend(pool.map(run,checks))
     REPORT.write_text(json.dumps({'result':'IN_PROGRESS','checks':rows,'source_hashes':HASHES},indent=2),encoding='utf-8')
