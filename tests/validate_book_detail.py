@@ -280,11 +280,12 @@ book_body = viewer[viewer.index("get_book_detail()") : viewer.index("weekday_tex
 assert '"$DATA"' not in book_body and book_body.count('"$DAY_BOOKS"') == 2 and "sort " not in book_body
 startup = viewer[viewer.index("metric_begin first_open") : viewer.index("\n\nwhile :; do")]
 assert "get_book_detail" not in startup and "render_book_detail" not in startup
-assert hashlib.sha256((PKG / "native-reading-time-daemon.sh").read_bytes()).hexdigest() == BASE_HASHES["native-reading-time-package/native-reading-time-daemon.sh"]
+from idle_contract import assert_legacy_timing
+assert_legacy_timing()
 assert "reading-time.tsv" not in (PKG / "reading-insights-cache.awk").read_text(encoding="utf-8")
 installer = (PKG / "Install-Native-Reading-Time-Optimized.sh").read_text(encoding="utf-8")
-assert "9.7.6-5.20.1-vera" in installer and "book_detail.png" in installer and "reading-insights-cover.lua" in installer
-assert "9.7.6-5.20.1-vera" in viewer and "book_detail.png" in viewer
+assert "9.8.1-5.20-vera-test1" in installer and "book_detail.png" in installer and "reading-insights-cover.lua" in installer
+assert "9.8.1-5.20-vera-test1" in viewer and "book_detail.png" in viewer
 assert viewer.splitlines()[:4] == ["#!/bin/sh", "# Name: 阅读记录", "# Author: Kindle Reading Records Enhanced", "# Icon: /mnt/us/reading-time/assets/launcher-icon.png"]
 for lua_file in PKG.glob("*.lua"):
     LuaRuntime().execute("assert(loadstring(...))", lua_file.read_text(encoding="utf-8"))

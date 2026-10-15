@@ -124,7 +124,7 @@ assert comparison.stdout.strip() == "1|-1|0|unknown", comparison.stdout
 # they are optional and must not be launch gates.
 base = SANDBOX / "reading-time"
 docs = SANDBOX / "documents"
-release = base / "releases/9.7.6-5.20.1-vera"
+release = base / "releases/9.8.1-5.20-vera-test1"
 mockbin = SANDBOX / "mockbin"
 for folder in (base / "bin", base / "compat", base / "fonts", release / "bin", release / "ui-calendar", release / "render-assets", docs, mockbin):
     folder.mkdir(parents=True, exist_ok=True)
@@ -135,12 +135,14 @@ shutil.copy2(PKG / "compat/runtime-lock.sh", base / "compat/runtime-lock.sh")
 shutil.copy2(PKG / "compat/lifecycle.sh", base / "compat/lifecycle.sh")
 (base / "reading-time.tsv").write_text("date\tbook_id\tseconds\ttitle\n", encoding="utf-8")
 (base / "fonts/NotoSansCJKsc-Regular.otf").write_bytes(b"font")
-for name in ("daily.png", "total.png", "books.png", "day_detail.png", "month_detail.png", "week_trend.png", "book_detail.png"):
+for name in ("settings.png", "settings_custom.png", "settings-button.png", "daily.png", "total.png", "books.png", "day_detail.png", "month_detail.png", "week_trend.png", "book_detail.png"):
     (release / "ui-calendar" / name).write_bytes(b"png")
 for name in ("reading-insights-touch-preflight.sh", "reading-insights-touch-probe.lua", "reading-insights-touch-ui.lua", "reading-insights-render.lua", "reading-insights-cover.lua", "reading-insights-titles.lua", "reading-insights-title-widths.lua"):
     (release / "bin" / name).write_text("return true\n", encoding="utf-8")
 for name in ("dynamic-glyphs.pgm", "dynamic-glyphs.tsv"):
     (release / "render-assets" / name).write_text("mock\n", encoding="utf-8")
+for helper in ("reading-config.sh", "reading-settings.sh"):
+    shutil.copy2(PKG/helper,release/"bin"/helper)
 main = release / "bin/reading-records.sh"
 main.write_text('#!/bin/sh\necho "launcher-ok profile=$COMPAT_PROFILE"\nexit 0\n', encoding="utf-8", newline="\n")
 fbink = mockbin / "fbink"

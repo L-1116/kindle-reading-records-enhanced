@@ -31,7 +31,7 @@ def shell_path(path: Path) -> str:
 def setup(root: Path, variant: str) -> tuple[Path, dict[str, str], Path, Path]:
     package = ROOT / ("native-reading-time-package" if variant == "standard" else "ks-package/native-reading-time-package")
     base = root / "reading-time"
-    release = base / ("releases/9.7.6-5.20.1-vera" if variant == "standard" else "releases/9.7.5-ks-test1")
+    release = base / ("releases/9.8.1-5.20-vera-test1" if variant == "standard" else "releases/9.7.5-ks-test1")
     mock = root / "mockbin"
     alternate = root / "alternate"
     ui = "ui-calendar" if variant == "standard" else "ui-scribe"
@@ -54,7 +54,7 @@ def setup(root: Path, variant: str) -> tuple[Path, dict[str, str], Path, Path]:
     (base / "fonts/NotoSansCJKsc-Regular.otf").write_bytes(b"font")
     (release / "render-assets/dynamic-glyphs.pgm").write_bytes(b"pgm")
     (release / "render-assets/dynamic-glyphs.tsv").write_bytes(b"tsv")
-    for name in ("daily", "total", "books", "day_detail", "month_detail", "week_trend", "book_detail"):
+    for name in ("settings", "settings_custom", "settings-button", "daily", "total", "books", "day_detail", "month_detail", "week_trend", "book_detail"):
         (release / ui / f"{name}.png").write_bytes(b"png")
     lua_sources = ["reading-insights-render.lua", "reading-insights-cover.lua", "reading-insights-titles.lua",
                    "reading-insights-title-widths.lua"]
@@ -62,6 +62,9 @@ def setup(root: Path, variant: str) -> tuple[Path, dict[str, str], Path, Path]:
                     ["reading-insights-touch-probe-ks.lua", "reading-insights-touch-ks.lua"])
     for name in lua_sources:
         (release / "bin" / name).write_text("return true\n", encoding="utf-8")
+    if variant == "standard":
+        for helper in ("reading-config.sh", "reading-settings.sh"):
+            shutil.copy2(package/helper,release/"bin"/helper)
     main = release / "bin" / ("reading-records.sh" if variant == "standard" else "reading-records-ks.sh")
     viewer = (package / ("阅读记录-optimized.sh" if variant == "standard" else "阅读记录-ks.sh")).read_text(encoding="utf-8")
     wrapper = viewer[viewer.index("# Candidate resolution"):viewer.index("\not() {", viewer.index("# Candidate resolution"))]

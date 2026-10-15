@@ -170,6 +170,7 @@ for scenario in ('reading','switch','midnight','locked','state-failure','write-f
 # Both actual bootstraps must opt out within the upstream six-line header.
 header=(ROOT/'v4/bootstrap.template.sh').read_text(encoding='utf-8', errors='replace').splitlines()[:6]
 assert '# DontUseFBInk' in header
-assert (PKG/'native-reading-time-daemon.sh').read_bytes()==subprocess.check_output(['git','show','982ea7131c81a198997315602a79c684bb4f3d7d:native-reading-time-package/native-reading-time-daemon.sh'],cwd=ROOT)
+from idle_contract import assert_legacy_timing
+assert_legacy_timing()
 (OUT/'service-recovery-results.json').write_text(json.dumps({'result':'PASS','checks':REPORT,'hardware_5201':'PENDING','performance_on_kindle':'PENDING'},ensure_ascii=False,indent=2),encoding='utf-8')
 print(f'service recovery and actual daemon: PASS ({len(REPORT)} scenarios; hardware 5.20.1 pending)')

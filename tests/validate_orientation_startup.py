@@ -70,13 +70,15 @@ wait() { printf 'wait %s\n' "$*" >> "$SELECTION_TRACE"; }
 
     atexit.register(stop_canary)
     base = session / "reading-time"
-    release = base / "releases/9.7.6-5.20.1-vera"
+    release = base / "releases/9.8.1-5.20-vera-test1"
     for folder in (release / "bin", release / "ui-calendar", base / "fonts"):
         folder.mkdir(parents=True)
     for name in ("total", "day_detail", "month_detail", "week_trend", "book_detail"):
         (release / f"ui-calendar/{name}.png").write_bytes(b"mock")
     (base / "reading-time.tsv").write_text("mock", encoding="utf-8")
     (base / "fonts/NotoSansCJKsc-Regular.otf").write_bytes(b"font")
+    for helper in ("reading-config.sh", "reading-settings.sh"):
+        (release/"bin"/helper).write_bytes((PKG/helper).read_bytes())
     touch = session / "touch"
     touch.write_bytes(b"mock")
     (release / "bin/reading-insights-touch-ui.lua").write_bytes(b"mock")

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-BASE="/mnt/us/reading-time"
+BASE="${READING_BASE:-/mnt/us/reading-time}"
 DATA="$BASE/reading-time.tsv"
 STATE="$BASE/state"
 REPORT="$BASE/阅读时长统计.txt"
@@ -11,6 +11,14 @@ LOCKED_INTERVAL=60
 SAVE_INTERVAL=90
 STATE_INTERVAL=90
 EDGE_CREDIT_MAX=5
+
+IDLE_HELPERS="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}/bin"
+idle_dispatch() { return 1; }
+idle_stop() { :; }
+if [ -r "$IDLE_HELPERS/reading-config.sh" ] && [ -r "$IDLE_HELPERS/reading-idle.sh" ]; then
+    . "$IDLE_HELPERS/reading-config.sh"
+    . "$IDLE_HELPERS/reading-idle.sh"
+fi
 
 mkdir -p "$BASE"
 umask 077
@@ -83,7 +91,7 @@ flush() {
     fi
     bucket=0; bucket_id=""; bucket_title=""; bucket_date=""
 }
-cleanup() { flush; service_state="已停止"; write_report; }
+cleanup() { idle_stop; flush; service_state="已停止"; write_report; }
 trap 'cleanup; trap - INT TERM HUP EXIT; exit 0' INT TERM HUP
 trap cleanup EXIT
 
@@ -136,6 +144,7 @@ while :; do
     reader=0; interval="$ACTIVE_INTERVAL"; wait_mode="active"
     [ "$app" = "com.lab126.booklet.reader" ] && [ "$power" = "active" ] && reader=1
 
+    if ! idle_dispatch; then
     # Detailed book properties are intentionally skipped outside an active
     # reading session. A sleeping Kindle only gets the two lightweight
     # app/power checks above.
@@ -182,6 +191,8 @@ while :; do
     elif [ "$power" != "active" ]; then
         service_state="锁屏暂停"
     fi
+
+    fi # optional idle timing path
 
     # Avoid the old two-second state-file write.  Persist periodically or
     # whenever the visible service state changes.

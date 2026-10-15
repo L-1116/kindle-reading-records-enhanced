@@ -23,6 +23,8 @@ EXCLUDED = {
     "native-reading-time-package/resources/kual/reading-records-installer/bin/action.sh",
 }
 ALLOWED_CHANGED = {
+    "native-reading-time-package/native-reading-time-daemon.sh",
+    "native-reading-time-package/reading-insights-touch-probe.lua",
     "native-reading-time-package/阅读记录-entry.sh",
     "native-reading-time-package/diagnostics.sh",
     "ks-package/native-reading-time-package/diagnostics-ks.sh",

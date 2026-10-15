@@ -24,7 +24,7 @@ def seed(session,previous):
     us=session/'us';base=us/'reading-time';docs=us/'documents';upstart=session/'upstart'
     docs.mkdir(parents=True);(base/'bin').mkdir(parents=True);upstart.mkdir()
     if previous:
-        put(base/'bin/native-reading-time-daemon.sh',(ROOT/'native-reading-time-package/native-reading-time-daemon.sh').read_bytes())
+        put(base/'bin/native-reading-time-daemon.sh',historical('b46407c','native-reading-time-package/native-reading-time-daemon.sh'))
         put(upstart/'native-reading-time.conf',(ROOT/'native-reading-time-package/native-reading-time.conf').read_bytes())
         if previous in ('normal','mixed','deleted-formal'):
             tag='v9.7.6-5.19-vera';prefix='native-reading-time-package/'
@@ -172,9 +172,8 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
                 c=subprocess.run([SHELL,backup.as_posix()],env=env,capture_output=True,timeout=90);assert c.returncode==0,c.stderr
             assert all(p.read_bytes()==raw for p,raw in protected.items())
     calls=(session/'service-fixture/calls').read_text(errors='replace') if (session/'service-fixture/calls').exists() else ''
-    if previous and mutation not in ('stopped_service','orphan','duplicate'):
-        assert 'stop native-reading-time' not in calls, (mutation,calls)
-        assert 'start native-reading-time' not in calls,(mutation,calls)
+    if previous and not failed:
+        assert 'stop native-reading-time' in calls and 'start native-reading-time' in calls,(mutation,calls)
     return {'package_sha256':package_sha,'scenario':str(previous or 'fresh')+' '+mutation,'result':'PASS','scanner_index_completion':'UNVERIFIED','protected_files':len(protected)}
 
 def main():
@@ -188,13 +187,16 @@ def main():
         # on fresh install, accepted-release upgrade, repair, and safety faults.
         cases=[(None,'',True),('V4','',True),('test1-cleaned','',True)]
         cases += [('mixed',m,False) for m in ('core_failure','activation_failure','interrupted','missing_payload','bad_checksum','cross_variant','ks_residue','wrong_device','unknown_formal','unknown_alias','duplicate','orphan','lost_service','stopped_service','initial_rw','busy_ui')]
+    if '--idle-upgrade' in sys.argv:
+        cases=[('V4','',True)]
+        cases += [('V4',m,False) for m in ('core_failure','activation_failure','interrupted','lost_service','stopped_service','ks_residue','wrong_device','orphan','duplicate','busy_ui')]
     for p,m,c in cases:
         with tempfile.TemporaryDirectory(prefix='standard-install-',dir=OUT) as name:results.append(run(Path(name),previous=p,mutation=m,cleanup=c))
         print(p or 'fresh',m or 'install + cleanup','PASS',flush=True)
-    for tag in (() if '--device-fix' in sys.argv else ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3')):
+    for tag in (() if '--device-fix' in sys.argv or '--idle-upgrade' in sys.argv else ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3')):
         with tempfile.TemporaryDirectory(prefix='standard-legacy-',dir=OUT) as name:results.append(run(Path(name),previous='V3',cleanup=True,legacy_tag=tag))
         print('legacy payload',tag,'PASS',flush=True)
-    with tempfile.TemporaryDirectory(prefix='standard-unknown-',dir=OUT) as name:results.append(run(Path(name),previous='V3',cleanup=True,cleanup_unknown=True))
+    with tempfile.TemporaryDirectory(prefix='standard-unknown-',dir=OUT) as name:results.append(run(Path(name),previous='V4' if '--idle-upgrade' in sys.argv else 'V3',cleanup=True,cleanup_unknown=True))
     assert len({row['package_sha256'] for row in results})==1, 'Package changed during matrix; rerun against frozen ZIP'
     (OUT/'standard-install-results.json').write_text(json.dumps({'result':'PASS','checks':results,'hardware':'PENDING'},indent=2),encoding='utf-8')
 if __name__=='__main__':main()

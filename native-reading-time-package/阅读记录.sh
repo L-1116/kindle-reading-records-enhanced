@@ -9,9 +9,16 @@ DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="${READING_FBINK:-/var/local/kmc/bin/fbink}"
 UI_DIR="$BASE/ui"
-TOUCH_READER="${READING_RELEASE:-$BASE/releases/9.7.6-5.20.1-vera}/bin/reading-insights-touch-ui.lua"
-TOUCH_PROBE="${READING_RELEASE:-$BASE/releases/9.7.6-5.20.1-vera}/bin/reading-insights-touch-probe.lua"
-TOUCH_PREFLIGHT="${READING_RELEASE:-$BASE/releases/9.7.6-5.20.1-vera}/bin/reading-insights-touch-preflight.sh"
+TOUCH_READER="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}/bin/reading-insights-touch-ui.lua"
+TOUCH_PROBE="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}/bin/reading-insights-touch-probe.lua"
+TOUCH_PREFLIGHT="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}/bin/reading-insights-touch-preflight.sh"
+SETTINGS_HELPERS="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}/bin"
+SETTINGS_ASSETS="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}/ui-calendar"
+rr_settings_gear() { :; }
+rr_settings_init() {
+    . "$SETTINGS_HELPERS/reading-config.sh" || exit 1
+    . "$SETTINGS_HELPERS/reading-settings.sh" || exit 1
+}
 SESSION_DIR="/tmp/native-reading-dashboard.$$"
 trap 'rm -rf "$SESSION_DIR"' EXIT
 CC_DB="/var/local/cc.db"
@@ -80,6 +87,7 @@ scale_right() { printf '%s\n' $((SCREEN_W-ORIGIN_X-VIEW_W+$1*SCALE_NUM/SCALE_DEN
 
 detect_screen
 find_touch_device
+rr_settings_init
 echo "$(date): adaptive layout screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, touch=$TOUCH"
 printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\n' \
     "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" \
@@ -426,8 +434,10 @@ draw() {
     if [ "$draw_count" -eq 0 ]; then
         fb -q -b -B WHITE -k "top=0,left=0,width=$SCREEN_W,height=$SCREEN_H"
     fi
-    fb -q -b -g "file=$UI_DIR/${mode}.png,x=$ORIGIN_X,y=$ORIGIN_Y,w=$VIEW_W,h=$VIEW_H" || fail "无法显示 PNG 界面"
-    case "$mode" in total) draw_total;; daily) draw_daily;; books) draw_books;; esac
+    case "$mode" in settings*) settings_background="$SETTINGS_ASSETS/${mode}.png";; *) settings_background="$UI_DIR/${mode}.png";; esac
+    fb -q -b -g "file=$settings_background,x=$ORIGIN_X,y=$ORIGIN_Y,w=$VIEW_W,h=$VIEW_H" || fail "无法显示 PNG 界面"
+    rr_settings_gear
+    case "$mode" in settings*) rr_settings_draw;; total) draw_total;; daily) draw_daily;; books) draw_books;; esac
     draw_count=$((draw_count+1))
     # Use Kindle's faster medium-fidelity waveform for ordinary interaction.
     # A flashing GC16 pass on launch and every few redraws clears accumulated
@@ -470,6 +480,7 @@ while :; do
     standard_touch_action_received
     echo "$(date): dashboard action=$action mode=$mode"
     case "$action" in
+        settings_*) rr_settings_action;;
         exit) break;;
         tab_total) mode="total";; tab_daily) mode="daily";; tab_books) mode="books";;
         year_prev) view_year=$((view_year-1));; year_next) view_year=$((view_year+1));;

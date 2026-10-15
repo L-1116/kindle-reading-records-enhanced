@@ -6,8 +6,8 @@
 MNT_US="${READING_MNT_US:-/mnt/us}"
 DOCS="${READING_DOCUMENTS:-$MNT_US/documents}"
 BASE="${READING_BASE:-$MNT_US/reading-time}"
-PRODUCT_VERSION=9.7.6-5.20.1-vera-test2
-RUNTIME_VERSION=9.7.6-5.20.1-vera
+PRODUCT_VERSION=9.8.1-5.20-vera-test1
+RUNTIME_VERSION=9.8.1-5.20-vera-test1
 RELEASE="$BASE/releases/$RUNTIME_VERSION"
 SELF="$DOCS/reading-records-install-cleanup.sh"
 BOOT="$DOCS/reading-records-v4-install.sh"

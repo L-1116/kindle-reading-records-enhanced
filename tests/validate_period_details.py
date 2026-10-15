@@ -249,7 +249,9 @@ assert 'week_trend_back) mode=total' in viewer
 passed("return-state preservation", "Calendar month/date, historical annual year, period selector and historical week offset survive lazy opens, including December/January and leap-February targets.")
 
 # Startup/core isolation is structural and byte-checked against the stable payload.
-for unchanged in ("native-reading-time-daemon.sh", "native-reading-time.conf", "reading-insights-touch.lua"):
+from idle_contract import assert_legacy_timing
+assert_legacy_timing()
+for unchanged in ("native-reading-time.conf", "reading-insights-touch.lua"):
     key = f"native-reading-time-package/{unchanged}"
     assert hashlib.sha256((PKG / unchanged).read_bytes()).hexdigest() == BASE_HASHES[key], unchanged
 startup = viewer[viewer.index("metric_begin first_open"):viewer.index("\n\nwhile :; do")]

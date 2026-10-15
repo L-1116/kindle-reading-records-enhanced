@@ -30,7 +30,7 @@ def check(variant: str) -> None:
         launcher.write_text(launcher.read_text(encoding="utf-8").replace('/mnt/us/libkh/bin/fbink', shell_path(root / 'alternate/third-fbink')), encoding="utf-8", newline="\n")
         base = launcher.parent.parent
         package = ROOT / ("native-reading-time-package" if variant == "standard" else "ks-package/native-reading-time-package")
-        release = base / ("releases/9.7.6-5.20.1-vera" if variant == "standard" else "releases/9.7.5-ks-test1")
+        release = base / ("releases/9.8.1-5.20-vera-test1" if variant == "standard" else "releases/9.7.5-ks-test1")
         main = release / "bin" / ("reading-records.sh" if variant == "standard" else "reading-records-ks.sh")
         source = (package / ("阅读记录-optimized.sh" if variant == "standard" else "阅读记录-ks.sh")).read_text(encoding="utf-8")
         if variant == "standard":

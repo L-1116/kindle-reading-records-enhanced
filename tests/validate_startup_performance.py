@@ -7,17 +7,18 @@ import statistics
 import subprocess
 import tempfile
 import time
+import sys
 from runtime_fixture import install_python_fixture
 from validate_runtime_probe import setup, executable, SH, ROOT, OUT, shell_path
 from service_fixture import service_fixture
 
 RESULTS=[]
 baseline=ROOT/'build/standard-next-baseline'
-for chain in ('normal-5.19', 'baseline-5.20.1', 'current'):
+for chain in (('current',) if '--current-only' in sys.argv else ('normal-5.19', 'baseline-5.20.1', 'current')):
     with tempfile.TemporaryDirectory(prefix='reading-startup-perf-') as directory:
         root=Path(directory); launcher,env,pretty,_=setup(root,'standard')
         base=launcher.parent.parent
-        release=base/'releases/9.7.6-5.20.1-vera'
+        release=base/'releases/9.8.1-5.20-vera-test1'
         main=release/'bin/reading-records.sh'
         pkg=ROOT/'native-reading-time-package'
         for folder in ('ui','ui-calendar','render-assets'):
@@ -102,7 +103,7 @@ for chain in ('normal-5.19', 'baseline-5.20.1', 'current'):
         # Healthy service path never mounts or reloads during these launches.
         service_calls=(root/'service-fixture/calls').read_text() if (root/'service-fixture/calls').exists() else ''
         assert 'mntroot' not in service_calls and 'start native' not in service_calls and 'reload-configuration' not in service_calls
-summary={chain:round(statistics.median(x['entry_to_mock_interactive_seconds'] for x in RESULTS if x['chain']==chain),3) for chain in ('normal-5.19','baseline-5.20.1','current')}
+summary={chain:round(statistics.median(x['entry_to_mock_interactive_seconds'] for x in RESULTS if x['chain']==chain),3) for chain in sorted({row['chain'] for row in RESULTS})}
 report={'result':'PASS','samples':RESULTS,'median_seconds':summary,'limitation':'Windows/MSYS real shell+Lua with mocked FBInk/input; excludes Scriptlet pre-exec click overhead and cannot certify Kindle 3–4s.'}
 (OUT/'startup-performance-results.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps({k:v for k,v in report.items() if k!='samples'},ensure_ascii=False,indent=2))

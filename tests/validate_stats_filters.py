@@ -57,8 +57,9 @@ for file in PKG.glob("*.lua"):
     LuaRuntime().execute("assert(loadstring(...))", file.read_text(encoding="utf-8"))
 record("syntax", "All shipped shell files pass sh/dash parsing; all Lua files parse as Lua 5.1; UTF-8/LF checks pass.")
 
+from idle_contract import assert_legacy_timing
+assert_legacy_timing()
 protected = [
-    "native-reading-time-daemon.sh",
     "native-reading-time.conf",
     "reading-insights-touch.lua",
     "ui-calendar/daily.png",
@@ -67,7 +68,7 @@ for relative in protected:
     key = f"native-reading-time-package/{relative}"
     assert hashlib.sha256((PKG / relative).read_bytes()).hexdigest() == BASE_HASHES[key], relative
 assert not list(PKG.rglob("*.db"))
-record("protected core", "Daemon, Upstart config, legacy touch and daily background are byte-identical to v9.6.7; no database is shipped.")
+record("protected core", "Default daemon path is exact; Upstart config, legacy touch and daily background are byte-identical to v9.6.7; no database is shipped.")
 
 viewer = (PKG / "阅读记录-optimized.sh").read_text(encoding="utf-8")
 baseline_viewer = (BASE / "阅读记录-optimized.sh").read_text(encoding="utf-8")

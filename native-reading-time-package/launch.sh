@@ -1,6 +1,6 @@
 #!/bin/sh
 BASE="${READING_BASE:-/mnt/us/reading-time}"
-PRODUCT_VERSION="9.7.6-5.20.1-vera"
+PRODUCT_VERSION="9.8.1-5.20-vera-test1"
 RELEASE="${READING_RELEASE:-$BASE/releases/$PRODUCT_VERSION}"
 LOCK="${READING_UI_LOCK:-${READING_TMPDIR:-/tmp}/reading-records-ui.lock}"
 LOCK_OWNED=0
@@ -141,6 +141,8 @@ for required_file in "$RELEASE/ui-calendar/daily.png" "$RELEASE/ui-calendar/tota
     "$RELEASE/ui-calendar/books.png" "$RELEASE/ui-calendar/day_detail.png" \
     "$RELEASE/ui-calendar/month_detail.png" "$RELEASE/ui-calendar/week_trend.png" \
     "$RELEASE/ui-calendar/book_detail.png" \
+    "$RELEASE/ui-calendar/settings.png" "$RELEASE/ui-calendar/settings_custom.png" "$RELEASE/ui-calendar/settings-button.png" \
+    "$RELEASE/bin/reading-config.sh" "$RELEASE/bin/reading-settings.sh" \
     "$RELEASE/bin/reading-insights-touch-preflight.sh" "$RELEASE/bin/reading-insights-touch-probe.lua" "$RELEASE/bin/reading-insights-touch-ui.lua" "$RELEASE/bin/reading-insights-render.lua" \
     "$RELEASE/bin/reading-insights-cover.lua" "$RELEASE/bin/reading-insights-titles.lua" \
     "$RELEASE/bin/reading-insights-title-widths.lua" "$RELEASE/render-assets/dynamic-glyphs.pgm" \

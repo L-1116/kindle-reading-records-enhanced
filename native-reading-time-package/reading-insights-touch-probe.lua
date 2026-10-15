@@ -88,6 +88,9 @@ for entry in listing:lines() do
             elseif named then class, score = "finger_xy_legacy", 20
             else class = "absolute_unknown" end
         end
+        if os.getenv("READING_TOUCH_REQUIRE_CONTACT") == "1" and not has(keys,330) and not has(abs,57) then
+            class, score = "idle_contact_protocol_unavailable", -1
+        end
         if score > 0 and named then score = score + 1 end
         local path = devroot .. "/" .. entry
         local readable = io.open(path, "rb") -- open/close only: no event read

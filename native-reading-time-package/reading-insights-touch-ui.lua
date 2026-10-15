@@ -78,7 +78,33 @@ end
 local function inside(px, py, left, top, right, bottom)
     return px >= left and px <= right and py >= top and py <= bottom
 end
+local function settings_action(px, py)
+    if mode == "settings" or mode == "settings_custom" then
+        if inside(px,py,20,20,300,155) then return mode == "settings" and "settings_back" or "settings_cancel" end
+        if mode == "settings" then
+            if inside(px,py,70,290,1200,430) then return "settings_toggle" end
+            if inside(px,py,100,600,1150,860) then
+                local col,row=math.floor((px-100)/360),math.floor((py-600)/150)
+                if (px-100)%360<=330 and (py-600)%150<=110 then
+                    local values={1,2,3,4,5,10}; return "settings_preset_" .. values[row*3+col+1]
+                end
+            end
+            if inside(px,py,100,900,1150,1040) then return "settings_custom" end
+        elseif inside(px,py,100,500,1150,1160) then
+            local col,row=math.floor((px-100)/360),math.floor((py-500)/170)
+            if (px-100)%360<=330 and (py-500)%170<=150 then
+                local values={"1","2","3","4","5","6","7","8","9","delete","0","save"}
+                local key=values[row*3+col+1]
+                return (key=="delete" or key=="save") and "settings_" .. key or "settings_digit_" .. key
+            end
+        end
+        return false
+    end
+    if (mode=="total" or mode=="daily" or mode=="books") and inside(px,py,990,20,1250,155) then return "settings_open" end
+end
 local function action_for_logical(px, py)
+    local settings = settings_action(px,py)
+    if settings ~= nil then return settings or nil end
     local secondary = mode == "day_detail" or mode == "month_detail" or mode == "week_trend" or mode == "book_detail"
     if secondary and inside(px, py, 20, 20, 300, 155) then
         if mode == "day_detail" then return "day_detail_back" end
@@ -171,6 +197,8 @@ local function action_for_logical(px, py)
 end
 
 local function legacy_action_for_logical(px, py)
+    local settings = settings_action(px,py)
+    if settings ~= nil then return settings or nil end
     if inside(px, py, 20, 20, 270, 155) then return "exit" end
     if inside(px, py, 35, 165, 415, 275) then return "tab_total" end
     if inside(px, py, 430, 165, 800, 275) then return "tab_daily" end

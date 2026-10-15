@@ -109,7 +109,7 @@ failed_script.write_text(prelude+failed_installer,encoding='utf-8',newline='\n')
 p=subprocess.run([sh,failed_script.as_posix()],capture_output=True)
 assert p.returncode==1,(p.stdout,p.stderr)
 assert digest(viewer)==before[str(viewer)] and not (assets/'launcher-icon.png').exists()
-assert not (state/'releases/9.7.6-5.20.1-vera/assets/launcher-icon.png').exists()
+assert not (state/'releases/9.8.1-5.20-vera-test1/assets/launcher-icon.png').exists()
 scanner_log=SANDBOX/'scanner-calls.log'
 assert scanner_log.exists(),((state/'install.log').read_text(encoding='utf-8'),(SANDBOX/'lipc-calls.log').read_text() if (SANDBOX/'lipc-calls.log').exists() else 'no lipc calls')
 assert digest(data)==before[str(data)] and 'scanner-restored' in scanner_log.read_text()
@@ -118,11 +118,11 @@ assert not (state/'bin/diagnostics.sh').exists()
 assert not (state/'bin/uninstall.sh').exists()
 assert not (state/'install-manifest.txt').exists()
 assert not (state/'compat/detect_env.sh').exists()
-assert not (state/'releases/9.7.6-5.20.1-vera/bin/reading-records.sh').exists()
+assert not (state/'releases/9.8.1-5.20-vera-test1/bin/reading-records.sh').exists()
 assert install_entry.exists() and not uninstall_entry.exists() and not kual.exists()
 p=subprocess.run([sh,script.as_posix()],capture_output=True)
 assert p.returncode==0,(p.stdout,p.stderr,(state/'install.log').read_text(encoding='utf-8'))
-release=state/'releases/9.7.6-5.20.1-vera'
+release=state/'releases/9.8.1-5.20-vera-test1'
 assert digest(viewer)==digest(PKG/'阅读记录-entry.sh')
 assert digest(release/'bin/reading-records.sh')==digest(PKG/'阅读记录-optimized.sh')
 assert digest(state/'bin/launch.sh')==digest(PKG/'launch.sh')
@@ -139,7 +139,7 @@ assert digest(conf)==digest(PKG/'native-reading-time.conf')
 assert digest(data)==before[str(data)]
 assert digest(old_cover)==before[str(old_cover)] and digest(old_cover_map)==before[str(old_cover_map)]
 assert digest(state/'reading-time.tsv.bak')==before[str(data)]
-assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.7.6-5.20.1-vera'
+assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.8.1-5.20-vera-test1'
 assert digest(old_release/'preserved-marker')==before[str(old_release/'preserved-marker')]
 icon=assets/'launcher-icon.png'
 assert digest(icon)==digest(PKG/'launcher-icon.png')

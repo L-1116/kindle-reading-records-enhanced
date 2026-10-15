@@ -98,8 +98,8 @@ def reader(root, *, point=(120,85), mode='daily', size=16, screen=(1272,1696),
 def shell_case(root, kind, legacy=False):
     root.mkdir()
     base=root/'base'; base.mkdir()
-    release=base/'releases/9.7.6-5.20.1-vera'; (release/'bin').mkdir(parents=True)
-    for name in ['reading-insights-touch-ui.lua','reading-insights-touch-probe.lua','reading-insights-touch-preflight.sh']:
+    release=base/'releases/9.8.1-5.20-vera-test1'; (release/'bin').mkdir(parents=True)
+    for name in ['reading-config.sh','reading-settings.sh','reading-insights-touch-ui.lua','reading-insights-touch-probe.lua','reading-insights-touch-preflight.sh']:
         shutil.copy2(PKG/name,release/'bin'/name)
     for folder,names in [('ui-calendar',['total','daily','books','day_detail','month_detail','week_trend','book_detail']),('ui',['total'])]:
         (release/folder).mkdir()
@@ -199,6 +199,13 @@ def main():
                         assert fields['selected_touch']==(expected.as_posix() if expected else 'none')
                         assert fields['event_struct_size']==str(16 if klass==1 else 24)
                 RESULTS[firmware]='PASS: A-H x ELF32/ELF64'
+            idle_root=work/'idle-contact'; idle_root.mkdir(); (idle_root/'sys').mkdir()
+            legacy_touch=candidate(idle_root,0,'zforce',xy=True,direct=False)
+            os.environ['READING_TOUCH_REQUIRE_CONTACT']='1'
+            assert probe(idle_root)[0]==2  # cannot infer gesture boundaries safely
+            contact_touch=candidate(idle_root,1,'touchscreen',xy=True,keys=[330],direct=False)
+            assert probe(idle_root)[1]['selected_touch']==contact_touch.as_posix()
+            os.environ.pop('READING_TOUCH_REQUIRE_CONTACT')
             root=work/'special'; root.mkdir(); (root/'sys').mkdir()
             candidate(root,1,'unknown',xy=True,keys=[320])
             candidate(root,2,'unknown',xy=True,props=[6])

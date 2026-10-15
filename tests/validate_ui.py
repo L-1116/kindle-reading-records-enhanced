@@ -44,6 +44,7 @@ for file in sorted(PKG.rglob('*'), key=lambda path: path.relative_to(ROOT).as_po
 assert stable_payload_changes==[
     'native-reading-time-package/cleanup-manifest.txt',
     'native-reading-time-package/compat/detect_env.sh',
+    'native-reading-time-package/compat/device_variant.sh',
     'native-reading-time-package/compat/lifecycle.sh',
     'native-reading-time-package/compat/migration.sh',
     'native-reading-time-package/compat/performance.sh',
@@ -56,11 +57,16 @@ assert stable_payload_changes==[
     'native-reading-time-package/install.sh',
     'native-reading-time-package/launch.sh',
     'native-reading-time-package/launcher-icon.png',
+    'native-reading-time-package/native-reading-time-daemon.sh',
+    'native-reading-time-package/reading-config.sh',
+    'native-reading-time-package/reading-idle-touch.lua',
+    'native-reading-time-package/reading-idle.sh',
     'native-reading-time-package/reading-insights-cache.awk',
     'native-reading-time-package/reading-insights-cover.lua',
     'native-reading-time-package/reading-insights-touch-preflight.sh',
     'native-reading-time-package/reading-insights-touch-probe.lua',
     'native-reading-time-package/reading-insights-touch-ui.lua',
+    'native-reading-time-package/reading-settings.sh',
     'native-reading-time-package/render-assets/dynamic-glyphs.pgm',
     'native-reading-time-package/render-assets/dynamic-glyphs.tsv',
     'native-reading-time-package/resources/kual/reading-records-installer/bin/action.sh',
@@ -72,6 +78,9 @@ assert stable_payload_changes==[
     'native-reading-time-package/ui-calendar/books.png',
     'native-reading-time-package/ui-calendar/day_detail.png',
     'native-reading-time-package/ui-calendar/month_detail.png',
+    'native-reading-time-package/ui-calendar/settings-button.png',
+    'native-reading-time-package/ui-calendar/settings.png',
+    'native-reading-time-package/ui-calendar/settings_custom.png',
     'native-reading-time-package/ui-calendar/total.png',
     'native-reading-time-package/ui-calendar/week_trend.png',
     'native-reading-time-package/uninstall.sh',
@@ -79,9 +88,11 @@ assert stable_payload_changes==[
     'native-reading-time-package/阅读记录-optimized.sh',
     'native-reading-time-package/阅读记录.sh',
 ]
-record('stable payload scope','Against v9.6.10, statistics/daemon/data paths stay stable; additions include the compatibility detector, launcher, installer/cleanup entries and manifests, and the 9.7.5 UI/cover payload.')
+record('stable payload scope','Against v9.6.10, statistics and data paths stay stable; idle timing is an opt-in extension; additions include the compatibility detector, launcher, installer/cleanup entries and manifests, and the 9.7.5 UI/cover payload.')
 
-unchanged=['native-reading-time-daemon.sh','native-reading-time.conf','reading-insights-touch.lua','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
+from idle_contract import assert_legacy_timing
+assert_legacy_timing()
+unchanged=['native-reading-time.conf','reading-insights-touch.lua','NotoSansCJKsc-Regular.otf','FONT-LICENSE.txt']
 for rel in unchanged:
     key=f'native-reading-time-package/{rel}'
     assert hashlib.sha256((PKG/rel).read_bytes()).hexdigest()==STABLE_HASHES[key],rel
@@ -91,7 +102,7 @@ for folder in ('ui',):
         assert hashlib.sha256(file.read_bytes()).hexdigest()==STABLE_HASHES[key]
 from legacy_runtime_contract import assert_legacy_core
 assert_legacy_core()
-record('preserved core','Daemon, Upstart, legacy touch, legacy ui/ assets and font remain byte-identical to v9.6.10; cache changes are limited to identity/range aggregation and exclude future-dated rows from the new all-time summary.')
+record('preserved core','Default daemon path is exact; Upstart, legacy touch, legacy ui/ assets and font remain byte-identical to v9.6.10; cache changes are limited to identity/range aggregation and exclude future-dated rows from the new all-time summary.')
 
 viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
 old=STABLE_VIEWER.read_text(encoding='utf-8')
