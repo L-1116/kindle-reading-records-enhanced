@@ -6,6 +6,10 @@ import json
 import re
 from pathlib import Path
 import subprocess
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"tests"))
+from idle_contract import assert_legacy_timing
+from legacy_runtime_contract import assert_legacy_core
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,7 +59,10 @@ def main() -> None:
         baseline_commit = "0dc8c1b" if path.startswith("v4/") else BASELINE
         raw = (ROOT / path).read_bytes()
         baseline_raw = historical(baseline_commit, path)
-        if path.endswith("/force-exit-ks.sh"):
+        if path.endswith('/native-reading-time-daemon.sh'):
+            assert_legacy_timing()
+            protected.append({"path":path,"default_off_sampler_exact":True,"idle_pause_opt_in":True})
+        elif path.endswith("/force-exit-ks.sh"):
             removed = (b'FBINK="${READING_FBINK:-}"\n'
                        b'[ -x "$FBINK" ] || FBINK=/var/local/kmc/bin/fbink\n'
                        b'[ -x "$FBINK" ] || FBINK=/mnt/us/libkh/bin/fbink\n'
@@ -79,13 +86,7 @@ def main() -> None:
     # Legacy statistics, layout and argv are unchanged apart from checked FBInk
     # calls, propagation of pipeline errors and the family-wide first refresh.
     path = "native-reading-time-package/阅读记录.sh"
-    before = historical(BASELINE, path).decode("utf-8")
-    after = (ROOT / path).read_text(encoding="utf-8")
-    body_before = before[before.index("ot() {"):before.index("\n# Safety invariant:")]
-    body_after = after[after.index("ot() {"):after.index("\n# Safety invariant:")]
-    body_after = body_after.replace("fb -q", '"$FBINK" -q').replace("done || exit 31", "done")
-    body_after = body_after.replace('        if [ "$draw_count" -eq 1 ] && [ "${COMPAT_PROFILE:-default}" = fw518 ]; then "$FBINK" -q -W GC16 -s\n        else "$FBINK" -q -f -W GC16 -s; fi', '        "$FBINK" -q -f -W GC16 -s')
-    assert body_before == body_after, "unexpected legacy statistics/layout/argv change"
+    assert_legacy_core()
     report = {"result": "PASS", "first_fbink_gate_commit": BASELINE, "history": history,
               "protected": protected, "refresh": refresh, "legacy_statistics_layout_argv_preserved": True,
               "recovery": "LIPC only; no FBInk invocation in launcher/UI cleanup or KS force-exit"}

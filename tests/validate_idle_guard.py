@@ -30,6 +30,9 @@ IFS= read -r control
                 assert process.poll() is None,(process.returncode,error_log.read_text(encoding='utf-8')); time.sleep(.05)
             assert ready.exists(),'guard did not start'
             parent,guard,folder=ready.read_text().strip().split(' ',2)
+            command=subprocess.check_output([SH,'-c','/usr/bin/cat "/proc/$1/cmdline"','test',guard]).split(b'\0')
+            assert any(arg.endswith(b'/reading-idle.sh') for arg in command),command
+            assert not any(arg.endswith(b'/native-reading-time-daemon.sh') for arg in command),command
             deadline=time.monotonic()+8
             while time.monotonic()<deadline:
                 state=subprocess.run([SH,'-c','/usr/bin/cat "$1/listener.pid" 2>/dev/null','test',folder],capture_output=True,text=True)

@@ -21,8 +21,9 @@ prior={r['check']:r for r in old.get('checks',[])}
 if changed:
     # Dashboards never load the daemon's private idle helpers. Reuse their
     # proven unchanged inputs; rerun timing, process lifetime, installation,
-    # packaging and all checks that consume the ZIP after a helper-only fix.
-    affected=PACKAGED|{'validate_idle_pause.py','validate_idle_guard.py','validate_settings_ui.py','validate_install.py','build_v4.py'}
+    # packaging after a helper-only fix. ZIP checks may be reused only if
+    # their recorded checksum still matches the rebuilt archive.
+    affected={'validate_idle_pause.py','validate_idle_guard.py','validate_settings_ui.py','validate_install.py','build_v4.py'}
     prior={name:{**row,'reused_after_private_idle_fix':True} for name,row in prior.items()
            if Path(name.split(' ')[0]).name not in affected}
 recheck={arg.split('=',1)[1] for arg in sys.argv if arg.startswith('--recheck=')}
