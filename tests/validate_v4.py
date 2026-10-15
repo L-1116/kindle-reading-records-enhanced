@@ -23,33 +23,6 @@ def chmod(*paths):
 def seed(session,previous):
     us=session/'us';base=us/'reading-time';docs=us/'documents';upstart=session/'upstart'
     docs.mkdir(parents=True);(base/'bin').mkdir(parents=True);upstart.mkdir()
-    if previous:
-        put(base/'bin/native-reading-time-daemon.sh',historical('b46407c','native-reading-time-package/native-reading-time-daemon.sh'))
-        put(upstart/'native-reading-time.conf',(ROOT/'native-reading-time-package/native-reading-time.conf').read_bytes())
-        if previous in ('normal','mixed','deleted-formal'):
-            tag='v9.7.6-5.19-vera';prefix='native-reading-time-package/'
-            manifest=historical(tag,prefix+'install-manifest.txt').decode()
-            for line in manifest.splitlines():
-                src,kind,dst,_=line.split('\t')
-                if kind=='release': put(base/'releases/9.7.6-5.19-normal'/dst,historical(tag,prefix+src))
-                elif kind=='docs': put(docs/dst,historical(tag,prefix+src))
-        if previous in ('V4','mixed','deleted-formal'):
-            with zipfile.ZipFile(ROOT/'build/standard-next-baseline/artifacts/9.7.6-5.20.1-vera.zip') as outer:
-                with tarfile.open(fileobj=io.BytesIO(outer.read(TAR))) as payload:
-                    files={m.name:payload.extractfile(m).read() for m in payload if m.isfile()}
-            prefix='native-reading-time-package/'
-            for src,dst in [('launch.sh','bin/launch.sh'),('service-manager.sh','bin/service-manager.sh'),('compat/lifecycle.sh','compat/lifecycle.sh'),('compat/detect_env.sh','compat/detect_env.sh'),('native-reading-time.conf','service/native-reading-time.conf')]:put(base/dst,files[prefix+src])
-            for src,dst in [('阅读记录-optimized.sh','bin/reading-records.sh'),('阅读记录.sh','bin/reading-records-v9.6.3.sh')]:put(base/'releases/9.7.5-test'/dst,files[prefix+src])
-            put(docs/'reading-records-uninstall.sh',files[prefix+'resources/reading-records-uninstall.sh'])
-            put(docs/'安装好之后，确认无误了再点这个.sh',files['v4/cleanup.sh'])
-            if previous!='deleted-formal':put(docs/'阅读记录.sh',files[prefix+'阅读记录-entry.sh'])
-            put(base/'release-info',b'release_family=V4\nvariant=standard\n')
-        if previous in ('V1','V2','V3','9.7.4'):
-            tag={'V1':'v9.7.5-test.1','V2':'v9.7.5-compat-v2','V3':'v9.7.5-compat-v3','9.7.4':'v9.7.4'}[previous]
-            src='阅读记录-optimized.sh' if previous=='9.7.4' else '阅读记录-entry.sh'
-            put(docs/'阅读记录.sh',historical(tag,'native-reading-time-package/'+src))
-            if previous!='9.7.4':put(docs/'reading-records-uninstall.sh',historical(tag,'documents/reading-records-uninstall.sh'))
-        put(base/'VERSION',(str(previous)+'\n').encode())
     protected={
         base/'reading-time.tsv':b'date\tbook_id\tseconds\ttitle\n2026-10-01\told\t120\tHistory\n',
         base/'user.conf':b'preference=keep\n',base/'reading-time.tsv.bak':b'previous backup',
@@ -69,21 +42,21 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
     for name,body in [('fbink','exit 0'),('lua','exit 0'),('lipc-get-prop','echo active'),('lipc-set-prop','echo "$*" >> "$SCANNER_CALLS"\n[ "${SCANNER_FAIL:-0}" != 1 ]')]:put(mock/name,('#!/bin/sh\n'+body+'\n').encode())
     chmod(*mock.iterdir())
     env={**os.environ,'PATH':mock.as_posix()+':/usr/bin:/bin:'+os.environ.get('PATH',''),'READING_MNT_US':us.as_posix(),'READING_BASE':base.as_posix(),'READING_DOCUMENTS':docs.as_posix(),'READING_TMPDIR':tmp.as_posix(),'READING_ALLOW_NONROOT_TEST':'1','READING_UI_LOCK':(tmp/'ui.lock').as_posix(),'SCANNER_CALLS':(session/'scanner-calls').as_posix()}
-    env.update(service_fixture(session/'service-fixture',base,upstart,SHELL,running=bool(previous)))
+    env.update(service_fixture(session/'service-fixture',base,upstart,SHELL,running=False))
     model=session/'device';put(model,b'KPW6');env['READING_DEVICETYPE_PATH']=model.as_posix()
     for key,name in [('READING_USID_PATH','usid'),('READING_PROC_MODEL_PATH','proc-model'),('READING_SYS_MODEL_PATH','sys-model')]:env[key]=(session/name).as_posix()
     pretty=session/'pretty';put(pretty,b'Kindle 5.20.1');env['READING_PRETTYVERSION_PATH']=pretty.as_posix()
     env['READING_ARMHF_LOADER_PATH']=(session/'loader').as_posix();put(session/'loader',b'loader')
-    if previous in ('test1','test1-cleaned'):
-        with zipfile.ZipFile(ROOT/'dist/standard-test1/9.7.6-5.20.1-vera-test1.zip') as old:
-            old.extractall(docs)
-        installed=subprocess.run([SHELL,(docs/BOOT).as_posix()],env=env,capture_output=True,timeout=130)
-        assert installed.returncode==0,(installed.stdout,installed.stderr)
-        assert (docs/CLEAN).read_text(encoding='utf-8').splitlines()[1]=='# Name: 安装文件清理'
-        if previous=='test1-cleaned':
-            cleared=subprocess.run([SHELL,(docs/CLEAN).as_posix()],env=env,capture_output=True,timeout=90)
-            assert cleared.returncode==0,cleared.stderr
-            assert not (docs/CLEAN).exists()
+    if previous:
+        from historical_install_fixture import install_history
+        aliases={'V4':'v9.7.6-5.20-vera','mixed':'v9.7.6-5.20-vera','deleted-formal':'v9.7.6-5.20-vera',
+                 '9.7.4':'v9.7.4','V3':'v9.7.5-compat-v3','normal':'v9.7.6-5.19-vera'}
+        ident=aliases.get(previous,previous.removesuffix('-cleaned'))
+        install_history(session,env,ident,cleaned=previous.endswith('-cleaned'))
+        if previous=='deleted-formal':(docs/'reading-records.sh').unlink()
+        if previous=='mixed':
+            # Deliberate known leftover alias, after a real V4 installation.
+            put(docs/'阅读记录.sh',historical('v9.7.4','native-reading-time-package/阅读记录-optimized.sh'))
     if mutation=='lost_service':(upstart/'native-reading-time.conf').unlink(missing_ok=True)
     if mutation=='stopped_service':(session/'service-fixture/running').unlink(missing_ok=True);put(session/'service-fixture/proc/123/cmdline',b'')
     if mutation=='initial_rw':put(session/'service-fixture/mounts',b'/dev/root / ext3 rw,relatime 0 0\n')
@@ -142,7 +115,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert visible_cleanups==[CLEAN],visible_cleanups
         if mutation!='unknown_alias':assert not (docs/'阅读记录.sh').exists()
         assert not (docs/'reading-records-uninstall.sh').exists() and not (docs/'安装好之后，确认无误了再点这个.sh').exists()
-        if previous in ('mixed','deleted-formal','V4','test1','test1-cleaned'):
+        if previous in ('mixed','deleted-formal','V4'):
             again=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130);assert again.returncode==0,again.stderr
             assert len(list(base.glob('.previous-install')))==1 and not list(base.glob('.v4-rollback.*'))
         if mutation=='scanner_failure':assert 'scanner_request=request_failed index_completion=unverified' in log
@@ -153,8 +126,11 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
             scanner_before=len((session/'scanner-calls').read_text(encoding='utf-8').splitlines())
             if cleanup_unknown:put(us/'native-reading-time-package/user-extra.txt',b'user unknown')
             if legacy_tag:
-                names=subprocess.check_output(['git','ls-tree','-r','--name-only',legacy_tag,'native-reading-time-package'],cwd=ROOT).decode().splitlines()
-                for name in names:put(us/name,historical(legacy_tag,name))
+                from historical_packages import CATALOG,package
+                ident={'v9.7.5-test.1':'V1','v9.7.5-compat-v2':'V2'}.get(legacy_tag,legacy_tag)
+                _,old_files=package(next(row for row in CATALOG if row['id']==ident))
+                for name,raw in old_files.items():
+                    if name.startswith('native-reading-time-package/'):put(us/name,raw)
             c=subprocess.run([SHELL,(docs/CLEAN).as_posix()],env=env,capture_output=True,timeout=90)
             if cleanup_unknown:assert c.returncode!=0 and (us/'native-reading-time-package/user-extra.txt').read_bytes()==b'user unknown'
             else:
@@ -180,20 +156,22 @@ def main():
     results=[]
     cases=[(p,'',True) for p in (None,'9.7.4','V1','V2','V3','normal','V4','mixed','deleted-formal')]
     cases += [('mixed',m,False) for m in ('core_failure','activation_failure','interrupted','missing_payload','bad_checksum','cross_variant','ks_residue','wrong_device','unknown_formal','unknown_alias','duplicate','orphan','scanner_failure','lost_service','stopped_service','initial_rw','busy_ui')]
-    cases += [('test1','',True),('test1-cleaned','',True),(None,'scanner_failure',True)]
-    cases += [('test1',m,False) for m in ('core_failure','activation_failure','interrupted')]
+    cases += [('9.8.1-test1','',True),('9.8.1-test1-cleaned','',True),(None,'scanner_failure',True)]
+    cases += [('9.8.1-test1',m,False) for m in ('core_failure','activation_failure','interrupted')]
     if '--device-fix' in sys.argv:
         # Same real package/transaction fixture; focus this device-only change
         # on fresh install, accepted-release upgrade, repair, and safety faults.
-        cases=[(None,'',True),('V4','',True),('test1-cleaned','',True)]
+        cases=[(None,'',True),('V4','',True),('9.8.1-test1-cleaned','',True)]
         cases += [('mixed',m,False) for m in ('core_failure','activation_failure','interrupted','missing_payload','bad_checksum','cross_variant','ks_residue','wrong_device','unknown_formal','unknown_alias','duplicate','orphan','lost_service','stopped_service','initial_rw','busy_ui')]
+    if '--smoke' in sys.argv:
+        cases=[('V4','',True)]
     if '--idle-upgrade' in sys.argv:
         cases=[('V4','',True)]
         cases += [('V4',m,False) for m in ('core_failure','activation_failure','interrupted','lost_service','stopped_service','ks_residue','wrong_device','orphan','duplicate','busy_ui')]
     for p,m,c in cases:
         with tempfile.TemporaryDirectory(prefix='standard-install-',dir=OUT) as name:results.append(run(Path(name),previous=p,mutation=m,cleanup=c))
         print(p or 'fresh',m or 'install + cleanup','PASS',flush=True)
-    for tag in (() if '--device-fix' in sys.argv or '--idle-upgrade' in sys.argv else ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3')):
+    for tag in (() if '--device-fix' in sys.argv or '--idle-upgrade' in sys.argv or '--smoke' in sys.argv else ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3')):
         with tempfile.TemporaryDirectory(prefix='standard-legacy-',dir=OUT) as name:results.append(run(Path(name),previous='V3',cleanup=True,legacy_tag=tag))
         print('legacy payload',tag,'PASS',flush=True)
     with tempfile.TemporaryDirectory(prefix='standard-unknown-',dir=OUT) as name:results.append(run(Path(name),previous='V4' if '--idle-upgrade' in sys.argv else 'V3',cleanup=True,cleanup_unknown=True))

@@ -1,0 +1,149 @@
+[
+  {
+    "id": "v9.6.4-ui-calendar",
+    "tag": "v9.6.4-ui-calendar",
+    "path": "build/historical-artifacts/kindle-reading-records-v9.6.4-ui-calendar.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.4-ui-calendar/kindle-reading-records-v9.6.4-ui-calendar.zip",
+    "sha256": "a1ccbf29f2f1210d7a101962302957dab8c6f804f4b41c39988f36b57ac14c0a",
+    "official": true
+  },
+  {
+    "id": "v9.6.5-ui-polish",
+    "tag": "v9.6.5-ui-polish",
+    "path": "build/historical-artifacts/kindle-reading-records-v9.6.5-ui-polish.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.5-ui-polish/kindle-reading-records-v9.6.5-ui-polish.zip",
+    "sha256": "47df9cc1f9faf220f8591af140be343b2b5e88abd5e5d21ca8c0990dd9d14787",
+    "official": true
+  },
+  {
+    "id": "v9.6.6-stats-filters",
+    "tag": "v9.6.6-stats-filters",
+    "path": "build/historical-artifacts/kindle-reading-records-v9.6.6-stats-filters.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.6-stats-filters/kindle-reading-records-v9.6.6-stats-filters.zip",
+    "sha256": "d037514dc64117d977b1aba4fef80dfd7e9ed24e588ee5418201c888420dcfdf",
+    "official": true
+  },
+  {
+    "id": "v9.6.7-week-view",
+    "tag": "v9.6.7-week-view",
+    "path": "build/historical-artifacts/kindle-reading-records-v9.6.7-week-view.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.7-week-view/kindle-reading-records-v9.6.7-week-view.zip",
+    "sha256": "00416a2f4229047de69c33116b308eb73f35fae6c31a6b5181d87bfedbb31da7",
+    "official": true
+  },
+  {
+    "id": "v9.6.8-summary-sync-fix",
+    "tag": "v9.6.8-summary-sync-fix",
+    "path": "build/historical-artifacts/kindle-reading-records-v9.6.8-summary-sync-fix.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.8-summary-sync-fix/kindle-reading-records-v9.6.8-summary-sync-fix.zip",
+    "sha256": "eadbcdc96a680585ffb5ae95e8a81c05146fa4a13bbd1af4a349b8c8a578b6af",
+    "official": true
+  },
+  {
+    "id": "v9.6.9-calendar-heatmap",
+    "tag": "v9.6.9-calendar-heatmap",
+    "path": "build/historical-artifacts/kindle-reading-records-v9.6.9-calendar-heatmap.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.9-calendar-heatmap/kindle-reading-records-v9.6.9-calendar-heatmap.zip",
+    "sha256": "cfedddd66c66e37ed53e89d8ec976349f0f1109a2f72dec0a231cebe45169901",
+    "official": true
+  },
+  {
+    "id": "v9.6.10-ui-layout-fix",
+    "tag": "v9.6.10-ui-layout-fix",
+    "path": "build/historical-artifacts/kindle-reading-records-v9.6.10-ui-layout-fix.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.6.10-ui-layout-fix/kindle-reading-records-v9.6.10-ui-layout-fix.zip",
+    "sha256": "6bd0f580c1f5303fa208734873bbfbb11b4fe29cc32a9ea0f4f1b99541dc64eb",
+    "official": true
+  },
+  {
+    "id": "v9.7.1-day-detail",
+    "tag": "v9.7.1-day-detail",
+    "path": "build/historical-artifacts/kindle-reading-records-v9.7.1-day-detail.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.1-day-detail/kindle-reading-records-v9.7.1-day-detail.zip",
+    "sha256": "038445be1dc2cff1d19779983268eb63b0d9fc9260b9e59d5d60ca52c4700229",
+    "official": true
+  },
+  {
+    "id": "v9.7.1-install-fix",
+    "tag": "v9.7.1-install-fix",
+    "path": "build/historical-artifacts/Kindle-Reading-Records-v9.7.1-install-fix.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.1-install-fix/Kindle-Reading-Records-v9.7.1-install-fix.zip",
+    "sha256": "0eb6acc78e11320d9075c4e78a511eb6820d93bdcb00081d8f37510994c34ab4",
+    "official": true
+  },
+  {
+    "id": "v9.7.4",
+    "tag": "v9.7.4",
+    "path": "build/historical-artifacts/kindle-reading-records-v9.7.4.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.4/kindle-reading-records-v9.7.4.zip",
+    "sha256": "fd5152c061d2aec77d0ed2fa5eeffbf46699d82c63531ec05af4852bb4ab5d72",
+    "official": true
+  },
+  {
+    "id": "v9.7.5-compat-v3",
+    "tag": "v9.7.5-compat-v3",
+    "path": "build/historical-artifacts/kindle-reading-records-v9.7.5-compat-v3.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.5-compat-v3/kindle-reading-records-v9.7.5-compat-v3.zip",
+    "sha256": "247557cbd8bb80e7c19d28fcdfa7eab08cbd97fcd0e2fa2f976ed21f731999b0",
+    "official": true
+  },
+  {
+    "id": "v9.7.6-5.18-springbreak",
+    "tag": "v9.7.6",
+    "path": "build/historical-artifacts/Kindle-Reading-Records-v9.7.6-5.18-springbreak.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.18-springbreak.zip",
+    "sha256": "24aa298857ad99e18b339d8fea91f91191f21e12f3152ce73147bbe80c891221",
+    "official": true,
+    "upgrade_5201": false,
+    "restriction": "Original installer requires KPW4 and firmware 5.18.1.1.1; do not synthesize a KPW6 installation."
+  },
+  {
+    "id": "v9.7.6-5.19-vera",
+    "tag": "v9.7.6",
+    "path": "build/historical-artifacts/Kindle-Reading-Records-v9.7.6-5.19-vera.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.19-vera.zip",
+    "sha256": "454b0a2a38a2ab7b5c79d9fe6af1032f621c0600238cd32a8b764d3b1836f820",
+    "official": true
+  },
+  {
+    "id": "v9.7.6-5.20-vera",
+    "tag": "v9.7.6",
+    "path": "build/historical-artifacts/Kindle-Reading-Records-v9.7.6-5.20-vera.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.20-vera.zip",
+    "sha256": "45d333a6c677e66a927d48c5cb3e3de1d182b94e73e1ad4db96f0736e82d4a44",
+    "official": true
+  },
+  {
+    "id": "V1",
+    "path": "dist/kindle-reading-records-v9.7.5-test.zip",
+    "sha256": "30dc27a883cd2bf5c483973a26106166d8bd624a74c2abcef58c7b348d66e533",
+    "official": false,
+    "provenance": "Local retained build; installer/UI differ from v9.7.5-test.1. Do not claim authenticated V1 release coverage."
+  },
+  {
+    "id": "V2",
+    "path": "dist/kindle-reading-records-v9.7.5-compat-v2.zip",
+    "sha256": "34559c9b87010f098d1f29ba9fc5982030dc65229c4c9b4e2a8253921c43c19b",
+    "official": false,
+    "tag": "v9.7.5-compat-v2",
+    "provenance": "Local retained archive; all packaged source files match the tag after newline normalization. Public asset unavailable."
+  },
+  {
+    "id": "9.8.1-test1",
+    "path": "build/standard-9.8.1-test1/9.8.1-5.20-vera-test1.zip",
+    "sha256": "8836023104dca2c3b95105ca8f39a83f490d9084e23df050ad0d4d54ed135bed",
+    "official": false
+  },
+  {
+    "id": "9.7.6-initial-formal",
+    "path": "build/formal-candidate/9.7.6-5.20.1-vera.zip",
+    "sha256": "339a3ff395ca593eff0e2ee851b466decbdabdc7ded521c37b1fee49450de487",
+    "official": false
+  },
+  {
+    "id": "9.7.6-vera-test1",
+    "path": "dist/standard-test1/9.7.6-5.20.1-vera-test1.zip",
+    "sha256": "76684335a5629f16a2155ce65d0dedcaae6023c125fed7cf8dd77c77520d2fe3",
+    "official": false
+  }
+]

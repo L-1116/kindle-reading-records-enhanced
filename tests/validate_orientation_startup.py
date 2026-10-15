@@ -6,6 +6,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -55,7 +56,9 @@ wait() { printf 'wait %s\n' "$*" >> "$SELECTION_TRACE"; }
     # An unrelated process must survive every real signal/cleanup scenario.
     canary_pid = session / "canary-pid"
     canary_script = session / "canary.sh"
-    canary_script.write_text(f"echo $$ > {quote(canary_pid)}\nexec /bin/sleep 600\n", encoding="utf-8", newline="\n")
+    # The process must outlive the entire matrix even on slow MSYS hosts.
+    # A normal sleep expiry must not masquerade as an overbroad UI kill.
+    canary_script.write_text(f"echo $$ > {quote(canary_pid)}\nexec /bin/sleep 3600\n", encoding="utf-8", newline="\n")
     canary = subprocess.Popen([SH, canary_script.as_posix()], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     deadline = time.monotonic() + 5
     while not canary_pid.exists() or not canary_pid.read_text().strip():
@@ -231,8 +234,10 @@ lua() {
             (f"rotation-wait-{sig}", {"WAIT_SIGNAL": sig, "PORTRAIT_AT": "99"}, code, ["U", "R"]),
         ])
     checks = 0
-    for shell in (SH, DASH):
-        for firmware in ("5.18.1", "5.18.2", "5.19.1"):
+    firmwares=("5.20.1",) if '--target-only' in sys.argv else ("5.18.1", "5.18.2", "5.19.1")
+    shells=(SH,) if '--shell=sh' in sys.argv else (DASH,) if '--shell=dash' in sys.argv else (SH,DASH)
+    for shell in shells:
+        for firmware in firmwares:
             pretty.write_text(f"Kindle {firmware}\n", encoding="utf-8")
             for label, overrides, code, expected_sets in scenarios:
                 trace.write_text("", encoding="utf-8")
@@ -295,4 +300,4 @@ lua() {
 
 stop_canary()
 atexit.unregister(stop_canary)
-print(f"orientation startup: PASS ({checks} real startup/cleanup/fallback scenarios; sh + dash; three firmware versions; child scope and unrelated process preserved)")
+print(f"orientation startup: PASS ({checks} real startup/cleanup/fallback scenarios; {len(shells)} shells; {firmwares}; child scope and unrelated process preserved)")

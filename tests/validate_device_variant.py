@@ -178,8 +178,10 @@ def reproduce_formal():
     before=hashlib.sha256(formal.read_bytes()).hexdigest()
     with tempfile.TemporaryDirectory(prefix='device-formal-repro-',dir=OUT) as name:
         folder=Path(name);env,us,base,docs,protected=environment(folder,None,(b'',usid('3H9'),None,None))
-        with zipfile.ZipFile(formal) as z:z.extractall(docs)
-        child=subprocess.run([SHELL,(docs/BOOT_NAME).as_posix()],env=env,capture_output=True,timeout=130)
+        with zipfile.ZipFile(formal) as z:
+            old_boot=next(n for n in z.namelist() if n.endswith('.sh'))
+            z.extractall(docs)
+        child=subprocess.run([SHELL,(docs/old_boot).as_posix()],env=env,capture_output=True,timeout=130)
         result=(docs/'reading-records-v4-install-result.txt').read_text(encoding='utf-8')
         assert child.returncode==1 and 'error=device variant unknown' in result and 'build_id=fc4e9d8b7c1b4403436e' in result,result
         assert not (folder/'service-fixture/calls').exists()

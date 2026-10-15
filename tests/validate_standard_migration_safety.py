@@ -16,7 +16,7 @@ for scenario in ('known-unreferenced','unknown-file','empty-unknown-directory','
         root=Path(directory);base=root/'reading-time';docs=root/'documents';tmp=root/'tmp'
         for p in (base/'releases/9.7.5-test/bin',base/'bin',docs,tmp):p.mkdir(parents=True,exist_ok=True)
         old=base/'releases/9.7.5-test';known=old/'bin/reading-records.sh'
-        known.write_bytes((ROOT/'build/standard-next-baseline/native-reading-time-package/阅读记录-optimized.sh').read_bytes())
+        known.write_bytes(subprocess.check_output(['git','show','v9.7.5-compat-v3:native-reading-time-package/阅读记录-optimized.sh'],cwd=ROOT))
         inventory=base/'migration-manifest.tsv';inventory.write_bytes(ownership)
         if scenario=='empty-unknown-directory':(old/'personal-empty').mkdir()
         if scenario=='unknown-file':(old/'personal.txt').write_text('must survive')

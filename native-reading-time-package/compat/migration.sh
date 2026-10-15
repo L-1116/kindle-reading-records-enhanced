@@ -8,8 +8,9 @@ rr_owned() {
         '$1==kind && $2==path && $3==sum && $4==size {found=1} END {exit !found}' "$OWNERSHIP"
 }
 rr_entry_names() {
+    awk -F '\t' '$1=="entry" {print $2}' "$OWNERSHIP" | sort -u
     printf '%s\n' reading-records.sh 阅读记录.sh 阅读记录-entry.sh 阅读记录-optimized.sh reading-records-uninstall.sh \
-        reading-records-install.sh reading-records-9.7.6-install.sh reading-records-install-cleanup.sh \
+        reading-records-install.sh reading-records-v4-install.sh reading-records-9.7.6-install.sh reading-records-install-cleanup.sh \
         '安装好之后，确认无误了再点这个.sh' '点这个安装，然后确认插件正常之前不要删文件.sh'
 }
 rr_migration_preflight() {
@@ -75,7 +76,7 @@ rr_retire_releases() {
             if grep -Fq "$rr_old" "$rr_live"; then rr_referenced=1
             elif grep -Eq 'READING_RELEASE=|releases/.*\$' "$rr_live"; then
                 if rr_owned entry "${rr_live##*/}" "$rr_live"; then :
-                elif [ "$rr_live" = "$DOCS/reading-records-v4-install.sh" ] &&
+                elif [ "$rr_live" = "$BOOT" ] &&
                      grep -Fqx "PRODUCT_VERSION='$PRODUCT_VERSION'" "$rr_live" &&
                      grep -Fqx "BUILD_ID='$(sed -n 's/^build_id=//p' "$BASE/release-info")'" "$rr_live"; then :
                 else rr_referenced=1; fi

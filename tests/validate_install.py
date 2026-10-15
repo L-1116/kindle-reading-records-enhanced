@@ -139,7 +139,7 @@ assert digest(conf)==digest(PKG/'native-reading-time.conf')
 assert digest(data)==before[str(data)]
 assert digest(old_cover)==before[str(old_cover)] and digest(old_cover_map)==before[str(old_cover_map)]
 assert digest(state/'reading-time.tsv.bak')==before[str(data)]
-assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.8.1-5.20-vera-test1'
+assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.8.1-5.20-vera-test2'
 assert digest(old_release/'preserved-marker')==before[str(old_release/'preserved-marker')]
 icon=assets/'launcher-icon.png'
 assert digest(icon)==digest(PKG/'launcher-icon.png')
