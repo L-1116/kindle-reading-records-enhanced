@@ -44,6 +44,7 @@ for file in sorted(PKG.rglob('*'), key=lambda path: path.relative_to(ROOT).as_po
 assert stable_payload_changes==[
     'native-reading-time-package/cleanup-manifest.txt',
     'native-reading-time-package/compat/detect_env.sh',
+    'native-reading-time-package/compat/device_variant.sh',
     'native-reading-time-package/compat/lifecycle.sh',
     'native-reading-time-package/compat/migration.sh',
     'native-reading-time-package/compat/performance.sh',
