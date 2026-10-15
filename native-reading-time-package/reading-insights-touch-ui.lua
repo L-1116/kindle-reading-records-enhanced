@@ -80,19 +80,19 @@ local function inside(px, py, left, top, right, bottom)
 end
 local function settings_action(px, py)
     if mode == "settings" or mode == "settings_custom" then
-        if inside(px,py,20,20,300,155) then return mode == "settings" and "settings_back" or "settings_cancel" end
+        if inside(px,py,44,34,276,166) then return mode == "settings" and "settings_back" or "settings_cancel" end
         if mode == "settings" then
-            if inside(px,py,70,290,1200,430) then return "settings_toggle" end
-            if inside(px,py,100,600,1150,860) then
-                local col,row=math.floor((px-100)/360),math.floor((py-600)/150)
-                if (px-100)%360<=330 and (py-600)%150<=110 then
+            if inside(px,py,104,410,1168,554) then return "settings_toggle" end
+            if inside(px,py,104,888,1167,1141) then
+                local col,row=math.floor((px-104)/362),math.floor((py-888)/138)
+                if col<3 and row<2 and (px-104)%362<340 and (py-888)%138<116 then
                     local values={1,2,3,4,5,10}; return "settings_preset_" .. values[row*3+col+1]
                 end
             end
-            if inside(px,py,100,900,1150,1040) then return "settings_custom" end
-        elseif inside(px,py,100,500,1150,1160) then
-            local col,row=math.floor((px-100)/360),math.floor((py-500)/170)
-            if (px-100)%360<=330 and (py-500)%170<=150 then
+            if inside(px,py,104,1186,1168,1314) then return "settings_custom" end
+        elseif inside(px,py,72,758,1199,1377) then
+            local col,row=math.floor((px-72)/383),math.floor((py-758)/160)
+            if col<3 and row<4 and (px-72)%383<362 and (py-758)%160<140 then
                 local values={"1","2","3","4","5","6","7","8","9","delete","0","save"}
                 local key=values[row*3+col+1]
                 return (key=="delete" or key=="save") and "settings_" .. key or "settings_digit_" .. key

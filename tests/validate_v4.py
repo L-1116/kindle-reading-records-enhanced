@@ -25,7 +25,7 @@ def seed(session,previous):
     docs.mkdir(parents=True);(base/'bin').mkdir(parents=True);upstart.mkdir()
     protected={
         base/'reading-time.tsv':b'date\tbook_id\tseconds\ttitle\n2026-10-01\told\t120\tHistory\n',
-        base/'user.conf':b'preference=keep\n',base/'reading-time.tsv.bak':b'previous backup',
+        base/'user.conf':b'preference=keep\nidle_pause_enabled=1\nidle_pause_minutes=17\n',base/'reading-time.tsv.bak':b'previous backup',
         base/'book-covers/cover.jpg':b'cover',base/'book-cover-cache.tsv':b'cover cache',
         base/'book-cover-misses.tsv':b'miss cache',base/'service.log':b'core service evidence',
         base/'upstart.log':b'core upstart evidence',base/'touch-last.log':b'core touch evidence',
@@ -107,6 +107,8 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert (base/'VERSION').read_text().strip()==PRODUCT_VERSION
         assert (base/f'releases/{RUNTIME_VERSION}/bin/reading-records.sh').read_bytes()==(ROOT/'native-reading-time-package/阅读记录-optimized.sh').read_bytes()
         assert (docs/CLEAN).is_file() and (base/'.previous-install').is_dir()
+        assert script.is_file(), 'current same-name bootstrap was removed during migration'
+        assert not ('PROTECTED unknown entry='+script.as_posix()) in log,log
         assert (docs/CLEAN).read_text(encoding='utf-8').splitlines()[1]=='# Name: 确认无误之后，再点这个'
         owned_viewers=[p.name for p in docs.glob('*.sh') if '# Name: 阅读记录' in p.read_text(encoding='utf-8',errors='replace').splitlines()]
         assert owned_viewers==['reading-records.sh']
@@ -115,7 +117,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert visible_cleanups==[CLEAN],visible_cleanups
         if mutation!='unknown_alias':assert not (docs/'阅读记录.sh').exists()
         assert not (docs/'reading-records-uninstall.sh').exists() and not (docs/'安装好之后，确认无误了再点这个.sh').exists()
-        if previous in ('mixed','deleted-formal','V4'):
+        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned'):
             again=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130);assert again.returncode==0,again.stderr
             assert len(list(base.glob('.previous-install')))==1 and not list(base.glob('.v4-rollback.*'))
         if mutation=='scanner_failure':assert 'scanner_request=request_failed index_completion=unverified' in log

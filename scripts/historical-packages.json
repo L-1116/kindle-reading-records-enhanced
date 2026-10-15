@@ -135,6 +135,13 @@
     "official": false
   },
   {
+    "id": "9.8.1-test2",
+    "path": "build/standard-9.8.1-test2/9.8.1-5.20-vera-test2.zip",
+    "sha256": "aca69065ca131f56acbcd242f4ed52c2d6c5f18ce8f9f3e0ace20c6abbda6d27",
+    "official": false,
+    "provenance": "Delivered Standard test2; idle pause verified on KPW6 by the user."
+  },
+  {
     "id": "9.7.6-initial-formal",
     "path": "build/formal-candidate/9.7.6-5.20.1-vera.zip",
     "sha256": "339a3ff395ca593eff0e2ee851b466decbdabdc7ded521c37b1fee49450de487",

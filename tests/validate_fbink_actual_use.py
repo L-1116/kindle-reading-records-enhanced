@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 from runtime_fixture import install_python_fixture
 import subprocess
+import sys
 import tempfile
 import time
 from service_fixture import service_fixture
@@ -114,7 +115,7 @@ def check(variant: str) -> None:
             print(variant, firmware, screen, label, "PASS", flush=True)
             return log, calls
 
-        versions = FIRMWARES if variant == "standard" else ("5.18", "5.18.1.1.1", "5.18.10", "5.19.6")
+        versions = ("5.20.1",) if '--target-only' in sys.argv else FIRMWARES if variant == "standard" else ("5.18", "5.18.1.1.1", "5.18.10", "5.19.6")
         for firmware in versions:
             for screen in (("1072 1448", "1272 1696") if variant == "standard" else ("1860 2480",)):
                 _, calls = run_case(firmware, screen, "probe=139/actual=0")

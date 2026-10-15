@@ -8,7 +8,9 @@ ROOT=Path(__file__).resolve().parents[1]; PKG=ROOT/'native-reading-time-package'
 SH=shutil.which('sh') or 'C:/Program Files/Git/usr/bin/sh.exe'
 COUNT=0
 def shell(code):
-    p=subprocess.run([SH],input='export PATH="/usr/bin:/bin:$PATH"\n'+code,text=True,encoding='utf-8',capture_output=True,timeout=120)
+    # MSYS process creation is slow when installer regressions run in parallel.
+    # The virtual clock and exact credited-seconds assertions remain unchanged.
+    p=subprocess.run([SH],input='export PATH="/usr/bin:/bin:$PATH"\n'+code,text=True,encoding='utf-8',capture_output=True,timeout=300 if os.name=='nt' else 120)
     assert p.returncode==0,(p.stdout,p.stderr,code)
     return p.stdout
 def source(name): return f'. "{(PKG/name).as_posix()}"\n'

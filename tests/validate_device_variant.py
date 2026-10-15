@@ -109,10 +109,12 @@ def test_routes():
     integration=[c for c in cases if c[0] in ('no-information','KC-blank-model','unreadable-source','future-model',
         'KS-model','KS-code-3V0','KS-tree','KS-vs-KC','KS-vs-PW6')]
     integration += [('KS-residue',None,None,None,None,'residue'),('KS-version-conflict',None,None,None,None,'residue')]
+    smoke='--bootstrap-smoke' in sys.argv
+    if smoke:integration=[row for row in integration if row[0] in ('no-information','KS-model','KS-vs-PW6')]
     with zipfile.ZipFile(SIMPLE_ARCHIVE) as z:bootstrap=z.read(BOOT_NAME);raw=z.read(TAR_NAME)
     # Bootstrap calls the same library embedded before extraction.
     assert LIB.read_bytes() in bootstrap
-    for previous in (None,'V4'):
+    for previous in ((None,) if smoke else (None,'V4')):
         for row in integration:
             label,*spec,expected=row
             with tempfile.TemporaryDirectory(prefix='device-bootstrap-',dir=OUT) as name:
@@ -143,6 +145,7 @@ def test_routes():
                 assert_private(folder,child.stdout+child.stderr)
                 receipt('bootstrap-upgrade' if previous else 'bootstrap-fresh',label,classification=expected,repair_rerun=not blocked)
                 print('bootstrap',previous or 'fresh',label,'PASS',flush=True)
+    if smoke:return
     with tempfile.TemporaryDirectory(prefix='device-core-payload-',dir=OUT) as name:
         payload=Path(name)
         with tarfile.open(fileobj=io.BytesIO(raw)) as t:t.extractall(payload,filter='data')
@@ -193,7 +196,7 @@ if __name__=='__main__':
     if '--library-only' not in sys.argv:
         reproduce_formal();print('Original formal failure reproduced PASS',flush=True)
         test_routes()
-    report={'result':'PASS','scope':'detector-library' if '--library-only' in sys.argv else 'all-install-routes','product_version':PRODUCT_VERSION,'checks':checks,
+    report={'result':'PASS','scope':'detector-library' if '--library-only' in sys.argv else 'bootstrap-smoke' if '--bootstrap-smoke' in sys.argv else 'all-install-routes','product_version':PRODUCT_VERSION,'checks':checks,
         'package_sha256':hashlib.sha256(SIMPLE_ARCHIVE.read_bytes()).hexdigest(),'hardware':'PENDING'}
     (AUDIT/'device-identification-results.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     print('Device identification:',len(checks),'PASS',flush=True)

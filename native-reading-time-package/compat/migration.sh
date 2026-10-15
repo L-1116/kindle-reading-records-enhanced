@@ -13,11 +13,17 @@ rr_entry_names() {
         reading-records-install.sh reading-records-v4-install.sh reading-records-9.7.6-install.sh reading-records-install-cleanup.sh \
         '安装好之后，确认无误了再点这个.sh' '点这个安装，然后确认插件正常之前不要删文件.sh'
 }
+rr_current_installer() {
+    [ "${rr_installer_file:-}" = "$DOCS/reading-records-9.8.1-install.sh" ] &&
+        [ "$1" = "$rr_installer_file" ] && [ -f "$1" ] && [ ! -L "$1" ] &&
+        [ "$(cksum < "$1")" = "${rr_installer_sum:-}" ]
+}
 rr_migration_preflight() {
     MIGRATION_PROTECTED=0
     rr_entry_names > "$TMP/entry-names"
     while IFS= read -r rr_name; do
         [ -e "$DOCS/$rr_name" ] || [ -L "$DOCS/$rr_name" ] || continue
+        rr_current_installer "$DOCS/$rr_name" && continue
         if ! rr_owned entry "$rr_name" "$DOCS/$rr_name"; then
             MIGRATION_PROTECTED=1
             note "PROTECTED unknown entry=$DOCS/$rr_name"
@@ -40,6 +46,7 @@ rr_migrate_entries() {
         [ "$rr_name" != reading-records.sh ] || continue
         [ "$rr_name" != reading-records-install-cleanup.sh ] || continue
         [ -e "$DOCS/$rr_name" ] || [ -L "$DOCS/$rr_name" ] || continue
+        rr_current_installer "$DOCS/$rr_name" && continue
         if rr_owned entry "$rr_name" "$DOCS/$rr_name"; then
             rm -f "$DOCS/$rr_name" || return 1
             note "REMOVED obsolete entry=$DOCS/$rr_name"

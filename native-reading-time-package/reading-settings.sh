@@ -8,30 +8,39 @@ rr_settings_gear() {
 }
 rr_settings_draw() {
     if [ "$mode" = settings ]; then
-        [ "$idle_enabled" = 1 ] && settings_switch=开启 || settings_switch=关闭
-        ot 36 335 100 400 BOLD "无操作超时暂停：$settings_switch"
-        ot 32 470 100 120 REGULAR "当前阈值：$idle_minutes 分钟"
+        rr_settings_image "$SETTINGS_ASSETS/settings-switch-$idle_enabled.png" 1016 431 152 78
+        if [ "$idle_enabled" = 1 ]; then
+            ot 34 491 104 104 REGULAR '已开启'
+            ot 34 579 104 104 REGULAR "连续 $idle_minutes 分钟无触摸，计时自动暂停。"
+        else
+            ot 34 491 104 104 REGULAR '已关闭'
+            ot 34 579 104 104 REGULAR '未启用，仍按原有方式计时。'
+        fi
+        settings_x=$((1168-155-19*${#idle_minutes}))
+        ot 34 793 "$settings_x" 104 REGULAR "当前 $idle_minutes 分钟"
         settings_i=0
         for settings_n in 1 2 3 4 5 10; do
-            settings_x=$((100+(settings_i%3)*360)); settings_y=$((600+(settings_i/3)*150))
-            if [ "$idle_minutes" = "$settings_n" ]; then rect $((settings_y+6)) $((settings_x+6)) 318 98 GRAY8; fi
-            ot 34 $((settings_y+30)) $((settings_x+35)) 60 BOLD "$settings_n 分钟"
+            settings_x=$((104+(settings_i%3)*362)); settings_y=$((888+(settings_i/3)*138))
+            if [ "$idle_minutes" = "$settings_n" ]; then
+                rr_settings_image "$SETTINGS_ASSETS/settings-preset-$settings_n.png" "$settings_x" "$settings_y" 340 116
+            fi
             settings_i=$((settings_i+1))
         done
-        ot 34 940 135 60 BOLD "自定义分钟数"
-        ot 28 1135 100 100 REGULAR "关闭时沿用原有阅读计时方式。"
-        ot 28 1200 100 100 REGULAR "设置自动保存，仅影响之后的计时。"
+        case "$idle_minutes" in 1|2|3|4|5|10) :;;
+            *) rr_settings_image "$SETTINGS_ASSETS/settings-custom-selected.png" 1101 1226 48 48;;
+        esac
     else
-        ot 36 335 100 100 BOLD "分钟数：${settings_digits:-请输入}"
-        settings_i=0
-        for settings_n in 1 2 3 4 5 6 7 8 9 删除 0 保存; do
-            settings_x=$((100+(settings_i%3)*360)); settings_y=$((500+(settings_i/3)*170))
-            ot 38 $((settings_y+45)) $((settings_x+100)) 60 BOLD "$settings_n"
-            settings_i=$((settings_i+1))
-        done
-        ot 28 1250 100 100 REGULAR "请输入 1 至 1440 的整数分钟。"
+        if [ -n "$settings_digits" ]; then
+            settings_x=$((530-61*${#settings_digits}/2))
+            ot 110 433 "$settings_x" 500 REGULAR "$settings_digits"
+            settings_x=$((settings_x+61*${#settings_digits}+64))
+        else
+            ot 52 478 452 500 REGULAR '请输入'
+            settings_x=672
+        fi
+        ot 40 511 "$settings_x" 104 REGULAR '分钟'
     fi
-    [ -z "${settings_error:-}" ] || ot 28 1400 100 100 BOLD "$settings_error"
+    [ -z "${settings_error:-}" ] || ot 32 1400 80 80 REGULAR "$settings_error"
 }
 rr_settings_action() {
     settings_error=''

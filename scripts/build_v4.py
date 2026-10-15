@@ -14,10 +14,10 @@ from package_release import FILES as STANDARD_FILES
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCT_VERSION = "9.8.1-5.20-vera-test2"
-# Installer-only revision: keep the test1 runtime and UI bytes unchanged.
+PRODUCT_VERSION = "9.8.1-5.20-vera-test3"
+# Keep the verified daemon/helper paths; test3 replaces only the settings UI.
 RUNTIME_VERSION = "9.8.1-5.20-vera-test1"
-DIST = ROOT / "build/standard-9.8.1-test2"
+DIST = ROOT / "build/standard-9.8.1-test3"
 SIMPLE_ARCHIVE = DIST / f"{PRODUCT_VERSION}.zip"
 BOOT_NAME = "reading-records-9.8.1-install.sh"
 TAR_NAME = "阅读记录安装数据.tar"

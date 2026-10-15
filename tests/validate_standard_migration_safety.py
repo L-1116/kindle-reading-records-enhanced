@@ -3,12 +3,15 @@ from pathlib import Path
 import io,json,os,shutil,subprocess,sys,tarfile,tempfile,zipfile
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'scripts'))
-from build_v4 import SIMPLE_ARCHIVE,TAR_NAME
+from build_v4 import SIMPLE_ARCHIVE,TAR_NAME,BOOT_NAME
 from service_fixture import service_fixture
 SH=shutil.which('sh') or 'C:/Program Files/Git/usr/bin/sh.exe'
 OUT=ROOT/'build/validation'
+TEST_ENV={**os.environ,'PATH':'/usr/bin:/bin:'+os.environ.get('PATH','')}
+if os.name=='nt':TEST_ENV['MSYS']='winsymlinks:sys'
 checks=[]
 with zipfile.ZipFile(SIMPLE_ARCHIVE) as outer:
+    current_boot=outer.read(BOOT_NAME)
     with tarfile.open(fileobj=io.BytesIO(outer.read(TAR_NAME))) as archive:
         ownership=archive.extractfile('native-reading-time-package/migration-manifest.tsv').read()
 for scenario in ('known-unreferenced','unknown-file','empty-unknown-directory','live-reference','symlink','unknown-entry'):
@@ -24,7 +27,7 @@ for scenario in ('known-unreferenced','unknown-file','empty-unknown-directory','
         if scenario=='unknown-entry':(docs/'阅读记录.sh').write_text('# Name: 阅读记录\necho user file\n',encoding='utf-8')
         if scenario=='symlink':
             target=root/'personal';target.write_text('keep')
-            subprocess.run([SH,'-c','/usr/bin/ln -s "$1" "$2"','fixture',target.as_posix(),(old/'link').as_posix()],check=True)
+            subprocess.run([SH,'-c','/usr/bin/ln -s "$1" "$2" && test -L "$2"','fixture',target.as_posix(),(old/'link').as_posix()],check=True,env=TEST_ENV)
         script=root/'check.sh'
         script.write_text(f'''BASE="{base.as_posix()}"
 DOCS="{docs.as_posix()}"
@@ -37,11 +40,51 @@ rr_entry_names > "$TMP/entry-names"
 rr_migrate_entries || exit 1
 rr_retire_releases || exit 1
 ''',encoding='utf-8',newline='\n')
-        result=subprocess.run([SH,script.as_posix()],capture_output=True,timeout=20,env={**os.environ,'PATH':'/usr/bin:/bin:'+os.environ.get('PATH','')})
+        result=subprocess.run([SH,script.as_posix()],capture_output=True,timeout=20,env=TEST_ENV)
         assert result.returncode==0,result.stderr
         assert old.exists()==(scenario in ('unknown-file','empty-unknown-directory','live-reference','symlink')),(scenario,result.stdout,result.stderr)
         if scenario=='unknown-entry':assert (docs/'阅读记录.sh').read_text(encoding='utf-8').endswith('echo user file\n')
         if scenario=='symlink':assert target.read_text()=='keep'
+        checks.append({'scenario':scenario,'result':'PASS'})
+# Only the unchanged file of the active invocation is exempt from migration.
+# The real prior bootstrap is still owned; a same-name personal file is not.
+from historical_packages import CATALOG,package
+prior_outer,_=package(next(r for r in CATALOG if r['id']=='9.8.1-test2'))
+for scenario in ('current-bootstrap','old-bootstrap','unknown-bootstrap','changed-bootstrap',
+                 'symlink-bootstrap','other-location','unknown-formal-bootstrap'):
+    with tempfile.TemporaryDirectory(prefix='bootstrap-safety-',dir=OUT) as directory:
+        root=Path(directory);docs=root/'documents';tmp=root/'tmp'
+        docs.mkdir();tmp.mkdir()
+        inventory=root/'inventory';inventory.write_bytes(ownership)
+        boot=docs/BOOT_NAME
+        boot.write_bytes(prior_outer[BOOT_NAME] if scenario=='old-bootstrap' else
+                         b'personal file' if scenario=='unknown-bootstrap' else current_boot)
+        formal=docs/'reading-records.sh'
+        if scenario=='unknown-formal-bootstrap':formal.write_bytes(b'personal formal entry')
+        if scenario=='symlink-bootstrap':
+            target=root/'personal';target.write_bytes(current_boot);boot.unlink()
+            subprocess.run([SH,'-c','/usr/bin/ln -s "$1" "$2" && test -L "$2"','fixture',target.as_posix(),boot.as_posix()],check=True,env=TEST_ENV)
+        active=scenario in ('current-bootstrap','changed-bootstrap','symlink-bootstrap','unknown-formal-bootstrap')
+        init='rr_installer_file="'+boot.as_posix()+'"; rr_installer_sum=$(cksum < "$rr_installer_file")' if active else ''
+        if scenario=='changed-bootstrap':init+='\nprintf "changed" >> "$rr_installer_file"'
+        if scenario=='other-location':
+            copy=root/BOOT_NAME;copy.write_bytes(current_boot)
+            init='rr_installer_file="'+copy.as_posix()+'"; rr_installer_sum=$(cksum < "$rr_installer_file")'
+        code=f'''export PATH="/usr/bin:/bin:$PATH"
+DOCS="{docs.as_posix()}"; TMP="{tmp.as_posix()}"; OWNERSHIP="{inventory.as_posix()}"
+note() {{ :; }}
+. "{(ROOT/'native-reading-time-package/compat/migration.sh').as_posix()}"
+{init}
+rr_migration_preflight; preflight=$?
+printf '%s %s\\n' "$preflight" "$MIGRATION_PROTECTED"
+[ "$preflight" != 0 ] || rr_migrate_entries
+'''
+        result=subprocess.run([SH],input=code,text=True,encoding='utf-8',capture_output=True,timeout=25,env=TEST_ENV)
+        expected='1 1' if scenario=='unknown-formal-bootstrap' else '0 0' if scenario in ('current-bootstrap','old-bootstrap') else '0 1'
+        assert result.returncode==0 and result.stdout.strip()==expected,(scenario,result.stdout,result.stderr)
+        assert boot.exists()==(scenario!='old-bootstrap'),scenario
+        if scenario=='unknown-formal-bootstrap':assert formal.read_bytes()==b'personal formal entry'
+        if scenario=='symlink-bootstrap':assert target.read_bytes()==current_boot
         checks.append({'scenario':scenario,'result':'PASS'})
 # Duplicate and orphan daemons are rejected before any start request.
 for scenario in ('orphan','duplicate'):

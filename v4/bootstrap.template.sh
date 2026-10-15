@@ -150,6 +150,15 @@ grep -Fqx 'installer_format=two-file-1' "$TMP/V4-PAYLOAD" && grep -Fqx "variant=
 if [ -e "$BASE/bin/native-reading-time-daemon.sh" ]; then mode=upgrade; else mode=fresh; fi
 note "mode=$mode installed_variant=${installed_variant:-none} product_version=$PRODUCT_VERSION build_id=$BUILD_ID"
 OWNERSHIP="$PKG/migration-manifest.tsv"
+# The executing bootstrap shares its filename with earlier 9.8.1 packages.
+# Identify this invocation by location and bytes, not by a filename exemption.
+rr_installer_file=''; rr_installer_sum=''
+if [ "${0##*/}" = reading-records-9.8.1-install.sh ] &&
+   [ "$(pwd -P)" = "$(CDPATH= cd "$DOCS" && pwd -P)" ] &&
+   [ -f "./${0##*/}" ] && [ ! -L "./${0##*/}" ]; then
+    rr_installer_file="$DOCS/${0##*/}"
+    rr_installer_sum=$(cksum < "$rr_installer_file") || fail 1 'installer checksum failed' '无法校验安装入口'
+fi
 . "$PKG/compat/migration.sh" || fail 1 'migration library missing' '升级迁移资源不完整'
 rr_migration_preflight || fail 1 'formal entry ownership unknown' '已有启动入口归属不明，已停止安装'
 . "$PKG/compat/scanner.sh" || exit 1
