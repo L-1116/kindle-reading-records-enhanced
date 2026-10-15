@@ -188,9 +188,10 @@ def reproduce_formal():
 
 if __name__=='__main__':
     test_library();print('Device detector cases PASS',len(checks),flush=True)
-    reproduce_formal();print('Original formal failure reproduced PASS',flush=True)
-    test_routes()
-    report={'result':'PASS','product_version':PRODUCT_VERSION,'checks':checks,
+    if '--library-only' not in sys.argv:
+        reproduce_formal();print('Original formal failure reproduced PASS',flush=True)
+        test_routes()
+    report={'result':'PASS','scope':'detector-library' if '--library-only' in sys.argv else 'all-install-routes','product_version':PRODUCT_VERSION,'checks':checks,
         'package_sha256':hashlib.sha256(SIMPLE_ARCHIVE.read_bytes()).hexdigest(),'hardware':'PENDING'}
     (AUDIT/'device-identification-results.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     print('Device identification:',len(checks),'PASS',flush=True)

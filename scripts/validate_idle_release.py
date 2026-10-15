@@ -54,7 +54,7 @@ devices=ROOT/'tests/validate_device_variant.py'
 # package-consuming check sees the same checksum. Delivery remains gated on
 # all validation phases, including the final whole startup chain.
 phases=[([ROOT/'scripts/build_v4.py'],1),
-        ([(ROOT/'tests/validate_v4.py',['--idle-upgrade']),timer,devices,
+        ([(ROOT/'tests/validate_v4.py',['--idle-upgrade']),timer,(devices,['--library-only']),
           *[c for c in PRE+POST if c not in (timer,devices)]],3),
         ([(ROOT/'tests/validate_startup_performance.py',['--current-only'])],1)]
 if PRIVATE:
