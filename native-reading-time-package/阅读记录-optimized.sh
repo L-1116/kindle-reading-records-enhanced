@@ -569,6 +569,7 @@ canvas() { printf 'canvas\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$SPEC"; }
 srect() { printf 'rect\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" >> "$SPEC"; }
 sround() { printf 'round\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" >> "$SPEC"; }
 stext() { printf 'text\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" >> "$SPEC"; }
+scenter() { printf 'textcenter\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" >> "$SPEC"; }
 slabel() { printf 'text\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t255\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" >> "$SPEC"; }
 sfitlabel() { printf 'textfit\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t255\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}" >> "$SPEC"; }
 swrite() { printf 'write\t%s\n' "$1" >> "$SPEC"; }
@@ -642,16 +643,23 @@ spec_toggle_button() {
     stext "$toggle_canvas" B 28 $((toggle_x+toggle_w/2)) 10 center "$toggle_ink" "$toggle_text"
 }
 
+spec_total_toggle_button() {
+    toggle_canvas="$1"; toggle_x="$2"; toggle_w="$3"; toggle_text="$4"; toggle_selected="$5"
+    sround "$toggle_canvas" "$toggle_x" 0 "$toggle_w" 88 16 20
+    if [ "$toggle_selected" -eq 1 ]; then toggle_ink=255; else sround "$toggle_canvas" $((toggle_x+3)) 3 $((toggle_w-6)) 82 13 255; toggle_ink=0; fi
+    scenter "$toggle_canvas" B 36 $((toggle_x+toggle_w/2)) 44 "$toggle_ink" "$toggle_text"
+}
+
 spec_period_card() {
     period_canvas="$1"
-    canvas "$period_canvas" 676 84 "$SESSION_DIR/total-period.pgm.new"
+    canvas "$period_canvas" 1122 84 "$SESSION_DIR/total-period.pgm.new"
     if [ "$total_period" != all ]; then
-        sround "$period_canvas" 0 0 112 84 16 20; sround "$period_canvas" 3 3 106 78 13 255
-        sround "$period_canvas" 564 0 112 84 16 20; sround "$period_canvas" 567 3 106 78 13 255
-        stext "$period_canvas" B 31 56 18 center 0 "‹"; stext "$period_canvas" B 31 620 18 center 0 "›"
+        sround "$period_canvas" 225 0 112 84 16 20; sround "$period_canvas" 228 3 106 78 13 255
+        sround "$period_canvas" 785 0 112 84 16 20; sround "$period_canvas" 788 3 106 78 13 255
+        scenter "$period_canvas" B 44 281 42 0 "‹"; scenter "$period_canvas" B 44 841 42 0 "›"
     fi
     [ "$total_period" = week ] && title_size=30 || title_size=39
-    stext "$period_canvas" B "$title_size" 336 10 center 0 "$period_title"
+    scenter "$period_canvas" B "$title_size" 561 42 0 "$period_title"
     swrite "$period_canvas"
 }
 
@@ -668,8 +676,8 @@ render_total() {
     a="$SESSION_DIR/total-summary.pgm.new"; b="$SESSION_DIR/total-period.pgm.new"; c="$SESSION_DIR/total-chart.pgm.new"; d="$SESSION_DIR/total-toggle.pgm.new"; : > "$SPEC"
     canvas summary 1102 180 "$a"; srect summary 0 110 1102 2 190
     stext summary B 70 10 5 left 0 "$(summary_time_text "$total")"; stext summary B 32 40 137 left 0 "阅读天数  ${read_days}天"; stext summary B 32 645 137 left 0 "阅读日均  $(minute_text "$average")"; swrite summary
-    canvas toggle 230 58 "$d"; [ "$total_period" = week ] && week_selected=1 || week_selected=0; [ "$total_period" = year ] && year_selected=1 || year_selected=0; [ "$total_period" = all ] && all_selected=1 || all_selected=0
-    spec_toggle_button toggle 0 70 "本周" "$week_selected"; spec_toggle_button toggle 80 70 "今年" "$year_selected"; spec_toggle_button toggle 160 70 "全部" "$all_selected"; swrite toggle
+    canvas toggle 1122 88 "$d"; [ "$total_period" = week ] && week_selected=1 || week_selected=0; [ "$total_period" = year ] && year_selected=1 || year_selected=0; [ "$total_period" = all ] && all_selected=1 || all_selected=0
+    spec_total_toggle_button toggle 0 358 "本周" "$week_selected"; spec_total_toggle_button toggle 382 358 "今年" "$year_selected"; spec_total_toggle_button toggle 764 358 "全部" "$all_selected"; swrite toggle
     spec_period_card period
     canvas chart 1122 690 "$c"
     # Reserve a measured Y-axis gutter and a separate safety gap before the
@@ -693,9 +701,9 @@ render_total() {
         pos=$((pos+1))
     done < "$TOTAL_VALUES"
     swrite chart; run_renderer || return 1
-    pgm_valid "$a" 1102 180 && pgm_valid "$b" 676 84 && pgm_valid "$c" 1122 690 && pgm_valid "$d" 230 58 || return 1
+    pgm_valid "$a" 1102 180 && pgm_valid "$b" 1122 84 && pgm_valid "$c" 1122 690 && pgm_valid "$d" 1122 88 || return 1
     mv "$a" "$SESSION_DIR/total-summary.pgm" && mv "$b" "$SESSION_DIR/total-period.pgm" && mv "$c" "$SESSION_DIR/total-chart.pgm" && mv "$d" "$SESSION_DIR/total-toggle.pgm" || return 1
-    image "$SESSION_DIR/total-summary.pgm" 85 380 1102 180 && image "$SESSION_DIR/total-toggle.pgm" 65 638 230 58 && image "$SESSION_DIR/total-period.pgm" 300 644 676 84 && image "$SESSION_DIR/total-chart.pgm" 75 760 1122 690 || return 1
+    image "$SESSION_DIR/total-summary.pgm" 85 380 1102 180 && image "$SESSION_DIR/total-toggle.pgm" 75 650 1122 88 && image "$SESSION_DIR/total-period.pgm" 75 762 1122 84 && image "$SESSION_DIR/total-chart.pgm" 75 884 1122 690 || return 1
 }
 
 # Reusable on-demand interval aggregation.  It reads the launch-time caches
@@ -1517,11 +1525,11 @@ while :; do
       tab_total) if [ "$mode" = total ]; then metric_begin tab_total_noop; metric_end none 0 0; else mode=total; perform_draw tab_to_total 1 1 0 0 1272 1696; fi;;
       tab_daily) if [ "$mode" = daily ]; then metric_begin tab_daily_noop; metric_end none 0 0; else mode=daily; perform_draw tab_to_daily 1 1 0 0 1272 1696; fi;;
       tab_books) if [ "$mode" = books ]; then metric_begin tab_books_noop; metric_end none 0 0; else mode=books; perform_draw tab_to_books 1 1 0 0 1272 1696; fi;;
-      total_week) if [ "$total_period" = week ]; then metric_begin total_week_noop; metric_end none 0 0; else total_period=week; week_offset=0; perform_draw total_to_week 0 0 55 380 1162 1070; fi;;
-      total_year) if [ "$total_period" = year ]; then metric_begin total_year_noop; metric_end none 0 0; else total_period=year; perform_draw total_to_year 0 0 55 380 1162 1070; fi;;
-      total_all) if [ "$total_period" = all ]; then metric_begin total_all_noop; metric_end none 0 0; else total_period=all; perform_draw total_to_all 0 0 55 380 1162 1070; fi;;
-      total_prev) if [ "$total_period" = week ]; then week_offset=$((week_offset-1)); perform_draw week_previous 0 0 55 380 1162 1070; elif [ "$total_period" = year ]; then view_year=$((view_year-1)); perform_draw year_previous 0 0 55 380 1162 1070; else metric_begin total_all_previous_noop; metric_end none 0 0; fi;;
-      total_next) if [ "$total_period" = week ]; then if [ "$week_offset" -lt 0 ]; then week_offset=$((week_offset+1)); perform_draw week_next 0 0 55 380 1162 1070; else metric_begin week_next_noop; metric_end none 0 0; fi; elif [ "$total_period" = year ]; then current_year="$(date +%Y)"; if [ "$view_year" -lt "$current_year" ]; then view_year=$((view_year+1)); perform_draw year_next 0 0 55 380 1162 1070; else metric_begin year_next_noop; metric_end none 0 0; fi; else metric_begin total_all_next_noop; metric_end none 0 0; fi;;
+      total_week) if [ "$total_period" = week ]; then metric_begin total_week_noop; metric_end none 0 0; else total_period=week; week_offset=0; perform_draw total_to_week 0 0 55 380 1162 1220; fi;;
+      total_year) if [ "$total_period" = year ]; then metric_begin total_year_noop; metric_end none 0 0; else total_period=year; perform_draw total_to_year 0 0 55 380 1162 1220; fi;;
+      total_all) if [ "$total_period" = all ]; then metric_begin total_all_noop; metric_end none 0 0; else total_period=all; perform_draw total_to_all 0 0 55 380 1162 1220; fi;;
+      total_prev) if [ "$total_period" = week ]; then week_offset=$((week_offset-1)); perform_draw week_previous 0 0 55 380 1162 1220; elif [ "$total_period" = year ]; then view_year=$((view_year-1)); perform_draw year_previous 0 0 55 380 1162 1220; else metric_begin total_all_previous_noop; metric_end none 0 0; fi;;
+      total_next) if [ "$total_period" = week ]; then if [ "$week_offset" -lt 0 ]; then week_offset=$((week_offset+1)); perform_draw week_next 0 0 55 380 1162 1220; else metric_begin week_next_noop; metric_end none 0 0; fi; elif [ "$total_period" = year ]; then current_year="$(date +%Y)"; if [ "$view_year" -lt "$current_year" ]; then view_year=$((view_year+1)); perform_draw year_next 0 0 55 380 1162 1220; else metric_begin year_next_noop; metric_end none 0 0; fi; else metric_begin total_all_next_noop; metric_end none 0 0; fi;;
       week_trend_open) open_week_trend || fallback_to_legacy;;
       week_trend_back) mode=total; perform_draw week_trend_back 1 1 0 0 1272 1696;;
       month_detail_open) open_month_detail "$daily_y" "$daily_m" daily || fallback_to_legacy;;

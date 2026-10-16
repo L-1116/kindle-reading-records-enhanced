@@ -142,6 +142,13 @@
     "provenance": "Delivered Standard test2; idle pause verified on KPW6 by the user."
   },
   {
+    "id": "9.8.1-test3",
+    "path": "build/standard-9.8.1-test3/9.8.1-5.20-vera-test3.zip",
+    "sha256": "5cd1fca2fd7e145504b8ba1bb1d1062ae52555ab79737ca359775127fe0bbbe9",
+    "official": false,
+    "provenance": "Original delivered Standard test3 from 63e34dba; Kindle acceptance confirmed by the user."
+  },
+  {
     "id": "9.7.6-initial-formal",
     "path": "build/formal-candidate/9.7.6-5.20.1-vera.zip",
     "sha256": "339a3ff395ca593eff0e2ee851b466decbdabdc7ded521c37b1fee49450de487",

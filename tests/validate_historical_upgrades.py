@@ -29,7 +29,7 @@ def contracts():
         assert BOOT_NAME=='reading-records-9.8.1-install.sh'
         with tarfile.open(fileobj=io.BytesIO(z.read(TAR_NAME))) as t:
             assert key in t.extractfile('native-reading-time-package/migration-manifest.tsv').read()
-    # Freeze the device-verified test2 payload except the settings presentation,
+    # Freeze the device-verified test2 payload except the settings/total presentation,
     # its hitboxes, and narrowly scoped installer/version compatibility edits.
     row=next(row for row in CATALOG if row['id']=='9.8.1-test2')
     _,accepted=package(row)
@@ -37,7 +37,8 @@ def contracts():
     allowed={'native-reading-time-package/'+name for name in
              ('Install-Native-Reading-Time-Optimized.sh','compat/migration.sh',
               'reading-settings.sh','reading-insights-touch-ui.lua','ui-calendar/settings.png',
-              'ui-calendar/settings_custom.png','migration-manifest.tsv')}
+              'ui-calendar/settings_custom.png','migration-manifest.tsv',
+              '阅读记录-optimized.sh','reading-insights-render.lua','ui-calendar/total.png')}
     for name in names:
         if name not in allowed and name!='native-reading-time-package/resources/kual/reading-records-installer/bin/action.sh':
             assert (ROOT/name).read_bytes()==accepted[name],name
@@ -55,7 +56,9 @@ def contracts():
     before=accepted[key].decode(); after=(ROOT/key).read_text(encoding='utf-8')
     start='local function settings_action(';end='local function action_for_logical('
     assert before[:before.index(start)]==after[:after.index(start)]
-    assert before[before.index(end):]==after[after.index(end):]
+    # Only the optimized total hitboxes changed after test3.
+    tail='    elseif mode == "daily" then'
+    assert before[before.index(tail):]==after[after.index(tail):]
     with zipfile.ZipFile(SIMPLE_ARCHIVE) as z:
         with tarfile.open(fileobj=io.BytesIO(z.read(TAR_NAME))) as t:
             inventory=t.extractfile(prefix+'migration-manifest.tsv').read()

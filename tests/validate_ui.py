@@ -63,6 +63,7 @@ assert stable_payload_changes==[
     'native-reading-time-package/reading-idle.sh',
     'native-reading-time-package/reading-insights-cache.awk',
     'native-reading-time-package/reading-insights-cover.lua',
+    'native-reading-time-package/reading-insights-render.lua',
     'native-reading-time-package/reading-insights-touch-preflight.sh',
     'native-reading-time-package/reading-insights-touch-probe.lua',
     'native-reading-time-package/reading-insights-touch-ui.lua',

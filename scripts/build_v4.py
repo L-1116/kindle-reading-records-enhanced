@@ -14,10 +14,10 @@ from package_release import FILES as STANDARD_FILES
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCT_VERSION = "9.8.1-5.20-vera-test3"
-# Keep the verified daemon/helper paths; test3 replaces only the settings UI.
+PRODUCT_VERSION = "9.8.1-5.20-vera-test4"
+# Product/UI revision only: keep the verified daemon/helper runtime paths.
 RUNTIME_VERSION = "9.8.1-5.20-vera-test1"
-DIST = ROOT / "build/standard-9.8.1-test3"
+DIST = ROOT / "build/standard-9.8.1-test4"
 SIMPLE_ARCHIVE = DIST / f"{PRODUCT_VERSION}.zip"
 BOOT_NAME = "reading-records-9.8.1-install.sh"
 TAR_NAME = "阅读记录安装数据.tar"
@@ -81,7 +81,7 @@ exit 127
     result["v4/cleanup.sh"] = (ROOT / "v4/cleanup.sh").read_bytes()
     result["native-reading-time-package/migration-manifest.tsv"] = ownership_manifest(result, posix_cksum, make_tar)
     build_id = sha(b"".join(name.encode() + b"\0" + sha(raw).encode() for name, raw in sorted(result.items())))[:20]
-    result["BUILD-INFO"] = f"product_version={PRODUCT_VERSION}\nvariant=standard\nbuild_id={build_id}\nsource_baseline=b46407c3b73cd1d5445a3db2159662ca9ffd4c75\n".encode()
+    result["BUILD-INFO"] = f"product_version={PRODUCT_VERSION}\nvariant=standard\nbuild_id={build_id}\nsource_baseline=63e34dba9480124849c18c070f64e311789f887a\n".encode()
     entries = [{"path": name, "size": len(raw), "sha256": sha(raw)} for name, raw in sorted(result.items())]
     manifest_name = "PACKAGE-MANIFEST.json" if variant == "standard" else "PACKAGE-MANIFEST-KS.json"
     result[manifest_name] = (json.dumps({"format": 4, "installer_format": "two-file-1", "product_version": PRODUCT_VERSION, "variant": variant, "files": entries}, ensure_ascii=False, indent=2) + "\n").encode()

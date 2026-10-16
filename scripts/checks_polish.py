@@ -21,9 +21,9 @@ for y in [2026,2027,2030]:
     period=Image.open(io.BytesIO((session/'total-period.pgm').read_bytes()))
     # Restrict the ink measurement to the title's center lane; week/year also
     # contain navigation controls at the ends of this same tile.
-    box=ImageOps.invert(period.crop((112,0,564,84))).getbbox()
+    box=ImageOps.invert(period.crop((352,0,770,84))).getbbox()
     period.close()
-    assert abs(300+112+(box[0]+box[2])/2-636)<=0.5,(y,box)
+    assert abs(75+352+(box[0]+box[2])/2-636)<=0.5,(y,box)
 record('true horizontal centering','Rasterized ink bounds for Sep/Oct/Jan/Dec and three year titles center at logical x=636 within half a pixel.')
 
 # Card geometry regressions from Kindle testing. Check the final composite and
@@ -80,7 +80,9 @@ for screen_w,screen_h in ((600,800),(900,1200),(1072,1448),(1236,1648),(1264,168
 total_bg=Image.open(PKG/'ui-calendar/total.png').convert('L')
 assert total_bg.crop((296,640,415,731)).getextrema()==(255,255)
 assert total_bg.crop((860,640,979,731)).getextrema()==(255,255)
-for x in range(73,1199): assert total_bg.getpixel((x,625))<100
+expected_total=Image.new('L',total_bg.size,255)
+ImageDraw.Draw(expected_total).rounded_rectangle((55,625,1217,1600),radius=24,outline=20,width=3)
+assert ImageChops.difference(total_bg.crop((50,600,1223,1621)),expected_total.crop((50,600,1223,1621))).getbbox() is None
 all_spec=render('total-all-panel','total','total_period=all; render_total')
 week_spec=render('total-week-panel','total','total_period=week; week_offset=0; render_total')
 assert not any(l.startswith('round\tperiod\t') for l in all_spec.splitlines())

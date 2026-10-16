@@ -120,18 +120,18 @@ local function action_for_logical(px, py)
     end
 
     if mode == "total" then
-        if inside(px, py, 65, 638, 135, 692) then return "total_week" end
-        if inside(px, py, 145, 638, 215, 692) then return "total_year" end
-        if inside(px, py, 225, 638, 295, 692) then return "total_all" end
-        if total_period ~= "all" and inside(px, py, 300, 625, 440, 750) then return "total_prev" end
-        if total_period ~= "all" and inside(px, py, 840, 625, 1000, 750) then return "total_next" end
+        if inside(px, py, 75, 650, 432, 737) then return "total_week" end
+        if inside(px, py, 457, 650, 814, 737) then return "total_year" end
+        if inside(px, py, 839, 650, 1196, 737) then return "total_all" end
+        if total_period ~= "all" and inside(px, py, 300, 762, 411, 845) then return "total_prev" end
+        if total_period ~= "all" and inside(px, py, 860, 762, 971, 845) then return "total_next" end
         if total_period == "week" and inside(px, py, 85, 380, 1187, 560) then return "week_trend_open" end
-        if total_period == "year" and inside(px, py, 75, 760, 1197, 1450) then
+        if total_period == "year" and inside(px, py, 75, 884, 1197, 1573) then
             local month = math.floor((px - 75) * 12 / 1123) + 1
             if month > 12 then month = 12 end
             return "year_month_" .. month
         end
-        if total_period == "week" and inside(px, py, 135, 760, 1181, 1450) then
+        if total_period == "week" and inside(px, py, 135, 884, 1181, 1573) then
             local day_index = math.floor((px - 135) * 7 / 1047)
             if day_index > 6 then day_index = 6 end
             return "week_day_" .. day_index

@@ -6,8 +6,14 @@ ROOT=Path(__file__).resolve().parents[1]; PKG=ROOT/'native-reading-time-package'
 SH=shutil.which('sh') or 'C:/Program Files/Git/usr/bin/sh.exe'
 with tempfile.TemporaryDirectory(prefix='idle-guard-') as tmp:
     root=Path(tmp); mock=root/'bin'; mock.mkdir(); sysfs=root/'sys'; sysfs.mkdir()
+    blocked=root/'blocked-reader'
+    subprocess.run([SH,'-c','/usr/bin/mkfifo "$1"','test',blocked.as_posix()],check=True)
     fake=mock/'lua'
-    fake.write_text('#!/bin/sh\ncase "$1" in *probe.lua) printf "/dev/fixture\\n16\\n";; *) exec /bin/sleep 30;; esac\n',encoding='utf-8',newline='\n')
+    # Keep one blocked reader PID/start time. MSYS changes /proc start time on
+    # exec (unlike Linux), so exec sleep can invalidate the guard's identity
+    # snapshot and create a host-only orphan. A builtin FIFO read models the
+    # same blocked input lifetime without that extra exec or a grandchild.
+    fake.write_text('#!/bin/sh\ncase "$1" in *probe.lua) printf "/dev/fixture\\n16\\n";; *) exec 7<>"'+blocked.as_posix()+'"; IFS= read -r fixture_control <&7;; esac\n',encoding='utf-8',newline='\n')
     subprocess.run([SH,'-c','/usr/bin/chmod 755 "$1"','test',fake.as_posix()],check=True)
     env={**os.environ,'PATH':mock.as_posix()+':/usr/bin:/bin','READING_INPUT_SYSFS':sysfs.as_posix()}
     for signal in ('TERM','KILL','GUARD_KILL'):

@@ -1,9 +1,11 @@
 """Exercise the installer in a workspace sandbox with all device operations mocked."""
 from service_fixture import service_fixture
 from pathlib import Path
-import atexit, hashlib, json, os, shutil, subprocess, tempfile
+import atexit, hashlib, json, os, shutil, subprocess, sys, tempfile
 
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/'scripts'))
+from build_v4 import PRODUCT_VERSION
 PKG=ROOT/'native-reading-time-package'
 BASELINE=ROOT/'tests/baselines/v9.6.10'
 OUT=ROOT/'build/validation'; OUT.mkdir(parents=True,exist_ok=True)
@@ -139,7 +141,7 @@ assert digest(conf)==digest(PKG/'native-reading-time.conf')
 assert digest(data)==before[str(data)]
 assert digest(old_cover)==before[str(old_cover)] and digest(old_cover_map)==before[str(old_cover_map)]
 assert digest(state/'reading-time.tsv.bak')==before[str(data)]
-assert (state/'VERSION').read_text(encoding='utf-8').strip()=='9.8.1-5.20-vera-test2'
+assert (state/'VERSION').read_text(encoding='utf-8').strip()==PRODUCT_VERSION
 assert digest(old_release/'preserved-marker')==before[str(old_release/'preserved-marker')]
 icon=assets/'launcher-icon.png'
 assert digest(icon)==digest(PKG/'launcher-icon.png')

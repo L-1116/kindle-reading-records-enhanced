@@ -32,6 +32,8 @@ ALLOWED_CHANGED = {
     "native-reading-time-package/阅读记录.sh",
     "native-reading-time-package/阅读记录-optimized.sh",
     "native-reading-time-package/reading-insights-touch-ui.lua",
+    "native-reading-time-package/reading-insights-render.lua",
+    "native-reading-time-package/ui-calendar/total.png",
     "ks-package/native-reading-time-package/阅读记录-ks.sh",
     "native-reading-time-package/launch.sh",
     "ks-package/native-reading-time-package/launch-ks.sh",

@@ -162,16 +162,18 @@ local function glyph_for(style, size, char)
 end
 
 local function measure(style, size, text)
-    local width, left, right = 0, nil, nil
+    local width, left, right, top, bottom = 0, nil, nil, nil, nil
     for char in utf8_chars(text) do
         local glyph = assert(glyph_for(style, size, char), "missing glyph: " .. char)
         if glyph.ink then
             left = math.min(left or math.huge, width + glyph.bearing_x)
             right = math.max(right or -math.huge, width + glyph.bearing_x + glyph.w)
+            top = math.min(top or math.huge, glyph.baseline + glyph.bearing_y)
+            bottom = math.max(bottom or -math.huge, glyph.baseline + glyph.bearing_y + glyph.h)
         end
         width = width + glyph.advance
     end
-    return width, left or 0, right or width
+    return width, left or 0, right or width, top or 0, bottom or 0
 end
 
 -- Reuse the compositor's exact glyph metrics for shell-side layout.  This
@@ -219,8 +221,11 @@ local function draw_glyph(canvas, glyph, x, y, color)
     end
 end
 
-local function text(canvas, style, size, x, y, align, color, message, background, min_x, max_x)
-    local width, left, right = measure(style, size, message)
+local function text(canvas, style, size, x, y, align, color, message, background, min_x, max_x, center_y)
+    local width, left, right, top, bottom = measure(style, size, message)
+    -- Center the union of visible glyph masks, retaining a single baseline.
+    -- Existing text/textfit callers keep their original top/baseline semantics.
+    if center_y then y = math.floor(y - (top + bottom) / 2) end
     if align == "center" then x = math.floor(x - (left + right) / 2)
     elseif align == "right" then x = x - right end
     if min_x and max_x then
@@ -270,6 +275,8 @@ for line in io.lines(spec_path) do
             text(assert(canvases[f[2]]), f[3], tonumber(f[4]), tonumber(f[5]), tonumber(f[6]), f[7], tonumber(f[8]), f[9] or "", tonumber(f[10]))
         elseif op == "textfit" then
             text(assert(canvases[f[2]]), f[3], tonumber(f[4]), tonumber(f[5]), tonumber(f[6]), f[7], tonumber(f[8]), f[9] or "", tonumber(f[10]), tonumber(f[11]), tonumber(f[12]))
+        elseif op == "textcenter" then
+            text(assert(canvases[f[2]]), f[3], tonumber(f[4]), tonumber(f[5]), tonumber(f[6]), "center", tonumber(f[7]), f[8] or "", nil, nil, nil, true)
         elseif op == "write" then
             write_canvas(assert(canvases[f[2]]))
         else

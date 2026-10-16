@@ -16,7 +16,7 @@ CHECKS = [
     ROOT / "tests/validate_idle_guard.py",
     ROOT / "tests/validate_ui.py",
     ROOT / "tests/validate_standard_touch_compat.py",
-    ROOT / "tests/validate_stats_filters.py",
+    ROOT / "tests/validate_total_layout.py",
     ROOT / "tests/validate_day_detail.py",
     ROOT / "tests/validate_period_details.py",
     ROOT / "tests/validate_book_detail.py",

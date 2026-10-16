@@ -250,10 +250,10 @@ record("period state sequences", "Current week → empty prior week → populate
 # render_total already redraws all four tiles. Every total-page state change must
 # also refresh the summary tile on the physical e-ink display.
 for operation in ("total_to_week", "total_to_year", "total_to_all", "week_previous", "year_previous", "week_next", "year_next"):
-    assert f"perform_draw {operation} 0 0 55 380 1162 1070" in viewer, operation
+    assert f"perform_draw {operation} 0 0 55 380 1162 1220" in viewer, operation
 assert "55 625 1162 845" not in viewer[viewer.index("      total_week)"):viewer.index("      month_prev)")]
-refresh_left, refresh_top, refresh_width, refresh_height = 55, 380, 1162, 1070
-for left, top, width, height in ((85, 380, 1102, 180), (65, 638, 230, 58), (300, 644, 676, 84), (75, 760, 1122, 690)):
+refresh_left, refresh_top, refresh_width, refresh_height = 55, 380, 1162, 1220
+for left, top, width, height in ((85, 380, 1102, 180), (75, 650, 1122, 88), (75, 762, 1122, 84), (75, 884, 1122, 690)):
     assert refresh_left <= left and refresh_top <= top
     assert refresh_left + refresh_width >= left + width
     assert refresh_top + refresh_height >= top + height
@@ -342,9 +342,9 @@ touch_source = touch_source[: touch_source.index('\nnote(string.format("interact
 touch_source = touch_source.replace('local f = assert(io.open(device, "rb"))', "local f = nil")
 touch_source = touch_source.replace('local log = io.open(log_path, "a")', "local log = nil") + "\nreturn action_for_logical"
 lua = LuaRuntime(); lua.globals().arg = lua.table_from({3: "total", 13: "week"}); total_touch = lua.execute(touch_source)
-assert [total_touch(x, 665) for x in (100, 180, 260, 350, 920)] == ["total_week", "total_year", "total_all", "total_prev", "total_next"]
+assert [total_touch(x, y) for x, y in ((254, 694), (636, 694), (1018, 694), (356, 804), (916, 804))] == ["total_week", "total_year", "total_all", "total_prev", "total_next"]
 lua = LuaRuntime(); lua.globals().arg = lua.table_from({3: "total", 13: "all"}); all_touch = lua.execute(touch_source)
-assert [all_touch(x, 665) for x in (260, 350, 920)] == ["total_all", None, None]
+assert [all_touch(x, y) for x, y in ((1018, 694), (356, 804), (916, 804))] == ["total_all", None, None]
 lua = LuaRuntime(); lua.globals().arg = lua.table_from({3: "books", 14: "7d"}); books_touch = lua.execute(touch_source)
 assert [books_touch(x, 310) for x in (100, 500, 800, 1050)] == ["books_7d", "books_month", "books_year", "books_all"]
 record("touch controls", "The hit map returns week/year/all, suppresses arrows in all-time mode, and exposes all four book-range controls.")
