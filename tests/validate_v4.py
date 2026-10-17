@@ -28,6 +28,9 @@ def seed(session,previous):
         base/'user.conf':b'preference=keep\nidle_pause_enabled=1\nidle_pause_minutes=17\n',base/'reading-time.tsv.bak':b'previous backup',
         base/'book-covers/cover.jpg':b'cover',base/'book-cover-cache.tsv':b'cover cache',
         base/'book-cover-misses.tsv':b'miss cache',base/'service.log':b'core service evidence',
+        base/'custom-covers/中文 cover.png':b'original user picture',
+        base/'custom-cover-associations.tsv':b'# custom associations preserved byte for byte\n',
+        base/'custom-cover-previews/retained.pgm':b'isolated preview cache',
         base/'upstart.log':b'core upstart evidence',base/'touch-last.log':b'core touch evidence',
     }
     if previous is None:protected={}
@@ -117,7 +120,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert visible_cleanups==[CLEAN],visible_cleanups
         if mutation!='unknown_alias':assert not (docs/'阅读记录.sh').exists()
         assert not (docs/'reading-records-uninstall.sh').exists() and not (docs/'安装好之后，确认无误了再点这个.sh').exists()
-        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned'):
+        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned'):
             again=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130);assert again.returncode==0,again.stderr
             assert len(list(base.glob('.previous-install')))==1 and not list(base.glob('.v4-rollback.*'))
         if mutation=='scanner_failure':assert 'scanner_request=request_failed index_completion=unverified' in log
@@ -171,8 +174,8 @@ def main():
         cases=[('9.8.1-test4','',True),('9.8.1-test4-cleaned','',True)]
         cases += [('9.8.1-test4',m,False) for m in ('core_failure','activation_failure','interrupted','ks_residue','wrong_device','busy_ui')]
     if '--settings-upgrade' in sys.argv:
-        cases=[('9.8.1-test5','',True),('9.8.1-test5-cleaned','',True)]
-        cases += [('9.8.1-test5',m,False) for m in ('core_failure','activation_failure','interrupted','ks_residue','wrong_device','busy_ui')]
+        cases=[('9.8.1-test6','',True),('9.8.1-test6-cleaned','',True)]
+        cases += [('9.8.1-test6',m,False) for m in ('core_failure','activation_failure','interrupted','ks_residue','wrong_device','busy_ui')]
     if '--idle-upgrade' in sys.argv:
         cases=[('V4','',True)]
         cases += [('V4',m,False) for m in ('core_failure','activation_failure','interrupted','lost_service','stopped_service','ks_residue','wrong_device','orphan','duplicate','busy_ui')]

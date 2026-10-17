@@ -11,16 +11,12 @@ rr_settings_draw() {
         rr_settings_image "$SETTINGS_ASSETS/settings-switch-$idle_enabled.png" 1016 373 152 78
         rr_settings_image "$SETTINGS_ASSETS/settings-switch-$custom_cover_enabled.png" 1016 909 152 78
         if [ "$idle_enabled" = 1 ]; then
-            ot 34 560 104 300 REGULAR "$idle_minutes 分钟无操作后暂停"
+            ot 42 560 104 300 REGULAR "$idle_minutes 分钟无操作后暂停"
         else
-            ot 34 560 104 300 REGULAR "已关闭 · 已选 $idle_minutes 分钟"
+            ot 42 560 104 300 REGULAR "已关闭 · 已选 $idle_minutes 分钟"
         fi
-    elif [ "$mode" = settings_cover ]; then
-        if [ "$custom_cover_enabled" = 1 ]; then
-            ot 34 244 80 80 REGULAR '开关已开启 · 功能尚未接入'
-        else
-            ot 34 244 80 80 REGULAR '开关已关闭 · 功能尚未接入'
-        fi
+    elif [ "${mode#settings_cover}" != "$mode" ]; then
+        rr_cover_draw
     elif [ "$mode" = settings_idle ]; then
         rr_settings_image "$SETTINGS_ASSETS/settings-switch-$idle_enabled.png" 1016 431 152 78
         if [ "$idle_enabled" = 1 ]; then
@@ -54,7 +50,9 @@ rr_settings_draw() {
         fi
         ot 40 511 "$settings_x" 104 REGULAR '分钟'
     fi
-    [ -z "${settings_error:-}" ] || ot 32 1400 80 80 REGULAR "$settings_error"
+    settings_error_y=1400
+    case "$mode" in settings_cover_images|settings_cover_books) settings_error_y=1350;; settings_cover) settings_error_y=1390;; esac
+    [ -z "${settings_error:-}" ] || ot 32 "$settings_error_y" 80 80 REGULAR "$settings_error"
 }
 rr_settings_action() {
     settings_error=''
@@ -74,6 +72,7 @@ rr_settings_action() {
         settings_save)
             if rr_minutes_valid "$settings_digits"; then idle_minutes="$settings_digits"; rr_settings_save; [ -n "$settings_error" ] || mode=settings_idle
             else settings_error='请输入 1 至 1440 的整数'; fi;;
+        settings_cover_*) rr_cover_action;;
     esac
 }
 rr_settings_save() {

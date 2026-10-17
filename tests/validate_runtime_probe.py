@@ -65,7 +65,7 @@ def setup(root: Path, variant: str) -> tuple[Path, dict[str, str], Path, Path]:
     if variant == "standard":
         from runtime_fixture import install_power_fixture
         install_power_fixture(release, mock)
-        for helper in ("reading-config.sh", "reading-settings.sh"):
+        for helper in ("reading-config.sh", "reading-settings.sh", "reading-custom-covers.sh", "reading-custom-covers.lua"):
             shutil.copy2(package/helper,release/"bin"/helper)
     main = release / "bin" / ("reading-records.sh" if variant == "standard" else "reading-records-ks.sh")
     viewer = (package / ("阅读记录-optimized.sh" if variant == "standard" else "阅读记录-ks.sh")).read_text(encoding="utf-8")

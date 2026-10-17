@@ -99,7 +99,7 @@ def shell_case(root, kind, legacy=False):
     root.mkdir()
     base=root/'base'; base.mkdir()
     release=base/'releases/9.8.1-5.20-vera-test1'; (release/'bin').mkdir(parents=True)
-    for name in ['reading-config.sh','reading-settings.sh','reading-insights-touch-ui.lua','reading-insights-touch-probe.lua','reading-insights-touch-preflight.sh']:
+    for name in ['reading-config.sh','reading-settings.sh','reading-custom-covers.sh','reading-custom-covers.lua','reading-insights-touch-ui.lua','reading-insights-touch-probe.lua','reading-insights-touch-preflight.sh']:
         shutil.copy2(PKG/name,release/'bin'/name)
     for folder,names in [('ui-calendar',['total','daily','books','day_detail','month_detail','week_trend','book_detail']),('ui',['total'])]:
         (release/folder).mkdir()

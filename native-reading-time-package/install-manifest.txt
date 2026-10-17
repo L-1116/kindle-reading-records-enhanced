@@ -58,3 +58,6 @@ PERSISTENT_FILE|BASE|reading-time.tsv.bak|reading history backup
 PERSISTENT_FILE|BASE|阅读时长统计.txt|human-readable reading history report
 PERSISTENT_FILE|BASE|user.conf|user configuration, when present
 PERSISTENT_FILE|BASE|cover-debug.enabled|user-controlled cover diagnostic switch
+PERSISTENT_TREE|BASE|custom-covers|user uploaded images; never remove
+PERSISTENT_TREE|BASE|custom-cover-previews|isolated derived previews
+PERSISTENT_FILE|BASE|custom-cover-associations.tsv|user generic and per-book image selections

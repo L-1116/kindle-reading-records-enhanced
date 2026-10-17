@@ -40,12 +40,17 @@ def main() -> None:
                 assert member.isfile() and not member.issym() and not member.islnk()
                 raw = archive.extractfile(member).read()
                 assert raw == expected[member.name], member.name
-                assert not raw.startswith(b"\x7fELF"), member.name
+                if raw.startswith(b"\x7fELF"):
+                    assert member.name=='native-reading-time-package/cover-image'
+                    assert raw[4:6]==b'\x01\x01' and int.from_bytes(raw[18:20],'little')==40
+                    phoff=int.from_bytes(raw[28:32],'little'); size=int.from_bytes(raw[42:44],'little'); n=int.from_bytes(raw[44:46],'little')
+                    assert all(int.from_bytes(raw[phoff+i*size:phoff+i*size+4],'little')!=3 for i in range(n))
+                    assert member.mode & 0o111
         results.append({"variant": variant, "archive": path.name, "size": path.stat().st_size,
                         "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                         "top_level": [BOOT_NAME, TAR_NAME], "payload_files": len(expected),
                         "payload_sha256": hashlib.sha256(payload).hexdigest(),
-                        "source_equals_package": True, "bundled_elf_count": 0, "result": "PASS"})
+                        "source_equals_package": True, "bundled_elf_count": 1, "result": "PASS"})
     output = ROOT / "build/validation/v4-stable-artifacts.json"
     output.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(results, ensure_ascii=False, indent=2))

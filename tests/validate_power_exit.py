@@ -37,7 +37,7 @@ def alive(pid):
                           capture_output=True).returncode == 0
 
 
-def case(renderer, event, stage='touch', external_power='0'):
+def case(renderer, event, stage='touch', external_power='0', cover_mode=None):
     with tempfile.TemporaryDirectory(prefix='power-exit-', dir=OUT) as directory:
         root = Path(directory)
         launcher, env, _, _ = setup(root, 'standard')
@@ -61,6 +61,7 @@ def case(renderer, event, stage='touch', external_power='0'):
                    READING_UI_LOCK=(root/'ui.lock').as_posix(),
                    READER_PID=(root/'reader-pid').as_posix(), BLOCK_FIFO=(mock/'power-events').as_posix(),
                    TEST_ROOT=root.as_posix(), TEST_RENDERER=renderer, TEST_STAGE=stage,
+                   TEST_COVER_HELPERS=(PKG/'reading-custom-covers.sh').as_posix(),
                    READING_TEST_ORIGINAL_POWER=external_power,
                    POWER_TEST_STATE='screenSaver' if stage == 'already_asleep' else 'active')
         executable(mock/'lipc-get-prop',
@@ -88,7 +89,7 @@ printf '%s\\n' "$action"
         common = '''
 detect_screen() { SCREEN_W=1272; SCREEN_H=1696; VIEW_W=1272; VIEW_H=1696; ORIGIN_X=0; ORIGIN_Y=0; }
 find_touch_device() { TOUCH="$READING_TOUCH_DEVICE"; }
-rr_settings_init() { :; }
+rr_settings_init() { . "$TEST_COVER_HELPERS"; }
 standard_touch_action_received() { :; }
 standard_touch_reader_failed() { exit 72; }
 days_in_month() { echo 31; }; weekday_offset() { echo 0; }
@@ -96,15 +97,17 @@ refresh_progress_cache() { :; }
 build_cache() { :; }; metric_begin() { :; }; metric_end() { :; }
 remove_session() { rm -rf "$SESSION_DIR"; }
 draw_background() { if [ "$TEST_STAGE" = fbink ]; then fb -q -W GC16 -s; fi; }
-draw_dynamic() { [ "$TEST_RENDERER:$mode" != fallback:books ]; }
+draw_dynamic() { if [ "$TEST_STAGE" = cover_worker ]; then rr_cover_exec "$TEST_ROOT/mockbin/block-cover"; fi; [ "$TEST_RENDERER:$mode" != fallback:books ]; }
 refresh_region() { :; }; draw() { :; }
 '''
         source = (PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
         prefix, tail = source.split('\ndetect_screen; find_touch_device', 1)
         source = prefix + common + '\ndetect_screen; find_touch_device' + tail
+        if cover_mode: source=source.replace('mode=daily; view_year=',f'mode={cover_mode}; view_year=')
         legacy = (PKG/'阅读记录.sh').read_text(encoding='utf-8')
         legacy = legacy.replace('\ndetect_screen\nfind_touch_device', '\n' + common + '\ndetect_screen\nfind_touch_device')
         legacy = legacy.replace('\n# Safety invariant:', '\n' + common + '\n# Safety invariant:')
+        if cover_mode: legacy=legacy.replace('mode="total"; view_year=',f'mode="{cover_mode}"; view_year=')
         for path, raw in ((release/'bin/reading-records.sh', source),
                           (release/'bin/reading-records-v9.6.3.sh', legacy)):
             raw = raw.replace('SESSION_DIR="/tmp/native-reading-dashboard.$$"', 'SESSION_DIR='+q(session))
@@ -120,6 +123,7 @@ if [ "$TEST_STAGE" = fbink ]; then
 fi
 exit 0
 ''')
+        executable(mock/'block-cover','echo $$ > "$READER_PID"\nexec 7<>"$TEST_ROOT/touch-control"; IFS= read -r unused <&7\n')
         # The native FIFO subscription is always the real module installed by setup.
         if stage == 'subscription_failure': env['POWER_TEST_FAIL'] = '1'
         command = launcher if renderer != 'legacy' else release/'bin/reading-records-v9.6.3.sh'
@@ -176,4 +180,9 @@ if __name__ == '__main__':
     case('optimized', 'manual', 'exit_race')
     case('optimized', 'unused', 'already_asleep')
     case('optimized', 'manual', 'reopen')
-    print('Power exit: 21 offline integration scenarios PASS; Kindle hardware acceptance PENDING')
+    for mode in ('settings_cover','settings_cover_manage','settings_cover_images','settings_cover_books','settings_cover_info'):
+        for renderer in ('optimized','legacy'):
+            for event in ('goingToScreenSaver 2','goingToScreenSaver 4'):
+                case(renderer,event,cover_mode=mode)
+    case('optimized','goingToScreenSaver 2','cover_worker',cover_mode='settings_cover_images')
+    print('Power exit: 42 offline integration scenarios PASS; Kindle hardware acceptance PENDING')

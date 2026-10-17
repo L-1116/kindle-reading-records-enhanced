@@ -61,7 +61,7 @@ for top, toggle, detail in ((373,'settings_toggle','settings_idle'),(909,'settin
     cases += [('settings',p,toggle) for p in ((1016,top),(1092,top+39),(1167,top+77))]
     cases += [('settings',p,detail) for p in ((104,top-13),(932,top+39),(960,top+285))]
     cases += [('settings',p,'') for p in ((961,top+39),(1000,top+39),(1015,top+39),(1168,top+39),(1092,top-1),(1092,top+78))]
-cases += [('settings_cover',p,'') for p in ((600,500),(1100,470),(600,800),(600,1100),(600,1274))]
+cases += [('settings_cover',p,'') for p in ((600,600),(600,1100),(600,1274))]
 count=0
 with tempfile.TemporaryDirectory(prefix='settings-') as tmp:
     root=Path(tmp)
@@ -167,10 +167,10 @@ test "$idle_enabled $settings_error" = '1 保存失败，请重试' || exit 2
         conf.write_bytes(contents.encode())
         assert shell('rr_config_read; echo "$idle_enabled $idle_minutes $custom_cover_enabled"')==expected
 
-    # Cover/timer engines and both parent frontends must stay byte-identical to test5.
+    # The verified timer/power/render engines stay byte-identical to test5.
     for name in ('reading-insights-cover.lua','reading-idle.sh','reading-idle-touch.lua',
                  'native-reading-time-daemon.sh','reading-power.sh','reading-insights-render.lua',
-                 '阅读记录-optimized.sh','阅读记录.sh','ui-calendar/total.png'):
+                 'ui-calendar/total.png'):
         previous=subprocess.check_output(['git','show','92cd750:native-reading-time-package/'+name],cwd=ROOT)
         current=(PKG/name).read_bytes()
         if name=='阅读记录-optimized.sh':
@@ -181,7 +181,7 @@ test "$idle_enabled $settings_error" = '1 保存失败，请重试' || exit 2
         assert current.replace(b'\r\n',b'\n')==previous.replace(b'\r\n',b'\n'),name
 
     states=[('settings_idle',enabled,n,'','') for enabled in (0,1) for n in (1,2,3,4,5,10,17,1440)]
-    states += [(m,e,n,'','') for m in ('settings','settings_cover') for e in (0,1) for n in (3,1440)]
+    states += [('settings',e,n,'','') for e in (0,1) for n in (3,1440)]
     states += [('settings_custom',1,3,d,'') for d in ('','1','17','1440')]
     states += [('settings_custom',1,3,'1441','请输入 1 至 1440 的整数'),('settings_idle',1,3,'','保存失败，请重试')]
     states=[(*state,cover) for state in states for cover in ((0,1) if state[0]=='settings' else (state[1],))]

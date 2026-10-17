@@ -31,7 +31,11 @@ allowed = {'reading-config.sh', 'reading-settings.sh', 'ui-calendar/settings.png
            'ui-calendar/settings_custom.png', '阅读记录-optimized.sh', 'reading-insights-render.lua',
            'reading-insights-touch-ui.lua', 'ui-calendar/total.png',
            'reading-power.sh', 'launch.sh', '阅读记录.sh', 'Install-Native-Reading-Time-Optimized.sh',
-           'reading-insights-touch-preflight.sh', 'compat/migration.sh'}
+           'reading-insights-touch-preflight.sh', 'compat/migration.sh',
+           'reading-custom-covers.sh','reading-custom-covers.lua','cover-image',
+           'install-manifest.txt','ui-calendar/settings_cover_manage.png',
+           'ui-calendar/settings_cover_images.png','ui-calendar/settings_cover_books.png',
+           'ui-calendar/settings_cover_info.png'}
 for path in PKG.rglob('*'):
     if not path.is_file() or path.relative_to(PKG).as_posix() in allowed:
         continue
@@ -45,7 +49,7 @@ for path in PKG.rglob('*'):
         actual, previous = actual.replace(b'\r\n', b'\n'), previous.replace(b'\r\n', b'\n')
     assert actual == previous, path
 cleanup = ROOT/'v4/cleanup.sh'
-assert cleanup.read_bytes().replace(b'9.8.1-5.20-vera-test6', b'9.8.1-5.20-vera-test3').replace(b'reading-records-v4-install.sh', b'reading-records-9.8.1-install.sh') == subprocess.check_output(['git','show','63e34dba:v4/cleanup.sh'], cwd=ROOT)
+assert cleanup.read_bytes().replace(b'9.8.1-5.20-vera-test7', b'9.8.1-5.20-vera-test3').replace(b'reading-records-v4-install.sh', b'reading-records-9.8.1-install.sh') == subprocess.check_output(['git','show','63e34dba:v4/cleanup.sh'], cwd=ROOT)
 
 old_bg = subprocess.check_output(['git', 'show',
     '63e34dba:native-reading-time-package/ui-calendar/total.png'], cwd=ROOT)
@@ -60,6 +64,11 @@ viewer_path = 'native-reading-time-package/阅读记录-optimized.sh'
 before = subprocess.check_output(['git', 'show', 'f9cb13d9:'+viewer_path], cwd=ROOT).decode()
 after = (ROOT/viewer_path).read_text(encoding='utf-8')
 def preserved_shell(source):
+    # Isolate the cover implementation and its initialization. Statistics,
+    # renderer, drawing and navigation below remain byte-identical.
+    a=source.index('cover_path_allowed() {'); b=source.index('render_cover_placeholder() {',a)
+    source=source[:a]+source[b:]
+    source=source.replace('    . "$SETTINGS_HELPERS/reading-custom-covers.sh" || exit 1\n    rr_cover_init\n    rr_config_read\n','')
     # Full settings navigation redraws the calendar month title on return.
     source = source.replace('perform_draw settings_change 1 1 0 0 1272 1696',
                             'perform_draw settings_change 1 0 0 0 1272 1696')

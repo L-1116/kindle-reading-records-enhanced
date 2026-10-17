@@ -23,6 +23,9 @@ rr_settings_gear() { :; }
 rr_settings_init() {
     . "$SETTINGS_HELPERS/reading-config.sh" || exit 1
     . "$SETTINGS_HELPERS/reading-settings.sh" || exit 1
+    . "$SETTINGS_HELPERS/reading-custom-covers.sh" || exit 1
+    rr_cover_init
+    rr_config_read
 }
 RENDERER="$RELEASE/bin/reading-insights-render.lua"
 RENDER_ASSETS="$RELEASE/render-assets"
@@ -430,7 +433,7 @@ catalog_row_for_book() {
             candidate_location="$(printf '%s\n' "$candidate_row" | awk -F '\t' '{print $5}')"
             candidate_source="$candidate_location"
             case "$candidate_source" in file://*) candidate_source="${candidate_source#file://}";; esac
-            if [ -n "$candidate_thumb" ] && cover_path_allowed "$candidate_thumb"; then
+            if [ -n "$candidate_thumb" ] && cover_path_allowed "$candidate_thumb" && cover_decodable "$candidate_thumb"; then
                 candidate_rank=30
                 [ -n "$candidate_location" ] && candidate_rank=40
             elif book_path_allowed "$candidate_source"; then
@@ -515,7 +518,7 @@ resolveBookCover() {
     cover_log "cache path: ${resolve_path:-none}"
     [ "$COVER_DEBUG" -eq 1 ] && cover_log "cache exists: $([ -n "$resolve_path" ] && cover_path_allowed "$resolve_path" && echo yes || echo no)"
     if [ -n "$resolve_path" ]; then
-        if cover_path_allowed "$resolve_path"; then printf '%s\n' "$resolve_path"; return 0; fi
+        if cover_path_allowed "$resolve_path" && cover_decodable "$resolve_path"; then printf '%s\n' "$resolve_path"; return 0; fi
         cover_cache_forget "$resolve_key" || true
     fi
     ensure_catalog
@@ -523,7 +526,7 @@ resolveBookCover() {
     if [ -n "$resolve_row" ]; then
         resolve_path="$(printf '%s\n' "$resolve_row" | awk -F '\t' '{print $4}')"
         cover_log "expected source: ${resolve_path:-none}"
-        if [ -n "$resolve_path" ] && cover_path_allowed "$resolve_path"; then
+        if [ -n "$resolve_path" ] && cover_path_allowed "$resolve_path" && cover_decodable "$resolve_path"; then
             cover_cache_remember "$resolve_key" "$resolve_path" || true
             printf '%s\n' "$resolve_path"; return 0
         fi
@@ -531,19 +534,36 @@ resolveBookCover() {
     case "$resolve_id" in *[!A-Za-z0-9_-]*|'') :;; *)
         resolve_path="/mnt/us/system/thumbnails/thumbnail_${resolve_id}_EBOK_portrait.jpg"
         cover_log "expected source: $resolve_path"
-        if cover_path_allowed "$resolve_path"; then cover_cache_remember "$resolve_key" "$resolve_path" || true; printf '%s\n' "$resolve_path"; return 0; fi
+        if cover_path_allowed "$resolve_path" && cover_decodable "$resolve_path"; then cover_cache_remember "$resolve_key" "$resolve_path" || true; printf '%s\n' "$resolve_path"; return 0; fi
     esac
     resolve_source="$(printf '%s\n' "$resolve_row" | awk -F '\t' '{print $5}')"
     case "$resolve_source" in file://*) resolve_source="${resolve_source#file://}";; esac
     if ! book_path_allowed "$resolve_source" && [ -n "$resolve_title" ]; then resolve_source="/mnt/us/documents/$resolve_title"; fi
-    book_path_allowed "$resolve_source" || { cover_log "error: no readable thumbnail or supported book source"; return 1; }
-    cache_embedded_cover "$resolve_key" "$resolve_source"
+    if book_path_allowed "$resolve_source"; then
+        resolve_embedded="$(cache_embedded_cover "$resolve_key" "$resolve_source")"
+        if [ -n "$resolve_embedded" ] && cover_decodable "$resolve_embedded"; then printf '%s\n' "$resolve_embedded"; return 0; fi
+    fi
+    cover_log "no decodable real cover; trying custom fallback"
+    type rr_cover_fallback >/dev/null 2>&1 && rr_cover_fallback "$resolve_id" "$resolve_title"
+}
+
+cover_decodable() {
+    # Before settings init (isolated historical tests), preserve the resolver's
+    # read-only contract. Installed dashboards always initialize the helper.
+    [ -n "${COVER_IMAGE_HELPER:-}" ] || return 0
+    rr_cover_real "$1" >/dev/null
 }
 
 renderBookCover() {
     render_id="$1"
     if [ "$#" -eq 5 ]; then render_title=""; shift 1; else render_title="$2"; shift 2; fi
     render_cover_path="$(resolveBookCover "$render_id" "$render_title")" || return 0
+    # Normalize real images too: a failed decoder never reaches fb(), whose
+    # actual-runtime failure must retain its existing safe-exit semantics.
+    case "$render_cover_path" in "$COVER_PREVIEWS"/*) :;; *)
+        if [ -n "${COVER_IMAGE_HELPER:-}" ]; then
+            render_cover_path="$(rr_cover_real "$render_cover_path")" || render_cover_path="$(rr_cover_fallback "$render_id" "$render_title")" || return 0
+        fi;; esac
     image "$render_cover_path" "$1" "$2" "$3" "$4" || { cover_log "error: UI could not display cache path: $render_cover_path"; cover_cache_forget "$(cover_identity_key "$render_id" "$render_title")" || true; return 0; }
     return 0
 }
@@ -1403,6 +1423,7 @@ cleanup() {
     cleanup_done=1
     trap '' INT TERM HUP USR2
     trap 'rr_power_sleep=1' USR1
+    type rr_cover_stop >/dev/null 2>&1 && rr_cover_stop
     fbink_stop_child
     # A signal may arrive between starting a child and saving $!.
     case "$ui_child_launch" in

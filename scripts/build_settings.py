@@ -41,6 +41,52 @@ def page(title):
     d.line((64, 178, 1208, 178), fill=176, width=2)
     return im, d
 
+def button(d, box, label, size=38):
+    d.rounded_rectangle(box, 18, outline=104, width=3)
+    if label: text(d, (box[0]+box[2])/2, (box[1]+box[3])/2, label, size, center=True)
+
+def covers(out):
+    im,d=page('自定义缺失封面')
+    for y,title,desc in ((330,'通用替代封面','无专属图片时使用'),(650,'单本书籍指定封面','从全部历史阅读书籍中选择')):
+        button(d,(64,y,1208,y+250),'')
+        text(d,104,y+62,title,42); text(d,104,y+126,desc,32,MUTED)
+        chevron(d,1150,y+62)
+    button(d,(64,954,1208,1074),'图片目录与使用说明')
+    button(d,(64,1134,1208,1254),'重新扫描图片')
+    text(d,80,1456,'真实封面始终优先。关闭开关后保留所有选择。',32,MUTED)
+    text(d,80,1516,'图片可在各书籍及通用封面的「选择图片」中预览。',32,MUTED)
+    im.save(out/'settings_cover.png')
+    im,d=page('替代封面管理')
+    d.rounded_rectangle((436,330,836,910),18,outline=176,width=2)
+    button(d,(104,1080,1168,1210),'选择图片')
+    button(d,(104,1250,1168,1380),'取消选择')
+    text(d,80,1490,'真实封面优先；图片失效时自动使用下一级封面。',32,MUTED)
+    im.save(out/'settings_cover_manage.png')
+    for mode,title,size,step,height in (('images','选择图片',4,260,230),('books','历史书籍',6,160,140)):
+        im,d=page(title)
+        for row in range(size):
+            y=310+row*step
+            d.rounded_rectangle((80,y,1192,y+height),16,outline=160,width=2)
+        button(d,(80,1400,410,1520),'上一页')
+        button(d,(862,1400,1192,1520),'下一页')
+        if mode=='images': button(d,(452,1400,820,1520),'重新扫描',34)
+        text(d,636,1594,'轻触条目选择，返回保留原有选择。',30,MUTED,center=True)
+        im.save(out/f'settings_cover_{mode}.png')
+    im,d=page('图片目录与使用说明')
+    for y,s,size in ((330,'用 USB 连接 Kindle，将图片复制到：',38),
+                     (440,'reading-time/custom-covers/',40),
+                     (550,'支持 JPG、JPEG、PNG；文件名可含中文和空格。',32),
+                     (650,'推荐 2:3，例如 400×600 或 600×900。',34),
+                     (750,'其他比例将等比例缩放、居中留白。',34),
+                     (850,'每张不超过 8 MiB、1200 万像素、单边 8192 像素。',32),
+                     (970,'返回后轻触「重新扫描图片」，或进入图片选择。',32),
+                     (1070,'进入选择页扫描一次；不会在后台持续扫描。',32),
+                     (1190,'未安装的历史书籍也可指定图片。',34),
+                     (1290,'取消专属指定后使用通用图片，再回退至占位图。',32),
+                     (1420,'关闭功能后保留图片与关联，不修改真实封面缓存。',32)):
+        text(d,80,y,s,size,MUTED)
+    im.save(out/'settings_cover_info.png')
+
 
 def build():
     out = PKG / 'ui-calendar'
@@ -56,31 +102,13 @@ def build():
         text(d, 104, y+166, description, 32, MUTED)
         chevron(d, 932, y+84)
         d.line((980, y+32, 980, y+330), fill=192, width=2)
-    text(d, 104, 1094, '自定义封面功能将在后续测试版生效', 32, MUTED)
-    text(d, 104, 1148, '当前仅保存开关，不替换封面', 32, MUTED)
+    text(d, 104, 1094, '仅替代缺失封面，真实封面优先', 32, MUTED)
+    text(d, 104, 1148, '通用图片与单本书籍图片均可在此选择', 32, MUTED)
     text(d, 80, 1480, '轻触文字或箭头查看详情，拨片独立开关。', 32, MUTED)
     text(d, 80, 1538, '设置自动保存。', 32, MUTED)
     im.save(out / 'settings.png')
 
-    im, d = page('自定义缺失封面')
-    text(d, 80, 320, '自定义封面功能将在后续测试版生效', 34, MUTED)
-    for y, title, description, reserved in (
-        (378, '通用替代封面', '用于尚未指定图片的缺失封面书籍。', '后续测试版提供图片选择'),
-        (666, '单本书籍指定封面', '按书籍指定专属图片，保留原有封面。', '后续测试版提供书籍管理'),
-    ):
-        d.rounded_rectangle((64, y, 1208, y+232), 24, outline=144, width=2)
-        text(d, 104, y+56, title, 42)
-        text(d, 104, y+124, description, 32, MUTED)
-        text(d, 104, y+184, reserved, 32, MUTED)
-    d.rounded_rectangle((64, 954, 1208, 1340), 24, outline=144, width=2)
-    text(d, 104, 1010, '图片目录与使用说明', 42)
-    text(d, 104, 1080, '/mnt/us/reading-time/custom-covers/', 32)
-    text(d, 104, 1144, '预计支持 JPG、PNG，建议图片比例 2:3', 32, MUTED)
-    text(d, 104, 1204, '例如 400×600 或 600×900', 32, MUTED)
-    text(d, 104, 1274, '后续测试版提供文件扫描与重新扫描', 32, MUTED)
-    text(d, 80, 1456, 'test7 将接入扫描、缩略图浏览及图片关联。', 32, MUTED)
-    text(d, 80, 1516, '本版不读取图片，也不改变现有封面或缓存。', 32, MUTED)
-    im.save(out / 'settings_cover.png')
+    covers(out)
 
     im, d = page('无操作暂停计时')
     text(d, 64, 264, '阅读计时', 52)

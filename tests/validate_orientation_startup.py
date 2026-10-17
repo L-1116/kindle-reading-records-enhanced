@@ -82,7 +82,7 @@ wait() { printf 'wait %s\n' "$*" >> "$SELECTION_TRACE"; }
         (release / f"ui-calendar/{name}.png").write_bytes(b"mock")
     (base / "reading-time.tsv").write_text("mock", encoding="utf-8")
     (base / "fonts/NotoSansCJKsc-Regular.otf").write_bytes(b"font")
-    for helper in ("reading-config.sh", "reading-settings.sh"):
+    for helper in ("reading-config.sh", "reading-settings.sh", "reading-custom-covers.sh", "reading-custom-covers.lua"):
         (release/"bin"/helper).write_bytes((PKG/helper).read_bytes())
     touch = session / "touch"
     touch.write_bytes(b"mock")

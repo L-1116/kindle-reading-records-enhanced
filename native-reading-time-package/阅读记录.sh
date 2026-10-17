@@ -18,6 +18,9 @@ rr_settings_gear() { :; }
 rr_settings_init() {
     . "$SETTINGS_HELPERS/reading-config.sh" || exit 1
     . "$SETTINGS_HELPERS/reading-settings.sh" || exit 1
+    . "$SETTINGS_HELPERS/reading-custom-covers.sh" || exit 1
+    rr_cover_init
+    rr_config_read
 }
 SESSION_DIR="${READING_UI_SESSION:-/tmp/native-reading-dashboard.$$}"
 trap '[ -n "${READING_UI_SESSION:-}" ] || rm -rf "$SESSION_DIR"' EXIT
@@ -459,6 +462,7 @@ cleanup() {
     cleanup_done=1
     trap '' INT TERM HUP USR2
     trap 'rr_power_sleep=1' USR1
+    type rr_cover_stop >/dev/null 2>&1 && rr_cover_stop
     [ "$touch_pending" = 0 ] || touch_pid=$!
     if [ -n "$touch_pid" ]; then
         kill -TERM "$touch_pid" 2>/dev/null || true

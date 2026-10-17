@@ -14,10 +14,10 @@ from package_release import FILES as STANDARD_FILES
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCT_VERSION = "9.8.1-5.20-vera-test6"
+PRODUCT_VERSION = "9.8.1-5.20-vera-test7"
 # Product/UI revision only: keep the verified daemon/helper runtime paths.
 RUNTIME_VERSION = "9.8.1-5.20-vera-test1"
-DIST = ROOT / "build/standard-9.8.1-test6"
+DIST = ROOT / "build/standard-9.8.1-test7"
 SIMPLE_ARCHIVE = DIST / f"{PRODUCT_VERSION}.zip"
 BOOT_NAME = "reading-records-v4-install.sh"
 TAR_NAME = "阅读记录安装数据.tar"
@@ -81,7 +81,7 @@ exit 127
     result["v4/cleanup.sh"] = (ROOT / "v4/cleanup.sh").read_bytes()
     result["native-reading-time-package/migration-manifest.tsv"] = ownership_manifest(result, posix_cksum, make_tar)
     build_id = sha(b"".join(name.encode() + b"\0" + sha(raw).encode() for name, raw in sorted(result.items())))[:20]
-    result["BUILD-INFO"] = f"product_version={PRODUCT_VERSION}\nvariant=standard\nbuild_id={build_id}\nsource_baseline=92cd750\n".encode()
+    result["BUILD-INFO"] = f"product_version={PRODUCT_VERSION}\nvariant=standard\nbuild_id={build_id}\nsource_baseline=13e2c8d3746dc8259aeb6503a890c9f76382712c\n".encode()
     entries = [{"path": name, "size": len(raw), "sha256": sha(raw)} for name, raw in sorted(result.items())]
     manifest_name = "PACKAGE-MANIFEST.json" if variant == "standard" else "PACKAGE-MANIFEST-KS.json"
     result[manifest_name] = (json.dumps({"format": 4, "installer_format": "two-file-1", "product_version": PRODUCT_VERSION, "variant": variant, "files": entries}, ensure_ascii=False, indent=2) + "\n").encode()
@@ -94,7 +94,7 @@ def make_tar(files: dict[str, bytes]) -> bytes:
         for name, raw in sorted(files.items()):
             info = tarfile.TarInfo(name)
             info.size = len(raw)
-            info.mode = 0o755 if name.endswith(".sh") else 0o644
+            info.mode = 0o755 if (name.endswith(".sh") or name.endswith("/cover-image")) else 0o644
             info.mtime = 0
             archive.addfile(info, io.BytesIO(raw))
     return stream.getvalue()
@@ -105,7 +105,7 @@ def make_zip(path: Path, files: dict[str, bytes]) -> None:
         for name, raw in sorted(files.items()):
             info = zipfile.ZipInfo(name, date_time=(2026, 10, 3, 0, 0, 0))
             info.create_system = 3
-            info.external_attr = ((0o100755 if name.endswith(".sh") else 0o100644) << 16)
+            info.external_attr = ((0o100755 if (name.endswith(".sh") or name.endswith("/cover-image")) else 0o100644) << 16)
             archive.writestr(info, raw, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
     with zipfile.ZipFile(path) as archive:
         assert archive.testzip() is None

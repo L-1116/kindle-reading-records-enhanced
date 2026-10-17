@@ -79,6 +79,29 @@ local function inside(px, py, left, top, right, bottom)
     return px >= left and px <= right and py >= top and py <= bottom
 end
 local function settings_action(px, py)
+    if mode:match('^settings_cover') then
+        if mode~='settings_cover' and inside(px,py,64,54,256,146) then return 'settings_cover_back' end
+        if mode=='settings_cover' then
+            if inside(px,py,64,330,1208,580) then return 'settings_cover_generic' end
+            if inside(px,py,64,650,1208,900) then return 'settings_cover_books' end
+            if inside(px,py,64,954,1208,1074) then return 'settings_cover_info' end
+            if inside(px,py,64,1134,1208,1254) then return 'settings_cover_scan' end
+        elseif mode=='settings_cover_manage' then
+            if inside(px,py,104,1080,1168,1210) then return 'settings_cover_choose' end
+            if inside(px,py,104,1250,1168,1380) then return 'settings_cover_clear' end
+        elseif mode=='settings_cover_images' or mode=='settings_cover_books' then
+            if inside(px,py,80,1400,410,1520) then return 'settings_cover_prev' end
+            if inside(px,py,862,1400,1192,1520) then return 'settings_cover_next' end
+            if mode=='settings_cover_images' and inside(px,py,452,1400,820,1520) then return 'settings_cover_scan' end
+            local count,step,height=6,160,140
+            if mode=='settings_cover_images' then count,step,height=4,260,230 end
+            for i=1,count do
+                local y=310+(i-1)*step
+                if inside(px,py,80,y,1192,y+height) then return 'settings_cover_item_'..i end
+            end
+        end
+        if mode~='settings_cover' then return false end
+    end
     if mode == "settings" or mode == "settings_idle" or mode == "settings_cover" or mode == "settings_custom" then
         if inside(px,py,44,34,276,166) then
             if mode == "settings" then return "settings_back" end

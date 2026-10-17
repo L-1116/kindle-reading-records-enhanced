@@ -44,7 +44,7 @@ acquire_runtime_lock || { release_runtime_lock; exit 75; }
 if [ -d "${READING_LIFECYCLE_LOCK:-${READING_TMPDIR:-/tmp}/reading-records-lifecycle.lock}" ]; then exit 75; fi
 rr_perf lock_acquired
 mkdir -p "$BASE" 2>/dev/null || exit 1
-if [ "${READING_PRESERVE_LAUNCH_LOGS:-0}" = 1 ] || ! : > "$LOG" 2>/dev/null; then
+if [ "${READING_PRESERVE_LAUNCH_LOGS:-0}" = 1 ] || ! ( : > "$LOG" ) 2>/dev/null; then
     # A failed evidence write must not erase the original logs or prevent
     # a readable history UI. Emergency output is one fixed temporary file.
     READING_PRESERVE_LAUNCH_LOGS=1
