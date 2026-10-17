@@ -153,7 +153,7 @@ OWNERSHIP="$PKG/migration-manifest.tsv"
 # The executing bootstrap shares its filename with earlier 9.8.1 packages.
 # Identify this invocation by location and bytes, not by a filename exemption.
 rr_installer_file=''; rr_installer_sum=''
-if [ "${0##*/}" = reading-records-9.8.1-install.sh ] &&
+if { [ "${0##*/}" = reading-records-9.8.1-install.sh ] || [ "${0##*/}" = reading-records-v4-install.sh ]; } &&
    [ "$(pwd -P)" = "$(CDPATH= cd "$DOCS" && pwd -P)" ] &&
    [ -f "./${0##*/}" ] && [ ! -L "./${0##*/}" ]; then
     rr_installer_file="$DOCS/${0##*/}"

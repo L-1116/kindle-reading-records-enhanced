@@ -32,7 +32,8 @@ with tempfile.TemporaryDirectory(prefix="orientation-", dir=OUT) as directory:
     fixture.write_text("100 (dashboard fallback) S 1 0\n101 (shell) S 100 0\n102 (touch reader) S 101 0\n200 (unrelated) S 1 0\n201 (other reader) S 200 0\n", encoding="utf-8")
     selector_start = viewer.index("stop_ui_child()")
     selector = viewer[selector_start:viewer.index("\n}\n", selector_start) + 3]
-    selector = selector.replace("/proc/[0-9]*/stat", quote(fixture))
+    # A different process can disappear between glob expansion and reading it.
+    selector = selector.replace("/proc/[0-9]*/stat", quote(session/'vanished-stat')+' '+quote(fixture))
     selector = selector.replace('"/proc/$stopping_pid/stat"', quote(root_stat)).replace('-v owner="$$"', '-v owner=1')
     selector_script = session / "selector.sh"
     selection_trace = session / "selection-trace"
@@ -47,6 +48,7 @@ wait() { printf 'wait %s\n' "$*" >> "$SELECTION_TRACE"; }
         lines = selection_trace.read_text(encoding="utf-8").splitlines()
         assert lines[0] == "kill -STOP 100" and lines[-2:] == ["kill -KILL 100", "wait 100"], lines
         assert set(lines[1].split()) == {"kill", "-TERM", "101", "102"}, lines
+        assert set(lines[2].split()) == {"kill", "-KILL", "101", "102"}, lines
         root_stat.write_text("100 (reused unrelated pid) S 200 0\n", encoding="utf-8")
         selection_trace.write_text("", encoding="utf-8")
         subprocess.run([shell, selector_script.as_posix()], cwd=ROOT, capture_output=True, check=True,
@@ -102,8 +104,11 @@ exec /bin/sleep 30
     script = session / "run.sh"
     mockbin = session / "mockbin"
     mockbin.mkdir()
+    from runtime_fixture import install_power_fixture
+    install_power_fixture(release, mockbin)
     get_prop = mockbin / "lipc-get-prop"
     get_prop.write_text('''#!/bin/sh
+[ "$2" != state ] || { echo active; exit 0; }
 echo GET >> "$TRACE"
 printf '%s\n' "$ORIGINAL"
 exit "${GET_EXIT:-0}"

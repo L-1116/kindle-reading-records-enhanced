@@ -4,8 +4,10 @@
 standard_touch_failure() {
     printf 'error_stage=touch\n'
     lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true
-    lipc-set-prop com.lab126.powerd preventScreenSaver "${READING_ORIGINAL_POWER:-0}" >/dev/null 2>&1 || true
-    lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
+    case "$(lipc-get-prop com.lab126.powerd state 2>/dev/null)" in
+        screenSaver|goingToScreenSaver|readyToSuspend|suspended) :;;
+        *) lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true;;
+    esac
     fail "阅读记录触摸初始化失败，已返回书库"
 }
 standard_touch_preflight() {

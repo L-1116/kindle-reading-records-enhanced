@@ -27,7 +27,9 @@ def centered(image, box, white=False):
 
 # Preserve every other shipped payload byte against the accepted test3 source.
 allowed = {'阅读记录-optimized.sh', 'reading-insights-render.lua',
-           'reading-insights-touch-ui.lua', 'ui-calendar/total.png'}
+           'reading-insights-touch-ui.lua', 'ui-calendar/total.png',
+           'reading-power.sh', 'launch.sh', '阅读记录.sh', 'Install-Native-Reading-Time-Optimized.sh',
+           'reading-insights-touch-preflight.sh', 'compat/migration.sh'}
 for path in PKG.rglob('*'):
     if not path.is_file() or path.relative_to(PKG).as_posix() in allowed:
         continue
@@ -35,13 +37,13 @@ for path in PKG.rglob('*'):
         '63e34dba:native-reading-time-package/'+path.relative_to(PKG).as_posix()], cwd=ROOT)
     actual = path.read_bytes()
     if path.name == 'Install-Native-Reading-Time-Optimized.sh':
-        actual = actual.replace(b'9.8.1-5.20-vera-test4', b'9.8.1-5.20-vera-test3')
+        actual = actual.replace(b'9.8.1-5.20-vera-test5', b'9.8.1-5.20-vera-test3')
     if path.suffix not in ('.png', '.pgm', '.otf'):
         # Account for Git's Windows checkout line-ending conversion.
         actual, previous = actual.replace(b'\r\n', b'\n'), previous.replace(b'\r\n', b'\n')
     assert actual == previous, path
 cleanup = ROOT/'v4/cleanup.sh'
-assert cleanup.read_bytes().replace(b'9.8.1-5.20-vera-test4', b'9.8.1-5.20-vera-test3') == subprocess.check_output(['git','show','63e34dba:v4/cleanup.sh'], cwd=ROOT)
+assert cleanup.read_bytes().replace(b'9.8.1-5.20-vera-test5', b'9.8.1-5.20-vera-test3').replace(b'reading-records-v4-install.sh', b'reading-records-9.8.1-install.sh') == subprocess.check_output(['git','show','63e34dba:v4/cleanup.sh'], cwd=ROOT)
 
 old_bg = subprocess.check_output(['git', 'show',
     '63e34dba:native-reading-time-package/ui-calendar/total.png'], cwd=ROOT)
@@ -50,18 +52,16 @@ new_bg = Image.open(PKG/'ui-calendar/total.png').convert('L')
 diff = ImageChops.difference(old_bg, new_bg).getbbox()
 assert diff and diff[0] >= 50 and diff[1] >= 600 and diff[2] <= 1223 and diff[3] <= 1621
 
-# Freeze all shell behavior outside the total rendering block and its refresh
-# extents: aggregation, pause/settings handlers, data/config and other pages.
+# Preserve the accepted test4 rendering, aggregation and action handlers.
+# Frontend startup/cleanup and interruptible waits have their own power tests.
 viewer_path = 'native-reading-time-package/阅读记录-optimized.sh'
-before = subprocess.check_output(['git', 'show', '63e34dba:'+viewer_path], cwd=ROOT).decode()
+before = subprocess.check_output(['git', 'show', 'f9cb13d9:'+viewer_path], cwd=ROOT).decode()
 after = (ROOT/viewer_path).read_text(encoding='utf-8')
-def outside_total(source):
-    start = source.index('spec_total_toggle_button()') if 'spec_total_toggle_button()' in source else source.index('spec_period_card()')
-    end = source.index('# Reusable on-demand interval aggregation.')
-    source = source[:start] + source[end:]
-    return '\n'.join(line for line in source.replace('1162 1220','1162 1070').splitlines()
-                     if not line.startswith('scenter()'))
-assert outside_total(before) == outside_total(after)
+def preserved_shell(source):
+    return (source[:source.index('\ndashboard_active=0;')] +
+            source[source.index('\nperform_draw()'):source.index('\nrr_perf geometry_begin')] +
+            source[source.index('    standard_touch_action_received\n'):])
+assert preserved_shell(before) == preserved_shell(after)
 touch_path = 'native-reading-time-package/reading-insights-touch-ui.lua'
 before = subprocess.check_output(['git', 'show', '63e34dba:'+touch_path], cwd=ROOT).decode()
 after = (ROOT/touch_path).read_text(encoding='utf-8')

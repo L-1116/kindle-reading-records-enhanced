@@ -1378,22 +1378,31 @@ stop_ui_child() {
     kill -STOP "$stopping_pid" 2>/dev/null || true
     # One snapshot on interrupted recovery only, including blocked readers.
     # /proc/stat also works on the old Kindle kernels; no process polling.
-    stopping_descendants="$(awk -v owner="$stopping_pid" '
+    # /proc entries can disappear during enumeration. Feeding each readable
+    # record through stdin keeps awk from aborting before it reaches our reader.
+    stopping_descendants="$(
+        for stopping_stat in /proc/[0-9]*/stat; do
+            while IFS= read -r stopping_line; do
+                printf '%s\n' "$stopping_line"
+            done 2>/dev/null < "$stopping_stat"
+        done | awk -v owner="$stopping_pid" '
         { pid=$1; sub(/^.*\) /, ""); split($0, fields, " "); parent[pid]=fields[2] }
         END {
             owned[owner]=1
             do { found=0; for (pid in parent) if (!(pid in owned) && (parent[pid] in owned)) { owned[pid]=1; found=1 } } while (found)
             for (pid in owned) if (owned[pid] && pid!=owner) print pid
-        }' /proc/[0-9]*/stat 2>/dev/null)"
+        }')"
     [ -z "$stopping_descendants" ] || kill -TERM $stopping_descendants 2>/dev/null || true
-    # The legacy shell traps TERM without exiting. This parent owns cleanup.
+    [ -z "$stopping_descendants" ] || kill -KILL $stopping_descendants 2>/dev/null || true
+    # The parent owns cleanup even if a fallback ignores TERM.
     kill -KILL "$stopping_pid" 2>/dev/null || true
     wait "$stopping_pid" 2>/dev/null || true
 }
 cleanup() {
     [ "$cleanup_done" = 0 ] || return 0
     cleanup_done=1
-    trap '' INT TERM HUP
+    trap '' INT TERM HUP USR2
+    trap 'rr_power_sleep=1' USR1
     fbink_stop_child
     # A signal may arrive between starting a child and saving $!.
     case "$ui_child_launch" in
@@ -1406,27 +1415,33 @@ cleanup() {
     if [ -n "$legacy_pid" ]; then
         stop_ui_child "$legacy_pid"; legacy_pid=""
     fi
-    lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver "${READING_ORIGINAL_POWER:-0}" >/dev/null 2>&1 || true; remove_session
-    if [ "$dashboard_active" -eq 1 ]; then
+    lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true
+    restore_orientation
+    rr_power_check
+    if [ "$dashboard_active" -eq 1 ] && [ "${rr_power_sleep:-0}" = 0 ]; then
         lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
         # Library owns its refresh; recovery never executes a runtime
         # that may just have failed or been interrupted.
     fi
-    restore_orientation
+    rr_power_stop
+    remove_session
+    [ "${rr_power_sleep:-0}" = 0 ] || exit 90
 }
 # Installed before detect_screen can change orientation, including early fail.
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
+. "$RELEASE/bin/reading-power.sh" || exit 1
+rr_power_init
 
 fallback_to_legacy() {
     echo "$(date): renderer failed; switching to compatibility dashboard"
     lipc-set-prop com.lab126.system toasterMessage "优化渲染异常，已切换兼容模式" >/dev/null 2>&1 || true
-    metric_end legacy 1 1; remove_session
+    metric_end legacy 1 1
     # Keep the cleanup trap active even when the old renderer fails.
     ui_child_launch=legacy
-    /bin/sh "$LEGACY" & legacy_pid=$!; ui_child_launch=""
+    READING_UI_SESSION="$SESSION_DIR" /bin/sh "$LEGACY" & legacy_pid=$!; ui_child_launch=""
     wait "$legacy_pid"; legacy_code=$?; legacy_pid=""
     [ "$legacy_code" -ne 0 ] || dashboard_active=0
     exit "$legacy_code"
@@ -1481,11 +1496,12 @@ rr_perf geometry_begin
 detect_screen; find_touch_device; rr_settings_init
 rr_perf touch_end
 mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 700 "$SESSION_DIR" 2>/dev/null || true
+rr_power_start || fail "无法监听系统休眠事件"
     [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] && [ -f "$UI_DIR/month_detail.png" ] && [ -f "$UI_DIR/week_trend.png" ] && [ -f "$UI_DIR/book_detail.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
     printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.8.1-5.20-vera-test1\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
-lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true; dashboard_active=1
+lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; dashboard_active=1
 
 mode=daily; view_year="$(date +%Y)"; total_period=week; week_offset=0; book_filter=7d; daily_y="$(date +%Y)"; daily_m="$(date +%m | sed 's/^0//')"; today_date="$(date +%Y-%m-%d)"; selected_date="$today_date"; book_page=1; detail_page=1; detail_pages=1; day_detail_page=1; day_detail_pages=1; day_detail_source=daily; month_detail_source=daily; book_detail_filter=7d; book_detail_page=1
 first_refresh_mode=GC16_flash
@@ -1506,7 +1522,7 @@ while :; do
     if [ "$mode" = book_detail ]; then offset="$book_calendar_offset"; dim="$book_calendar_dim"; else offset="$(weekday_offset "$daily_y" "$daily_m")"; dim="$(days_in_month "$daily_y" "$daily_m")"; fi
     if [ "$mode" = day_detail ]; then touch_pages="$day_detail_pages"; touch_page="$day_detail_page"; touch_pager_y=$((DAY_DETAIL_LIST_TOP+DAY_DETAIL_PAGER_Y)); else touch_pages="$detail_pages"; touch_page="$detail_page"; touch_pager_y=$((DETAIL_TOP+DETAIL_H-DETAIL_PAGER_H)); fi
     if [ "$startup_touch_pending" = 1 ]; then startup_stage touch_listener_begin; startup_touch_pending=0; fi
-    if [ "${ORIENTATION_CHANGED:-0}" = 1 ]; then
+    if [ "${ORIENTATION_CHANGED:-0}" = 1 ] || [ -n "${READING_POWER_OWNER:-}" ]; then
         # wait is interruptible even while Lua blocks in evdev read(). Keep
         # the same reader/arguments, with no extra process or input polling.
         ui_child_launch=touch

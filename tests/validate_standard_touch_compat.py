@@ -147,7 +147,10 @@ lipc-set-prop() {{ printf '%s\\n' "$*" >> "$TRACE"; }}
 fbset() {{ echo 'geometry 1272 1696 1272 3392 8'; }}
 uname() {{ if [ "$1" = -m ]; then echo armv7l; else /usr/bin/uname "$@"; fi; }}
 '''
-    script=setup+script.replace('/tmp/native-reading-dashboard.',(root/'native-reading-dashboard.').as_posix()).replace('SESSION_DIR="'+(root/'native-reading-dashboard.').as_posix()+'$$"',f'SESSION_DIR={q(session)}')
+    script=setup+script.replace('/tmp/native-reading-dashboard.',(root/'native-reading-dashboard.').as_posix()).replace('SESSION_DIR="'+(root/'native-reading-dashboard.').as_posix()+'$$"',f'SESSION_DIR={q(session)}').replace('SESSION_DIR="${READING_UI_SESSION:-'+(root/'native-reading-dashboard.').as_posix()+'$$}"',f'SESSION_DIR={q(session)}')
+    from runtime_fixture import install_power_fixture
+    install_power_fixture(release, root/'mockbin')
+    script='PATH="$(CDPATH= cd -- '+q(root/'mockbin')+' && pwd):$PATH"\n'+script
     script_path=root/'run.sh'; script_path.write_text(script,encoding='utf-8',newline='\n')
     env={**os.environ,'PATH':'/usr/bin:/bin:'+os.environ.get('PATH',''),'READING_BASE':base.as_posix(),'READING_INPUT_SYSFS':(root/'sys').as_posix(),
          'READING_INPUT_DEV':(root/'dev').as_posix(),'READING_LUA_BINARY':elf.as_posix(),'READING_LAUNCHER_CAPTURE':'1',
@@ -156,8 +159,8 @@ uname() {{ if [ "$1" = -m ]; then echo armv7l; else /usr/bin/uname "$@"; fi; }}
     sh=shutil.which('sh') or r'C:\Program Files\Git\bin\sh.exe'
     result=subprocess.run([sh,script_path.as_posix()],env=env,capture_output=True,timeout=30)
     log=trace.read_text(encoding='utf-8'); text=result.stdout.decode('utf-8',errors='replace')
-    assert 'KPP_LIBRARY' in log and 'eatTapMode 0' in log and 'preventScreenSaver 0' in log,(kind,legacy,text,result.stderr,log)
-    if kind in ('exit','books') and result.returncode != 0:
+    assert 'KPP_LIBRARY' in log and 'eatTapMode 0' in log and 'preventScreenSaver' not in log,(kind,legacy,text,result.stderr,log)
+    if kind=='exit' and result.returncode != 0:
         shutil.copytree(root, ROOT/'build/validation/touch-shell-failure', dirs_exist_ok=True)
     assert not session.exists(),(kind,legacy,text,result.stderr)
     assert all(hashlib.sha256(p.read_bytes()).hexdigest()==h for p,h in before.items())

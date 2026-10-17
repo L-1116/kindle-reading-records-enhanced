@@ -63,6 +63,8 @@ def setup(root: Path, variant: str) -> tuple[Path, dict[str, str], Path, Path]:
     for name in lua_sources:
         (release / "bin" / name).write_text("return true\n", encoding="utf-8")
     if variant == "standard":
+        from runtime_fixture import install_power_fixture
+        install_power_fixture(release, mock)
         for helper in ("reading-config.sh", "reading-settings.sh"):
             shutil.copy2(package/helper,release/"bin"/helper)
     main = release / "bin" / ("reading-records.sh" if variant == "standard" else "reading-records-ks.sh")

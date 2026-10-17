@@ -14,7 +14,8 @@ rr_entry_names() {
         '安装好之后，确认无误了再点这个.sh' '点这个安装，然后确认插件正常之前不要删文件.sh'
 }
 rr_current_installer() {
-    [ "${rr_installer_file:-}" = "$DOCS/reading-records-9.8.1-install.sh" ] &&
+    { [ "${rr_installer_file:-}" = "$DOCS/reading-records-9.8.1-install.sh" ] ||
+      [ "${rr_installer_file:-}" = "$DOCS/reading-records-v4-install.sh" ]; } &&
         [ "$1" = "$rr_installer_file" ] && [ -f "$1" ] && [ ! -L "$1" ] &&
         [ "$(cksum < "$1")" = "${rr_installer_sum:-}" ]
 }

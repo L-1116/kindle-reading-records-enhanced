@@ -24,6 +24,7 @@ with tempfile.TemporaryDirectory(prefix="cover-regression-", dir=OUT) as directo
     functions = session / "functions.sh"
     source = VIEWER.read_text(encoding="utf-8")
     definitions = source[: source.index("\ndetect_screen; find_touch_device")]
+    definitions = definitions.replace('. "$RELEASE/bin/reading-power.sh" || exit 1\nrr_power_init\n', '').replace('\ntrap cleanup EXIT\n', '\n')
     definitions = definitions.replace('if [ "${READING_LAUNCHER_CAPTURE:-0}" != 1 ]; then exec >> "$LOG" 2>&1; fi', "")
     definitions = definitions.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"', "")
     functions.write_text(definitions, encoding="utf-8", newline="\n")

@@ -35,9 +35,6 @@ fi
 [ -r "$BASE/compat/runtime-lock.sh" ] || { printf "runtime lock missing\n" >&2; exit 1; }
 . "$BASE/compat/runtime-lock.sh" || exit 1
 launcher_cleanup() {
-    if [ "${POWER_SAVED:-0}" = 1 ]; then
-        lipc-set-prop com.lab126.powerd preventScreenSaver "$READING_ORIGINAL_POWER" >/dev/null 2>&1 || true
-    fi
     cleanup_probe
     release_runtime_lock
 }
@@ -81,8 +78,10 @@ restore_native() {
     # plugin preflight failed before our first framebuffer write.
     if command -v lipc-set-prop >/dev/null 2>&1; then
         lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true
-        if [ "${POWER_SAVED:-0}" = 1 ]; then lipc-set-prop com.lab126.powerd preventScreenSaver "$READING_ORIGINAL_POWER" >/dev/null 2>&1 || true; fi
-        lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
+        case "$(lipc-get-prop com.lab126.powerd state 2>/dev/null)" in
+            screenSaver|goingToScreenSaver|readyToSuspend|suspended) :;;
+            *) lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true;;
+        esac
     fi
     # Recovery never depends on FBInk. The native Library owns its refresh;
     # a failing runtime must not be invoked again here.
@@ -142,7 +141,7 @@ for required_file in "$RELEASE/ui-calendar/daily.png" "$RELEASE/ui-calendar/tota
     "$RELEASE/ui-calendar/month_detail.png" "$RELEASE/ui-calendar/week_trend.png" \
     "$RELEASE/ui-calendar/book_detail.png" \
     "$RELEASE/ui-calendar/settings.png" "$RELEASE/ui-calendar/settings_custom.png" "$RELEASE/ui-calendar/settings-button.png" \
-    "$RELEASE/bin/reading-config.sh" "$RELEASE/bin/reading-settings.sh" \
+    "$RELEASE/bin/reading-config.sh" "$RELEASE/bin/reading-settings.sh" "$RELEASE/bin/reading-power.sh" \
     "$RELEASE/bin/reading-insights-touch-preflight.sh" "$RELEASE/bin/reading-insights-touch-probe.lua" "$RELEASE/bin/reading-insights-touch-ui.lua" "$RELEASE/bin/reading-insights-render.lua" \
     "$RELEASE/bin/reading-insights-cover.lua" "$RELEASE/bin/reading-insights-titles.lua" \
     "$RELEASE/bin/reading-insights-title-widths.lua" "$RELEASE/render-assets/dynamic-glyphs.pgm" \
@@ -346,6 +345,7 @@ UI_ENTERED=1
 UI_CHILD_PENDING=1
 "$MAIN" & UI_PID=$!; UI_CHILD_PENDING=0
 wait "$UI_PID"; launch_code=$?; UI_PID=
+[ "$launch_code" -ne 90 ] || { printf 'frontend_exit=sleep_request\n'; launch_code=0; }
 [ "$launch_code" -eq 0 ] || fail "$launch_code" 'UI process exited unexpectedly'
 STAGE=complete
 printf 'exit_code=0\nerror_stage=none\n'

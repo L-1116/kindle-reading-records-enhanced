@@ -27,8 +27,9 @@ def assert_legacy_core() -> None:
     assert old_body == new_body, "legacy statistics/layout/draw arguments changed"
     old_loop = before[before.index('mode="total"; view_year='):]
     new_loop = after[after.index('mode="total"; view_year='):]
+    new_loop = new_loop.replace('    touch_pending=1\n', '')
     new_loop = new_loop.replace('        settings_*) rr_settings_action;;\n', '')
     # All action handling and statistics remain exact; only reader invocation
     # adds the preflight ABI/geometry and legacy hit-region selection.
-    assert old_loop[:old_loop.index('    action=')] == new_loop[:new_loop.index('    action=')]
+    assert old_loop[:old_loop.index('    action=')] == new_loop[:new_loop.index('    lua "$TOUCH_READER"')]
     assert old_loop[old_loop.index('    echo "$(date): dashboard action='):] == new_loop[new_loop.index('    echo "$(date): dashboard action='):], "legacy action handling changed"

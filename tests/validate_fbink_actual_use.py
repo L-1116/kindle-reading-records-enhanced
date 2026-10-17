@@ -95,7 +95,7 @@ def check(variant: str) -> None:
             assert result.returncode == code, (label, result.returncode, log)
             assert not any(c.endswith(" -e") for c in calls), calls
             lipc = (root / "lipc.txt").read_text(encoding="utf-8")
-            assert "eatTapMode 0" in lipc and "preventScreenSaver 0" in lipc and "KPP_LIBRARY" in lipc, (label, lipc)
+            assert "eatTapMode 0" in lipc and "preventScreenSaver" not in lipc and "KPP_LIBRARY" in lipc, (label, lipc)
             assert f"firmware={firmware}" in log and "arch=armv7l" in log and "hard_float=1" in log
             if code == 0:
                 assert "actual_fbink_first_command_result=ok" in log and "FBINK_LOCKED=1" in log

@@ -5,10 +5,11 @@ from validate_runtime_probe import ROOT,OUT,SH,setup,run,shell_path
 checks=[]
 with tempfile.TemporaryDirectory(prefix='launcher-state-',dir=OUT) as directory:
     root=Path(directory);launcher,env,_,_=setup(root,'standard')
+    (root/'lipc.txt').write_text('')
     code,log=run(launcher,env,READING_TEST_ORIGINAL_POWER='1')
     assert code==0,log
-    assert 'com.lab126.powerd preventScreenSaver 1' in (root/'lipc.txt').read_text(encoding='utf-8')
-    checks.append({'scenario':'saved power=1 restored','result':'PASS'})
+    assert 'preventScreenSaver' not in (root/'lipc.txt').read_text(encoding='utf-8')
+    checks.append({'scenario':'external saved power=1 left untouched','result':'PASS'})
     (root/'lipc.txt').write_text('')
     code,log=run(launcher,env,READING_TEST_ORIGINAL_POWER='invalid')
     assert code==33 and 'ui_process_entered=1' not in log,log

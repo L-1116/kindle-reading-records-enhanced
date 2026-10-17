@@ -50,14 +50,15 @@ rr_retire_releases || exit 1
 # The real prior bootstrap is still owned; a same-name personal file is not.
 from historical_packages import CATALOG,package
 prior_outer,_=package(next(r for r in CATALOG if r['id']=='9.8.1-test2'))
+prior_boot_name=next(name for name in prior_outer if name.endswith('.sh'))
 for scenario in ('current-bootstrap','old-bootstrap','unknown-bootstrap','changed-bootstrap',
                  'symlink-bootstrap','other-location','unknown-formal-bootstrap'):
     with tempfile.TemporaryDirectory(prefix='bootstrap-safety-',dir=OUT) as directory:
         root=Path(directory);docs=root/'documents';tmp=root/'tmp'
         docs.mkdir();tmp.mkdir()
         inventory=root/'inventory';inventory.write_bytes(ownership)
-        boot=docs/BOOT_NAME
-        boot.write_bytes(prior_outer[BOOT_NAME] if scenario=='old-bootstrap' else
+        boot=docs/(prior_boot_name if scenario=='old-bootstrap' else BOOT_NAME)
+        boot.write_bytes(prior_outer[prior_boot_name] if scenario=='old-bootstrap' else
                          b'personal file' if scenario=='unknown-bootstrap' else current_boot)
         formal=docs/'reading-records.sh'
         if scenario=='unknown-formal-bootstrap':formal.write_bytes(b'personal formal entry')

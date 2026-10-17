@@ -19,8 +19,8 @@ rr_settings_init() {
     . "$SETTINGS_HELPERS/reading-config.sh" || exit 1
     . "$SETTINGS_HELPERS/reading-settings.sh" || exit 1
 }
-SESSION_DIR="/tmp/native-reading-dashboard.$$"
-trap 'rm -rf "$SESSION_DIR"' EXIT
+SESSION_DIR="${READING_UI_SESSION:-/tmp/native-reading-dashboard.$$}"
+trap '[ -n "${READING_UI_SESSION:-}" ] || rm -rf "$SESSION_DIR"' EXIT
 CC_DB="/var/local/cc.db"
 PROGRESS_DB="$BASE/cc-progress-viewer.db"
 PROGRESS_CACHE="$BASE/book-progress.tsv"
@@ -453,19 +453,39 @@ draw() {
 
 # Safety invariant: never disable or exclusively own touch input.
 lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true
-lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1 || true
+touch_pid=; touch_pending=0; cleanup_done=0
 cleanup() {
+    [ "$cleanup_done" = 0 ] || return 0
+    cleanup_done=1
+    trap '' INT TERM HUP USR2
+    trap 'rr_power_sleep=1' USR1
+    [ "$touch_pending" = 0 ] || touch_pid=$!
+    if [ -n "$touch_pid" ]; then
+        kill -TERM "$touch_pid" 2>/dev/null || true
+        kill -KILL "$touch_pid" 2>/dev/null || true
+        wait "$touch_pid" 2>/dev/null || true
+        touch_pid=
+    fi
+    rr_power_check
     lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true
-    lipc-set-prop com.lab126.powerd preventScreenSaver "${READING_ORIGINAL_POWER:-0}" >/dev/null 2>&1 || true
-    lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
+    if [ "${rr_power_sleep:-0}" = 0 ]; then
+        lipc-set-prop com.lab126.appmgrd start 'app://com.lab126.KPPMainApp?view=KPP_LIBRARY' >/dev/null 2>&1 || true
+    fi
     fbink_stop_child
-    rm -rf "$SESSION_DIR"
+    rr_power_stop
+    [ -n "${READING_UI_SESSION:-}" ] || rm -rf "$SESSION_DIR"
     # The native Library performs its own refresh.
+    [ "${rr_power_sleep:-0}" = 0 ] || exit 90
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
+. "$SETTINGS_HELPERS/reading-power.sh" || exit 1
+rr_power_init
+mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"
+chmod 700 "$SESSION_DIR" 2>/dev/null || true
+rr_power_start || fail "无法监听系统休眠事件"
 
 mode="total"; view_year="$(date +%Y)"; daily_y="$(date +%Y)"; draw_count=0
 # Normalize leading zeroes portably for BusyBox arithmetic.
@@ -475,8 +495,12 @@ refresh_progress_cache
 while :; do
     draw
     dim="$(days_in_month "$daily_y" "$daily_m")"; offset="$(weekday_offset "$daily_y" "$daily_m")"
-    action="$(lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" \
-        "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" 1 1 1576 week 7d "$TOUCH_TRANSFORM" "$EVENT_STRUCT_SIZE" "$SCREEN_W" "$SCREEN_H" "$TOUCH_LOG" "$RAW_X_MIN" "$RAW_X_MAX" "$RAW_Y_MIN" "$RAW_Y_MAX" legacy)" || standard_touch_reader_failed "$?"
+    touch_pending=1
+    lua "$TOUCH_READER" "$TOUCH" "$BASE/dashboard-touch.log" "$mode" "$offset" "$dim" \
+        "$ORIGIN_X" "$ORIGIN_Y" "$VIEW_W" "$VIEW_H" 1 1 1576 week 7d "$TOUCH_TRANSFORM" "$EVENT_STRUCT_SIZE" "$SCREEN_W" "$SCREEN_H" "$TOUCH_LOG" "$RAW_X_MIN" "$RAW_X_MAX" "$RAW_Y_MIN" "$RAW_Y_MAX" legacy > "$SESSION_DIR/touch-action" & touch_pid=$!; touch_pending=0
+    wait "$touch_pid"; touch_code=$?; touch_pid=
+    [ "$touch_code" = 0 ] || standard_touch_reader_failed "$touch_code"
+    action="$(cat "$SESSION_DIR/touch-action")"
     standard_touch_action_received
     echo "$(date): dashboard action=$action mode=$mode"
     case "$action" in

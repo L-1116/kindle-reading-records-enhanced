@@ -67,6 +67,7 @@ assert stable_payload_changes==[
     'native-reading-time-package/reading-insights-touch-preflight.sh',
     'native-reading-time-package/reading-insights-touch-probe.lua',
     'native-reading-time-package/reading-insights-touch-ui.lua',
+    'native-reading-time-package/reading-power.sh',
     'native-reading-time-package/reading-settings.sh',
     'native-reading-time-package/render-assets/dynamic-glyphs.pgm',
     'native-reading-time-package/render-assets/dynamic-glyphs.tsv',
@@ -143,6 +144,7 @@ record('interaction invariants','Default daily, scaling and page navigation rema
 
 # Extract definitions only: never run startup, hardware access, or EXIT cleanup.
 defs=viewer[:viewer.index('\ndetect_screen; find_touch_device')]
+defs=defs.replace('. "$RELEASE/bin/reading-power.sh" || exit 1\nrr_power_init\n', '')
 defs=defs.replace('if [ "${READING_LAUNCHER_CAPTURE:-0}" != 1 ]; then exec >> "$LOG" 2>&1; fi','')
 defs=re.sub(r'^trap .*\n','',defs,flags=re.M)
 defs=defs.replace('echo "$(date): optimized dashboard launch, uid=$(id -u), pid=$$"','')

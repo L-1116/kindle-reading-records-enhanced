@@ -159,5 +159,12 @@
     "path": "dist/standard-test1/9.7.6-5.20.1-vera-test1.zip",
     "sha256": "76684335a5629f16a2155ce65d0dedcaae6023c125fed7cf8dd77c77520d2fe3",
     "official": false
+  },
+  {
+    "id": "9.8.1-test4",
+    "path": "build/standard-9.8.1-test4/9.8.1-5.20-vera-test4.zip",
+    "sha256": "df1e2776ff10dfe90b703ab6066e7e7ade638a79f28c62e62ce232d668f629d8",
+    "official": false,
+    "provenance": "Original delivered Standard test4 from f9cb13d9; Kindle acceptance confirmed by the user."
   }
 ]

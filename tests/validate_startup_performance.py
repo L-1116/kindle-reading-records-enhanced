@@ -23,6 +23,8 @@ for chain in (('current',) if '--current-only' in sys.argv else ('normal-5.19', 
         pkg=ROOT/'native-reading-time-package'
         for folder in ('ui','ui-calendar','render-assets'):
             shutil.copytree(pkg/folder,release/folder,dirs_exist_ok=True)
+        from runtime_fixture import install_power_fixture
+        install_power_fixture(release, root/'mockbin')
         for p in pkg.glob('*.lua'):shutil.copy2(p,release/'bin'/p.name)
         for p in pkg.glob('*.awk'):shutil.copy2(p,release/'bin'/p.name)
         shutil.copy2(pkg/'reading-insights-touch-preflight.sh',release/'bin/reading-insights-touch-preflight.sh')

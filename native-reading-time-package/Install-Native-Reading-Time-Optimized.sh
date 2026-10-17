@@ -22,13 +22,13 @@ MANIFEST="$BASE/install-manifest.txt"
 DETECTOR="$BASE/compat/detect_env.sh"
 ASSET_DIR="$BASE/assets"
 LAUNCHER_ICON="$ASSET_DIR/launcher-icon.png"
-PRODUCT_VERSION="9.8.1-5.20-vera-test4"
+PRODUCT_VERSION="9.8.1-5.20-vera-test5"
 RUNTIME_VERSION="9.8.1-5.20-vera-test1"
 RELEASE="$BASE/releases/$RUNTIME_VERSION"
 RELEASE_ICON="$RELEASE/assets/launcher-icon.png"
 RELEASE_APP="$RELEASE/bin/reading-records.sh"
 COVER_CACHE_DIR="$BASE/book-covers"
-STAGE="$BASE/.install-9.8.1-5.20-vera-test4.$$"
+STAGE="$BASE/.install-9.8.1-5.20-vera-test5.$$"
 ROOT_RW=0; ACTIVATED=0; SERVICE_WAS_RUNNING=0; ROLLBACK_DONE=0
 
 mkdir -p "$BASE" || exit 1
@@ -41,7 +41,7 @@ rr_lock || fail "another lifecycle operation is running"
 rr_mount_capture || fail "cannot determine root mount state"
 root_ro() { rr_root_restore; }
 root_rw() { rr_root_rw; }
-cleanup_stage() { [ "${ROLLBACK_FAILED:-0}" = 0 ] || return 0; case "$STAGE" in "$BASE"/.install-9.8.1-5.20-vera-test4.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
+cleanup_stage() { [ "${ROLLBACK_FAILED:-0}" = 0 ] || return 0; case "$STAGE" in "$BASE"/.install-9.8.1-5.20-vera-test5.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
 
 backup_file() { backup_src="$1"; backup_key="$2"; if [ -f "$backup_src" ]; then cp "$backup_src" "$STAGE/rollback/$backup_key" || return 1; else : > "$STAGE/rollback/no-$backup_key"; fi; }
 restore_file() { restore_key="$1"; restore_dst="$2"; restore_mode="$3"; if [ -f "$STAGE/rollback/$restore_key" ]; then cp "$STAGE/rollback/$restore_key" "$restore_dst.rollback-new" && chmod "$restore_mode" "$restore_dst.rollback-new" && mv "$restore_dst.rollback-new" "$restore_dst"; elif [ -f "$STAGE/rollback/no-$restore_key" ]; then rm -f "$restore_dst"; fi; }
@@ -114,7 +114,7 @@ cmp -s "$PKG/阅读记录-optimized.sh" "$STAGE/release/bin/reading-records.sh" 
 cp "$PKG/resources/reading-records-uninstall.sh" "$STAGE/uninstall-entry" && cp "$PKG/resources/kual/reading-records-installer/bin/action.sh" "$STAGE/kual/bin/action.sh" && cp "$PKG/resources/kual/reading-records-installer/config.xml" "$STAGE/kual/config.xml" && cp "$PKG/resources/kual/reading-records-installer/menu.json" "$STAGE/kual/menu.json" || fail "cannot stage lifecycle entries"
 cp "$PKG/阅读记录.sh" "$STAGE/release/bin/reading-records-v9.6.3.sh" && cp "$PKG/reading-insights-touch.lua" "$STAGE/release/bin/" && cp "$PKG/reading-insights-render.lua" "$STAGE/release/bin/" && cp "$PKG/reading-insights-cache.awk" "$STAGE/release/bin/" && cp "$PKG/reading-insights-cover.lua" "$STAGE/release/bin/" || fail "cannot stage dashboard helpers"
 cp "$PKG"/ui-calendar/*.png "$STAGE/release/ui-calendar/" || fail "cannot stage calendar UI"
-for f in reading-config.sh reading-settings.sh reading-idle.sh reading-idle-touch.lua reading-insights-touch-probe.lua reading-insights-touch-preflight.sh reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do cp "$PKG/$f" "$STAGE/release/bin/$f" || fail "cannot stage calendar helper"; done
+for f in reading-power.sh reading-config.sh reading-settings.sh reading-idle.sh reading-idle-touch.lua reading-insights-touch-probe.lua reading-insights-touch-preflight.sh reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do cp "$PKG/$f" "$STAGE/release/bin/$f" || fail "cannot stage calendar helper"; done
 cp "$PKG"/ui/*.png "$STAGE/release/ui/" && cp "$PKG"/render-assets/* "$STAGE/release/render-assets/" || fail "cannot stage render assets"
 cp "$PKG/launcher-icon.png" "$STAGE/release/assets/launcher-icon.png" || fail "cannot stage launcher icon"
 cp "$PKG/NotoSansCJKsc-Regular.otf" "$STAGE/font" && cp "$PKG/FONT-LICENSE.txt" "$STAGE/font-license" || fail "cannot stage font"
@@ -155,7 +155,7 @@ fi
 mkdir -p "$BASE/bin" "$BASE/compat" "$BASE/ui" "$BASE/fonts" "$ASSET_DIR" "$COVER_CACHE_DIR" "$RELEASE/bin" "$RELEASE/ui" "$RELEASE/ui-calendar" "$RELEASE/render-assets" "$RELEASE/assets" "$DOCS" || fail "cannot create installation directories"
 chmod 700 "$COVER_CACHE_DIR" || fail "cannot set cover cache directory permissions"
 for f in "$STAGE/release/ui-calendar/"*.png; do atomic_file "$f" "$RELEASE/ui-calendar/${f##*/}" 644 || fail "cannot install calendar UI"; done
-for f in reading-config.sh reading-settings.sh reading-idle.sh reading-idle-touch.lua reading-insights-touch-probe.lua reading-insights-touch-preflight.sh reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do atomic_file "$STAGE/release/bin/$f" "$RELEASE/bin/$f" 644 || fail "cannot install calendar helper"; done
+for f in reading-power.sh reading-config.sh reading-settings.sh reading-idle.sh reading-idle-touch.lua reading-insights-touch-probe.lua reading-insights-touch-preflight.sh reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do atomic_file "$STAGE/release/bin/$f" "$RELEASE/bin/$f" 644 || fail "cannot install calendar helper"; done
 for f in "$STAGE/release/ui/"*.png; do atomic_file "$f" "$RELEASE/ui/${f##*/}" 644 || fail "cannot install optimized UI"; done
 for f in "$STAGE/release/render-assets/"*; do atomic_file "$f" "$RELEASE/render-assets/${f##*/}" 644 || fail "cannot install render assets"; done
 atomic_file "$STAGE/release/assets/launcher-icon.png" "$RELEASE_ICON" 644 || fail "cannot install release launcher icon"
@@ -215,8 +215,8 @@ for required_helper in reading-insights-cover.lua reading-insights-cache.awk rea
 done
 [ -d "$COVER_CACHE_DIR" ] && [ -w "$COVER_CACHE_DIR" ] || fail "cover cache is not writable after service start"
 echo "$(date): final sanity resolver=ok launcher=ok entry=ok helpers=ok history=ok cover_cache=ok"
-printf '9.8.1-5.20-vera-test4\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
+printf '9.8.1-5.20-vera-test5\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
 
 ACTIVATED=0; cleanup_stage; trap - INT TERM HUP; root_ro || fail "cannot restore root mount state"; sync
 echo "$(date): V4 installed and running, daemon_cmp=identical"
-toast "阅读记录 9.8.1-5.20-vera-test4 安装完成"; exit 0
+toast "阅读记录 9.8.1-5.20-vera-test5 安装完成"; exit 0

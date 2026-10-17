@@ -141,7 +141,7 @@ for name in ("reading-insights-touch-preflight.sh", "reading-insights-touch-prob
     (release / "bin" / name).write_text("return true\n", encoding="utf-8")
 for name in ("dynamic-glyphs.pgm", "dynamic-glyphs.tsv"):
     (release / "render-assets" / name).write_text("mock\n", encoding="utf-8")
-for helper in ("reading-config.sh", "reading-settings.sh"):
+for helper in ("reading-config.sh", "reading-settings.sh", "reading-power.sh"):
     shutil.copy2(PKG/helper,release/"bin"/helper)
 main = release / "bin/reading-records.sh"
 main.write_text('#!/bin/sh\necho "launcher-ok profile=$COMPAT_PROFILE"\nexit 0\n', encoding="utf-8", newline="\n")
