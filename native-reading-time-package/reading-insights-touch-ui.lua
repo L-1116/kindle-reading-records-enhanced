@@ -79,9 +79,19 @@ local function inside(px, py, left, top, right, bottom)
     return px >= left and px <= right and py >= top and py <= bottom
 end
 local function settings_action(px, py)
-    if mode == "settings" or mode == "settings_custom" then
-        if inside(px,py,44,34,276,166) then return mode == "settings" and "settings_back" or "settings_cancel" end
+    if mode == "settings" or mode == "settings_idle" or mode == "settings_cover" or mode == "settings_custom" then
+        if inside(px,py,44,34,276,166) then
+            if mode == "settings" then return "settings_back" end
+            return mode == "settings_custom" and "settings_cancel" or "settings_home"
+        end
         if mode == "settings" then
+            -- Each switch owns only its visible capsule; the detail region
+            -- ends before the divider and never overlaps the switch.
+            if inside(px,py,1016,373,1167,450) then return "settings_toggle" end
+            if inside(px,py,1016,909,1167,986) then return "settings_cover_toggle" end
+            if inside(px,py,104,360,960,658) then return "settings_idle" end
+            if inside(px,py,104,896,960,1194) then return "settings_cover" end
+        elseif mode == "settings_idle" then
             if inside(px,py,104,410,1168,554) then return "settings_toggle" end
             if inside(px,py,104,888,1167,1141) then
                 local col,row=math.floor((px-104)/362),math.floor((py-888)/138)
@@ -90,7 +100,7 @@ local function settings_action(px, py)
                 end
             end
             if inside(px,py,104,1186,1168,1314) then return "settings_custom" end
-        elseif inside(px,py,72,758,1199,1377) then
+        elseif mode == "settings_custom" and inside(px,py,72,758,1199,1377) then
             local col,row=math.floor((px-72)/383),math.floor((py-758)/160)
             if col<3 and row<4 and (px-72)%383<362 and (py-758)%160<140 then
                 local values={"1","2","3","4","5","6","7","8","9","delete","0","save"}

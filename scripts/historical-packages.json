@@ -166,5 +166,12 @@
     "sha256": "df1e2776ff10dfe90b703ab6066e7e7ade638a79f28c62e62ce232d668f629d8",
     "official": false,
     "provenance": "Original delivered Standard test4 from f9cb13d9; Kindle acceptance confirmed by the user."
+  },
+  {
+    "id": "9.8.1-test5",
+    "path": "build/standard-9.8.1-test5/9.8.1-5.20-vera-test5.zip",
+    "sha256": "03da7c51411c1ee5fc30c8d5574d6fa07e122c1ca0d7c0cc4ee41e1e73ea67be",
+    "official": false,
+    "provenance": "Original delivered Standard test5 from 92cd750; device acceptance confirmed by the user."
   }
 ]

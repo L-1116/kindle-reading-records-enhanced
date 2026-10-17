@@ -17,7 +17,10 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
+# Test fixtures can live outside dist, which is also read by the package builder.
 ARCHIVE = ROOT / "dist/kindle-reading-records-v9.7.5-compat-v3-cover-test.zip"
+if not ARCHIVE.exists():
+    ARCHIVE = ROOT / "build/historical-artifacts" / ARCHIVE.name
 OUT = ROOT / "build/validation"
 OUT.mkdir(parents=True, exist_ok=True)
 SHELL = shutil.which("sh") or "C:/Program Files/Git/usr/bin/sh.exe"

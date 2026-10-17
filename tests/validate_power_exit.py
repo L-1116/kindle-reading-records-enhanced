@@ -136,7 +136,7 @@ exit 0
             expected = 91 if stage == 'subscription_failure' else 90 if renderer == 'legacy' and event != 'manual' else 0
             log = (base/'launch-last.log').read_text(errors='replace') if command == launcher else str(output)
             assert process.returncode == expected, (renderer, event, stage, process.returncode, log, output)
-            calls = trace.read_text() if trace.exists() else ''
+            calls = trace.read_text(encoding='utf-8') if trace.exists() else ''
             assert 'preventScreenSaver' not in calls and 'powerButton' not in calls and 'toggleSuspend' not in calls, calls
             if event == 'manual' and stage != 'exit_race': assert 'KPP_LIBRARY' in calls, calls
             elif stage != 'subscription_failure': assert 'KPP_LIBRARY' not in calls, calls

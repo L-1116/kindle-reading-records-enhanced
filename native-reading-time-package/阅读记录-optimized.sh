@@ -1536,7 +1536,7 @@ while :; do
     standard_touch_action_received
     echo "$(date): dashboard action=$action mode=$mode"
     case "$action" in
-      settings_*) rr_settings_action; perform_draw settings_change 1 0 0 0 1272 1696;;
+      settings_*) rr_settings_action; perform_draw settings_change 1 1 0 0 1272 1696;;
       exit) break;;
       tab_total) if [ "$mode" = total ]; then metric_begin tab_total_noop; metric_end none 0 0; else mode=total; perform_draw tab_to_total 1 1 0 0 1272 1696; fi;;
       tab_daily) if [ "$mode" = daily ]; then metric_begin tab_daily_noop; metric_end none 0 0; else mode=daily; perform_draw tab_to_daily 1 1 0 0 1272 1696; fi;;

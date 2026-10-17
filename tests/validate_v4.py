@@ -117,7 +117,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert visible_cleanups==[CLEAN],visible_cleanups
         if mutation!='unknown_alias':assert not (docs/'阅读记录.sh').exists()
         assert not (docs/'reading-records-uninstall.sh').exists() and not (docs/'安装好之后，确认无误了再点这个.sh').exists()
-        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned'):
+        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned'):
             again=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130);assert again.returncode==0,again.stderr
             assert len(list(base.glob('.previous-install')))==1 and not list(base.glob('.v4-rollback.*'))
         if mutation=='scanner_failure':assert 'scanner_request=request_failed index_completion=unverified' in log
@@ -170,13 +170,16 @@ def main():
     if '--power-upgrade' in sys.argv:
         cases=[('9.8.1-test4','',True),('9.8.1-test4-cleaned','',True)]
         cases += [('9.8.1-test4',m,False) for m in ('core_failure','activation_failure','interrupted','ks_residue','wrong_device','busy_ui')]
+    if '--settings-upgrade' in sys.argv:
+        cases=[('9.8.1-test5','',True),('9.8.1-test5-cleaned','',True)]
+        cases += [('9.8.1-test5',m,False) for m in ('core_failure','activation_failure','interrupted','ks_residue','wrong_device','busy_ui')]
     if '--idle-upgrade' in sys.argv:
         cases=[('V4','',True)]
         cases += [('V4',m,False) for m in ('core_failure','activation_failure','interrupted','lost_service','stopped_service','ks_residue','wrong_device','orphan','duplicate','busy_ui')]
     for p,m,c in cases:
         with tempfile.TemporaryDirectory(prefix='standard-install-',dir=OUT) as name:results.append(run(Path(name),previous=p,mutation=m,cleanup=c))
         print(p or 'fresh',m or 'install + cleanup','PASS',flush=True)
-    for tag in (() if '--device-fix' in sys.argv or '--idle-upgrade' in sys.argv or '--smoke' in sys.argv or '--power-upgrade' in sys.argv else ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3')):
+    for tag in (() if '--device-fix' in sys.argv or '--idle-upgrade' in sys.argv or '--smoke' in sys.argv or '--power-upgrade' in sys.argv or '--settings-upgrade' in sys.argv else ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3')):
         with tempfile.TemporaryDirectory(prefix='standard-legacy-',dir=OUT) as name:results.append(run(Path(name),previous='V3',cleanup=True,legacy_tag=tag))
         print('legacy payload',tag,'PASS',flush=True)
     with tempfile.TemporaryDirectory(prefix='standard-unknown-',dir=OUT) as name:results.append(run(Path(name),previous='V4' if '--idle-upgrade' in sys.argv else 'V3',cleanup=True,cleanup_unknown=True))

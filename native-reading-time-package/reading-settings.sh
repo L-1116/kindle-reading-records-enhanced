@@ -8,6 +8,20 @@ rr_settings_gear() {
 }
 rr_settings_draw() {
     if [ "$mode" = settings ]; then
+        rr_settings_image "$SETTINGS_ASSETS/settings-switch-$idle_enabled.png" 1016 373 152 78
+        rr_settings_image "$SETTINGS_ASSETS/settings-switch-$custom_cover_enabled.png" 1016 909 152 78
+        if [ "$idle_enabled" = 1 ]; then
+            ot 34 560 104 300 REGULAR "$idle_minutes 分钟无操作后暂停"
+        else
+            ot 34 560 104 300 REGULAR "已关闭 · 已选 $idle_minutes 分钟"
+        fi
+    elif [ "$mode" = settings_cover ]; then
+        if [ "$custom_cover_enabled" = 1 ]; then
+            ot 34 244 80 80 REGULAR '开关已开启 · 功能尚未接入'
+        else
+            ot 34 244 80 80 REGULAR '开关已关闭 · 功能尚未接入'
+        fi
+    elif [ "$mode" = settings_idle ]; then
         rr_settings_image "$SETTINGS_ASSETS/settings-switch-$idle_enabled.png" 1016 431 152 78
         if [ "$idle_enabled" = 1 ]; then
             ot 34 491 104 104 REGULAR '已开启'
@@ -47,14 +61,18 @@ rr_settings_action() {
     case "$action" in
         settings_open) settings_return="$mode"; rr_config_read; mode=settings;;
         settings_back) mode="$settings_return";;
+        settings_idle) mode=settings_idle;;
+        settings_cover) mode=settings_cover;;
+        settings_home) mode=settings;;
         settings_toggle) idle_enabled=$((1-idle_enabled)); rr_settings_save;;
+        settings_cover_toggle) custom_cover_enabled=$((1-custom_cover_enabled)); rr_settings_save;;
         settings_preset_*) idle_minutes="${action#settings_preset_}"; rr_settings_save;;
         settings_custom) settings_digits=''; mode=settings_custom;;
-        settings_cancel) mode=settings;;
+        settings_cancel) mode=settings_idle;;
         settings_digit_*) [ "${#settings_digits}" -ge 4 ] || settings_digits="$settings_digits${action#settings_digit_}";;
         settings_delete) settings_digits="${settings_digits%?}";;
         settings_save)
-            if rr_minutes_valid "$settings_digits"; then idle_minutes="$settings_digits"; rr_settings_save; [ -n "$settings_error" ] || mode=settings
+            if rr_minutes_valid "$settings_digits"; then idle_minutes="$settings_digits"; rr_settings_save; [ -n "$settings_error" ] || mode=settings_idle
             else settings_error='请输入 1 至 1440 的整数'; fi;;
     esac
 }

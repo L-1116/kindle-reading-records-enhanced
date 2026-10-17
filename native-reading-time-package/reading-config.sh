@@ -1,12 +1,13 @@
 #!/bin/sh
 # Data only: never execute user.conf. Missing/invalid values keep legacy timing.
 rr_config_read() {
-    idle_enabled=0; idle_minutes=3
+    idle_enabled=0; idle_minutes=3; custom_cover_enabled=0
     [ -r "$BASE/user.conf" ] || return 0
-    while IFS='=' read -r config_key config_value; do
+    while IFS='=' read -r config_key config_value || [ -n "$config_key" ]; do
         case "$config_key" in
             idle_pause_enabled) case "$config_value" in 0|1) idle_enabled="$config_value";; esac;;
             idle_pause_minutes) if rr_minutes_valid "$config_value"; then idle_minutes="$config_value"; fi;;
+            custom_cover_enabled) case "$config_value" in 0|1) custom_cover_enabled="$config_value";; esac;;
         esac
     done < "${BASE}/user.conf" 2>/dev/null
     return 0
@@ -18,13 +19,15 @@ rr_minutes_valid() {
 rr_config_save() {
     rr_minutes_valid "$idle_minutes" || return 1
     case "$idle_enabled" in 0|1) :;; *) return 1;; esac
+    case "${custom_cover_enabled:-0}" in 0|1) :;; *) return 1;; esac
     [ ! -e "$BASE/user.conf" ] || [ -f "$BASE/user.conf" ] || return 1
     config_tmp="$BASE/user.conf.new.$$"
     (umask 077
         { if [ -f "$BASE/user.conf" ]; then
-            awk '!/^idle_pause_enabled=/ && !/^idle_pause_minutes=/' "$BASE/user.conf" || exit 1
+            awk '!/^idle_pause_enabled=/ && !/^idle_pause_minutes=/ && !/^custom_cover_enabled=/' "$BASE/user.conf" || exit 1
           fi
           printf 'idle_pause_enabled=%s\nidle_pause_minutes=%s\n' "$idle_enabled" "$idle_minutes"
+          printf 'custom_cover_enabled=%s\n' "${custom_cover_enabled:-0}"
         } > "$config_tmp"
     ) && mv "$config_tmp" "$BASE/user.conf" && return 0
     rm -f "$config_tmp"; return 1

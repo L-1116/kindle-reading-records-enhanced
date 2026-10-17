@@ -26,7 +26,9 @@ def centered(image, box, white=False):
 
 
 # Preserve every other shipped payload byte against the accepted test3 source.
-allowed = {'阅读记录-optimized.sh', 'reading-insights-render.lua',
+allowed = {'reading-config.sh', 'reading-settings.sh', 'ui-calendar/settings.png',
+           'ui-calendar/settings_idle.png', 'ui-calendar/settings_cover.png',
+           'ui-calendar/settings_custom.png', '阅读记录-optimized.sh', 'reading-insights-render.lua',
            'reading-insights-touch-ui.lua', 'ui-calendar/total.png',
            'reading-power.sh', 'launch.sh', '阅读记录.sh', 'Install-Native-Reading-Time-Optimized.sh',
            'reading-insights-touch-preflight.sh', 'compat/migration.sh'}
@@ -37,13 +39,13 @@ for path in PKG.rglob('*'):
         '63e34dba:native-reading-time-package/'+path.relative_to(PKG).as_posix()], cwd=ROOT)
     actual = path.read_bytes()
     if path.name == 'Install-Native-Reading-Time-Optimized.sh':
-        actual = actual.replace(b'9.8.1-5.20-vera-test5', b'9.8.1-5.20-vera-test3')
+        actual = actual.replace(b'9.8.1-5.20-vera-test6', b'9.8.1-5.20-vera-test3')
     if path.suffix not in ('.png', '.pgm', '.otf'):
         # Account for Git's Windows checkout line-ending conversion.
         actual, previous = actual.replace(b'\r\n', b'\n'), previous.replace(b'\r\n', b'\n')
     assert actual == previous, path
 cleanup = ROOT/'v4/cleanup.sh'
-assert cleanup.read_bytes().replace(b'9.8.1-5.20-vera-test5', b'9.8.1-5.20-vera-test3').replace(b'reading-records-v4-install.sh', b'reading-records-9.8.1-install.sh') == subprocess.check_output(['git','show','63e34dba:v4/cleanup.sh'], cwd=ROOT)
+assert cleanup.read_bytes().replace(b'9.8.1-5.20-vera-test6', b'9.8.1-5.20-vera-test3').replace(b'reading-records-v4-install.sh', b'reading-records-9.8.1-install.sh') == subprocess.check_output(['git','show','63e34dba:v4/cleanup.sh'], cwd=ROOT)
 
 old_bg = subprocess.check_output(['git', 'show',
     '63e34dba:native-reading-time-package/ui-calendar/total.png'], cwd=ROOT)
@@ -58,6 +60,9 @@ viewer_path = 'native-reading-time-package/阅读记录-optimized.sh'
 before = subprocess.check_output(['git', 'show', 'f9cb13d9:'+viewer_path], cwd=ROOT).decode()
 after = (ROOT/viewer_path).read_text(encoding='utf-8')
 def preserved_shell(source):
+    # Full settings navigation redraws the calendar month title on return.
+    source = source.replace('perform_draw settings_change 1 1 0 0 1272 1696',
+                            'perform_draw settings_change 1 0 0 0 1272 1696')
     return (source[:source.index('\ndashboard_active=0;')] +
             source[source.index('\nperform_draw()'):source.index('\nrr_perf geometry_begin')] +
             source[source.index('    standard_touch_action_received\n'):])
@@ -68,7 +73,10 @@ after = (ROOT/touch_path).read_text(encoding='utf-8')
 def outside_total_touch(source):
     start = source.index('    if mode == "total" then')
     end = source.index('    elseif mode == "daily" then', start)
-    return source[:start] + source[end:]
+    prefix = source[:start]
+    a = prefix.index('local function settings_action(')
+    b = prefix.index('local function action_for_logical(', a)
+    return prefix[:a] + prefix[b:] + source[end:]
 assert outside_total_touch(before) == outside_total_touch(after)
 
 # Keep chart geometry intact while checking every selected/unselected control.

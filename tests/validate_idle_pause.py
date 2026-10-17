@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory(prefix='idle-') as tmp:
     for n in ['', '0','01','-1','1.5','1441','99999999999999','$(touch sentinel)']:
         assert shell(head+"rr_minutes_valid '"+n+"'; echo $?").strip()=='1';check()
     assert shell(head+'rr_config_read; mode=books; book_filter=year; book_page=3; action=settings_open; rr_settings_action; action=settings_toggle; rr_settings_action; action=settings_back; rr_settings_action; echo "$mode $book_filter $book_page"')=='books year 3\n';check()
-    assert shell(head+'rr_config_read; mode=settings; action=settings_custom; rr_settings_action; action=settings_digit_1; rr_settings_action; action=settings_digit_7; rr_settings_action; action=settings_save; rr_settings_action; rr_config_read; echo "$mode $idle_minutes"').strip()=='settings 17';check()
+    assert shell(head+'rr_config_read; mode=settings_idle; action=settings_custom; rr_settings_action; action=settings_digit_1; rr_settings_action; action=settings_digit_7; rr_settings_action; action=settings_save; rr_settings_action; rr_config_read; echo "$mode $idle_minutes"').strip()=='settings_idle 17';check()
     assert shell(head+'mode=settings_custom; settings_digits=0; action=settings_save; rr_settings_action; echo "$mode $settings_error"').startswith('settings_custom 请输入');check()
 
     saved=(base/'user.conf').read_bytes(); (base/'user.conf').unlink(); (base/'user.conf').mkdir()

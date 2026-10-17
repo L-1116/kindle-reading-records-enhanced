@@ -91,7 +91,9 @@ assert stable_payload_changes==[
     'native-reading-time-package/ui-calendar/settings-switch-0.png',
     'native-reading-time-package/ui-calendar/settings-switch-1.png',
     'native-reading-time-package/ui-calendar/settings.png',
+    'native-reading-time-package/ui-calendar/settings_cover.png',
     'native-reading-time-package/ui-calendar/settings_custom.png',
+    'native-reading-time-package/ui-calendar/settings_idle.png',
     'native-reading-time-package/ui-calendar/total.png',
     'native-reading-time-package/ui-calendar/week_trend.png',
     'native-reading-time-package/uninstall.sh',
@@ -524,6 +526,31 @@ assert daily_block.count('image "$SESSION_DIR/daily-calendar.pgm"')==1 and 'refr
 assert 'month_prev) shift_month -1; perform_draw month_previous 0 1 55 320 1162 1308;;' in viewer
 assert 'day_*) new_day=' in viewer and 'perform_draw date_select 0 0 55 460 1162 1168' in viewer
 record('heatmap isolation and refresh','Daemon and calendar calculations remain byte-identical to v9.6.10; all-time aggregation and cover fallback do not alter heatmap inputs. The calendar is composed offscreen once, published once, then refreshed once; 5.18.x startup omits forced flashing.')
+
+# Exercise the actual settings dispatcher and full daily redraw. A labels=0
+# return used to clear the month title when the background was repainted.
+settings_dispatch=next(line for line in viewer.splitlines() if line.strip().startswith('settings_*)'))
+settings_dispatch=settings_dispatch.split(') ',1)[1].removesuffix(';;')
+render('settings-return-daily','daily','''
+. native-reading-time-package/reading-config.sh
+. native-reading-time-package/reading-settings.sh
+BASE="$SESSION_DIR/settings-state"
+UI_DIR=native-reading-time-package/ui-calendar
+rr_settings_gear() { :; }
+metric_begin() { :; }; metric_end() { :; }; refresh_region() { :; }
+fallback_to_legacy() { exit 99; }
+mode=daily; daily_y=2026; daily_m=9; selected_date=2026-09-02; detail_page=1
+book_filter=year; book_page=2; view_year=2025; week_offset=-2
+for action in settings_open settings_idle settings_custom settings_cancel settings_home settings_cover settings_home; do
+    rr_settings_action
+done
+action=settings_back
+'''+settings_dispatch+'''
+test "$mode $daily_y $daily_m $selected_date $detail_page $book_filter $book_page $view_year $week_offset" = 'daily 2026 9 2026-09-02 1 year 2 2025 -2' || exit 98
+''')
+draw=(session/'draw.tsv').read_text(encoding='utf-8')
+assert 'daily-month.pgm\t450\t320\t372\t80' in draw
+record('settings navigation return','The production dispatcher restores the selected calendar date and month title after both detail pages and keyboard cancellation, preserving pagination and other statistics filters.')
 
 changes=[]
 for file in sorted(PKG.rglob('*')):
