@@ -208,7 +208,8 @@ custom_cover_enabled=1
     assert pixel('id-a')==80 # Re-enabling restores prior choices, across processes.
     # Status uses the same real resolver but must not unpack any source book.
     status_setup='''
-extract_embedded_cover() { echo UNEXPECTED_EXTRACTION >&2; exit 70; }
+book_path_allowed() { return 0; }
+cache_embedded_cover() { touch "$SESSION_DIR/unexpected-extraction";return 1; }
 rr_generic="$(rr_cover_cmd generic)"; rr_generic_checked=0; rr_generic_valid=0
 status() { rr_cover_status "$@"; printf '%s\\n' "$rr_status"; }
 '''
@@ -219,6 +220,7 @@ status() { rr_cover_status "$@"; printf '%s\\n' "$rr_status"; }
     assert status('custom_cover_enabled=0; status other 同名书 ""')=='暂无封面'
     assert status(f'printf "id-a\\t%s\\n" {q(good)} > "$COVER_CACHE"; status id-a 同名书 "03 portrait.jpeg"')=='原始封面 · 已设专属'
     assert status('custom_cover_enabled=0; status id-a 同名书 "03 portrait.jpeg"')=='原始封面 · 专属未启用'
+    assert not (session/'unexpected-extraction').exists()
     # A broken cache entry must not hide another decodable native thumbnail.
     assert resolve(f'''printf 'id-a\\t%s\\n' {q(bad)} > "$COVER_CACHE"
 printf '0\\t同名书\\tid-a\\t%s\\tfile://missing\\n0\\t同名书\\tid-a\\t%s\\t\\n' {q(bad)} {q(good)} > "$CATALOG"
@@ -281,6 +283,10 @@ rr_cover_preview() { test "$3" -lt 1300 || exit 72; }
 rr_cover_text() { test "$2" -lt 1300 || exit 73; }
 rr_cover_current() { :; }
 rr_cover_draw
+cover_book_page=1;mode=settings_cover_books;custom_cover_enabled=1
+rr_cover_prepare() { printf '%s\\n' "$1" >> "$SESSION_DIR/prepares";return 0; }
+rr_cover_draw_books
+test "$(awk -v name="$rr_generic" '$0==name{n++}END{print n+0}' "$SESSION_DIR/prepares")" = 1 || exit 10
 ''')
     history.write_bytes(original_history)
     # Log real FBInk argv from production OT and cover drawing functions.
