@@ -318,6 +318,19 @@ record("chart rendering", "Seven-day weekly and 12-month annual charts render th
 
 for filter_name in ("7d", "month", "year", "all"):
     render(f"books-{filter_name}", "books", f"progress_loaded=1; book_filter={filter_name}; book_page=1; render_books")
+# Exercise the shared modal against real three-book render data, including a
+# partial last page and return to page one. Each render replaces the page slice.
+for target in (4,1):
+    spec=render(f"books-jump-{target}","books",f'''
+. native-reading-time-package/reading-custom-covers.sh
+mode=books;progress_loaded=1;book_filter=all;book_page=2
+rr_pager_open books "$(book_pages)" "$book_page"
+action=settings_cover_pager_pick_{target};rr_pager_action
+test "$mode $book_page" = 'books {target}' || exit 1
+render_books
+''')
+    assert rows('book-view.tsv')==rows('books.tsv')[(target-1)*3:target*3]
+    assert f'第 {target} 页，共 4 页' in spec
 render("books-filters", "books", "progress_loaded=1; book_filter=7d; book_page=2; render_books")
 books_spec = (OUT / "books-7d.spec.tsv").read_text(encoding="utf-8")
 assert "暂无进度" in books_spec and "42%" in books_spec and "88%" in books_spec

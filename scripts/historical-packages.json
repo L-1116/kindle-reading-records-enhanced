@@ -180,5 +180,12 @@
     "sha256": "a908cef14841766813267e19a739a46dc161dbb3b3859375b476dabe8d35fba1",
     "official": false,
     "provenance": "Original device-accepted test6 from 13e2c8d3746dc8259aeb6503a890c9f76382712c; retained unchanged."
+  },
+  {
+    "id": "9.8.1-test7",
+    "path": "build/standard-9.8.1-test7/9.8.1-5.20-vera-test7.zip",
+    "sha256": "bd1e94abc4059d2d97d4e0c4e9f56d7b08278e4b787e9afc6008acd60ce45182",
+    "official": false,
+    "provenance": "Original device-accepted Standard test7 from e0e7544242ee7b85c7c95f224937de5915d0bd03; KPW6 / 5.20.1 / Vera acceptance confirmed by the user; retained unchanged."
   }
 ]

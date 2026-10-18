@@ -81,8 +81,114 @@ rr_cover_preview() {
     rr_preview="$(rr_cover_prepare "$1")" || return 1
     rr_settings_image "$rr_preview" "$2" "$3" "$4" "$5"
 }
+# Shared modal/pagination state. The reader receives only small numeric values;
+# all selection bounds are checked again here before changing either list.
+rr_pager_open() {
+    case "$1" in books|settings_cover_books) :;; *) return 1;; esac
+    case "$2:$3" in *[!0-9:]*|:*|*:) return 1;; esac
+    [ "$2" -gt 1 ] || return 0
+    rr_pager_return="$1"; RR_PAGER_TOTAL="$2"; RR_PAGER_CURRENT="$3"
+    [ "$RR_PAGER_CURRENT" -ge 1 ] && [ "$RR_PAGER_CURRENT" -le "$RR_PAGER_TOTAL" ] || RR_PAGER_CURRENT=1
+    RR_PAGER_START=$(((RR_PAGER_CURRENT-1)/20*20+1))
+    export RR_PAGER_TOTAL RR_PAGER_CURRENT RR_PAGER_START
+    mode=settings_cover_picker
+}
+rr_pager_action() {
+    [ "$mode" = settings_cover_picker ] || return 1
+    case "$action" in
+        settings_cover_pager_back) mode="$rr_pager_return";;
+        settings_cover_pager_prev) [ "$RR_PAGER_START" -le 20 ] || RR_PAGER_START=$((RR_PAGER_START-20));;
+        settings_cover_pager_next) [ "$((RR_PAGER_START+20))" -gt "$RR_PAGER_TOTAL" ] || RR_PAGER_START=$((RR_PAGER_START+20));;
+        settings_cover_pager_pick_*)
+            rr_pick="${action#settings_cover_pager_pick_}"
+            case "$rr_pick" in ''|*[!0-9]*|0*) return 1;; esac
+            [ "${#rr_pick}" -le 9 ] && [ "$rr_pick" -ge "$RR_PAGER_START" ] && [ "$rr_pick" -lt "$((RR_PAGER_START+20))" ] && [ "$rr_pick" -le "$RR_PAGER_TOTAL" ] || return 1
+            case "$rr_pager_return" in books) book_page="$rr_pick";; settings_cover_books) cover_book_page="$rr_pick";; *) return 1;; esac
+            mode="$rr_pager_return";;
+    esac
+}
+rr_pager_render() {
+    rr_cover_exec lua "$SETTINGS_HELPERS/reading-insights-render.lua" "${RENDER_ASSETS:-$SETTINGS_HELPERS/../render-assets}" "$SESSION_DIR/pager.spec" || return 1
+    rr_settings_image "$SESSION_DIR/pager.pgm" "$1" "$2" "$3" "$4"
+}
+rr_pager_label() {
+    printf 'canvas\tpage\t452\t100\t%s/pager.pgm\ntextcenter\tpage\tB\t30\t226\t50\t0\t第 %s 页，共 %s 页\nrect\tpage\t64\t78\t324\t1\t96\nwrite\tpage\n' "$SESSION_DIR" "$1" "$2" > "$SESSION_DIR/pager.spec"
+    rr_pager_render 410 "$3" 452 100
+}
+rr_pager_draw() {
+    # The static white modal background also clears every old book/cover pixel.
+    printf 'canvas\tpicker\t904\t700\t%s/pager.pgm\n' "$SESSION_DIR" > "$SESSION_DIR/pager.spec"
+    rr_n=0
+    while [ "$rr_n" -lt 20 ] && [ "$((RR_PAGER_START+rr_n))" -le "$RR_PAGER_TOTAL" ]; do
+        rr_number=$((RR_PAGER_START+rr_n)); rr_x=$(((rr_n%5)*180)); rr_y=$(((rr_n/5)*140))
+        if [ "$rr_number" = "$RR_PAGER_CURRENT" ]; then rr_bg=20; rr_ink=255; else rr_bg=255; rr_ink=0; fi
+        printf 'round\tpicker\t%s\t%s\t160\t112\t14\t20\nround\tpicker\t%s\t%s\t156\t108\t12\t%s\ntextcenter\tpicker\tB\t36\t%s\t%s\t%s\t%s\n' "$rr_x" "$rr_y" "$((rr_x+2))" "$((rr_y+2))" "$rr_bg" "$((rr_x+80))" "$((rr_y+56))" "$rr_ink" "$rr_number" >> "$SESSION_DIR/pager.spec"
+        rr_n=$((rr_n+1))
+    done
+    rr_end=$((RR_PAGER_START+19)); [ "$rr_end" -le "$RR_PAGER_TOTAL" ] || rr_end=$RR_PAGER_TOTAL
+    printf 'textcenter\tpicker\tR\t28\t440\t625\t0\t%s - %s / %s\n' "$RR_PAGER_START" "$rr_end" "$RR_PAGER_TOTAL" >> "$SESSION_DIR/pager.spec"
+    [ "$RR_PAGER_START" -le 20 ] || printf 'textcenter\tpicker\tB\t44\t100\t625\t0\t‹\n' >> "$SESSION_DIR/pager.spec"
+    [ "$rr_end" -ge "$RR_PAGER_TOTAL" ] || printf 'textcenter\tpicker\tB\t44\t780\t625\t0\t›\n' >> "$SESSION_DIR/pager.spec"
+    printf 'write\tpicker\n' >> "$SESSION_DIR/pager.spec"
+    rr_pager_render 196 600 904 700
+}
+rr_cover_status() {
+    rr_status='暂无封面'
+    # Main UI supplies the exact original resolver, in non-extracting mode.
+    # Legacy fallback cannot safely extract originals; retain its safe renderer.
+    if type resolveOriginalBookCover >/dev/null 2>&1 && resolveOriginalBookCover "$1" "$2" cached "${rr_status_catalog:-$CATALOG}" >/dev/null; then
+        rr_status='原始封面'
+        if [ -n "$3" ]; then
+            if [ "${custom_cover_enabled:-0}" = 1 ]; then rr_status="$rr_status · 已设专属"
+            else rr_status="$rr_status · 专属未启用"; fi
+        fi
+    elif [ "${custom_cover_enabled:-0}" != 1 ]; then
+        [ -z "$3" ] || rr_status="$rr_status · 专属未启用"
+    elif [ -n "$3" ] && rr_cover_prepare "$3" >/dev/null; then rr_status='专属封面'
+    else
+        if [ "${rr_generic_checked:-0}" = 0 ]; then
+            rr_generic_checked=1; rr_generic_valid=0
+            [ -z "$rr_generic" ] || ! rr_cover_prepare "$rr_generic" >/dev/null || rr_generic_valid=1
+        fi
+        [ "${rr_generic_valid:-0}" != 1 ] || rr_status='通用封面'
+    fi
+}
+rr_cover_draw_books() {
+    rr_pages=$(((cover_book_count+9)/10)); [ "$rr_pages" -gt 0 ] || rr_pages=1
+    [ "$cover_book_page" -le "$rr_pages" ] || cover_book_page=$rr_pages
+    [ "$cover_book_page" -ge 1 ] || cover_book_page=1
+    ot 32 226 80 80 REGULAR "共 $cover_book_count 本历史书籍"
+    if [ "$cover_book_count" -eq 0 ]; then ot 36 510 104 104 REGULAR '暂无历史阅读书籍'
+    else
+        rr_first=$(((cover_book_page-1)*10+1)); rr_last=$((rr_first+9))
+        awk -v a="$rr_first" -v b="$rr_last" 'NR>=a&&NR<=b' "$SESSION_DIR/custom-books.tsv" > "$SESSION_DIR/custom-page.tsv"
+        rr_cover_cmd cards "$SESSION_DIR/custom-page.tsv" > "$SESSION_DIR/custom-cards.tsv" || return 1
+        # Reuse the existing snapshot, or query only these ten identities.
+        # Do not initialize the full progress/catalog snapshot from Settings.
+        rr_status_catalog="$CATALOG"
+        if [ ! -r "$rr_status_catalog" ]; then
+            rr_status_catalog="$SESSION_DIR/history-catalog.tsv"; : > "$rr_status_catalog"
+            if command -v sqlite3 >/dev/null 2>&1 && [ -r "$CC_DB" ]; then
+                rr_query="$(rr_cover_cmd catalog-query "$SESSION_DIR/custom-page.tsv")" || return 1
+                sqlite3 -readonly -separator "$(printf '\t')" "$CC_DB" "$rr_query" > "$rr_status_catalog" 2>/dev/null || : > "$rr_status_catalog"
+            fi
+        fi
+        rr_generic="$(rr_cover_cmd generic)"; rr_generic_checked=0; rr_generic_valid=0; rr_row=0
+        while IFS="$(printf '\t')" read -r rr_id rr_title rr_specific rr_line1 rr_line2; do
+            rr_x=$((104+(rr_row%2)*568)); rr_y=$((330+(rr_row/2)*204))
+            ot 34 "$rr_y" "$rr_x" "$((1272-rr_x-500))" REGULAR "${rr_line1#line:}" || return 1
+            [ "$rr_line2" = line: ] || ot 34 "$((rr_y+48))" "$rr_x" "$((1272-rr_x-500))" REGULAR "${rr_line2#line:}" || return 1
+            rr_cover_status "${rr_id#book:}" "${rr_title#title:}" "${rr_specific#name:}"
+            ot 28 "$((rr_y+116))" "$rr_x" "$((1272-rr_x-500))" REGULAR "$rr_status" || return 1
+            rr_row=$((rr_row+1))
+        done < "$SESSION_DIR/custom-cards.tsv"
+    fi
+    rr_pager_label "$cover_book_page" "$rr_pages" 1410
+}
 rr_cover_draw() {
     case "$mode" in
+    settings_cover_picker) rr_pager_draw;;
+    settings_cover_books) rr_cover_draw_books;;
     settings_cover)
         ot 34 232 80 80 REGULAR "$([ "$custom_cover_enabled" = 1 ] && printf 已开启 || printf 已关闭) · 只替代无法显示的真实封面"
         rr_generic="$(rr_cover_cmd generic)"
@@ -106,9 +212,8 @@ rr_cover_draw() {
             fi
             rr_cover_text 34 942 104 104 "$rr_choice"
         else ot 38 570 350 180 REGULAR '尚未选择替代图片'; fi;;
-    settings_cover_images|settings_cover_books)
-        if [ "$mode" = settings_cover_images ]; then rr_total=$cover_count; rr_page=$cover_page; rr_size=4; rr_list="$SESSION_DIR/custom-images.tsv"
-        else rr_total=$cover_book_count; rr_page=$cover_book_page; rr_size=6; rr_list="$SESSION_DIR/custom-books.tsv"; fi
+    settings_cover_images)
+        rr_total=$cover_count; rr_page=$cover_page; rr_size=4; rr_list="$SESSION_DIR/custom-images.tsv"
         rr_pages=$(((rr_total+rr_size-1)/rr_size)); [ "$rr_pages" -gt 0 ] || rr_pages=1
         ot 32 226 80 80 REGULAR "第 $rr_page / $rr_pages 页 · 共 $rr_total 项"
         if [ "$rr_total" -eq 0 ]; then
@@ -119,22 +224,13 @@ rr_cover_draw() {
             else ot 36 510 104 104 REGULAR '暂无历史阅读书籍'; fi
         else
             rr_first=$(((rr_page-1)*rr_size+1)); rr_last=$((rr_first+rr_size-1))
+            rr_row=0
             awk -v a="$rr_first" -v b="$rr_last" 'NR>=a&&NR<=b' "$rr_list" | while IFS= read -r rr_line; do
                 rr_row=$((${rr_row:-0}+1))
-                if [ "$mode" = settings_cover_images ]; then
-                    rr_y=$((330+(rr_row-1)*260))
-                    if ! rr_cover_preview "$rr_line" 104 "$rr_y" 132 198; then ot 30 $((rr_y+50)) 104 990 REGULAR '无效'; fi
-                    rr_cover_text 36 $((rr_y+42)) 280 130 "$rr_line"
-                    [ "$rr_line" != "$(rr_cover_current)" ] || ot 34 $((rr_y+118)) 280 130 REGULAR '● 当前选择'
-                else
-                    rr_y=$((330+(rr_row-1)*160)); rr_id="${rr_line%%	*}"; rr_title="${rr_line#*	}"
-                    rr_cover_text 38 "$rr_y" 104 104 "${rr_title:-未知书籍}"
-                    rr_selected="$(rr_cover_cmd get "${rr_id#book:}" "$rr_title")"
-                    rr_status="$([ -n "$rr_selected" ] && printf 已指定专属图片 || printf 尚未指定)"
-                    case "${rr_id#book:}" in ''|unknown) rr_status="$rr_status · 无 ID";;
-                        *) rr_status="$rr_status · ID: ${rr_id#book:}";; esac
-                    rr_cover_text 30 $((rr_y+62)) 104 104 "$rr_status"
-                fi
+                rr_y=$((330+(rr_row-1)*260))
+                if ! rr_cover_preview "$rr_line" 104 "$rr_y" 132 198; then ot 30 $((rr_y+50)) 104 990 REGULAR '无效'; fi
+                rr_cover_text 36 $((rr_y+42)) 280 130 "$rr_line"
+                [ "$rr_line" != "$(rr_cover_current)" ] || ot 34 $((rr_y+118)) 280 130 REGULAR '● 当前选择'
             done || exit 31
         fi;;
     esac
@@ -145,6 +241,8 @@ rr_cover_current() {
 }
 rr_cover_action() {
     case "$action" in
+    settings_cover_pager_*) rr_pager_action;;
+    settings_cover_page) rr_pager_open settings_cover_books "$(((cover_book_count+9)/10))" "$cover_book_page";;
     settings_cover_generic) cover_target_kind=generic; cover_target_id=''; cover_target_title='通用替代封面'; cover_manage_return=settings_cover; mode=settings_cover_manage;;
     settings_cover_books) rr_cover_history; mode=settings_cover_books;;
     settings_cover_info) mode=settings_cover_info;;
@@ -152,14 +250,14 @@ rr_cover_action() {
     settings_cover_choose) rr_cover_scan; mode=settings_cover_images;;
     settings_cover_clear) rr_cover_save '' || settings_error='保存失败，请重试';;
     settings_cover_back)
-        case "$mode" in settings_cover_images) mode=settings_cover_manage;; settings_cover_manage) mode="$cover_manage_return";; *) mode=settings_cover;; esac;;
+        case "$mode" in settings_cover_picker) mode="$rr_pager_return";; settings_cover_images) mode=settings_cover_manage;; settings_cover_manage) mode="$cover_manage_return";; *) mode=settings_cover;; esac;;
     settings_cover_prev|settings_cover_next)
         [ "$action" = settings_cover_next ] && rr_delta=1 || rr_delta=-1
         if [ "$mode" = settings_cover_images ]; then rr_max=$(((cover_count+3)/4)); cover_page=$((cover_page+rr_delta)); [ "$cover_page" -le "$rr_max" ] || cover_page=$rr_max; [ "$cover_page" -gt 0 ] || cover_page=1
-        else rr_max=$(((cover_book_count+5)/6)); cover_book_page=$((cover_book_page+rr_delta)); [ "$cover_book_page" -le "$rr_max" ] || cover_book_page=$rr_max; [ "$cover_book_page" -gt 0 ] || cover_book_page=1; fi;;
+        else rr_max=$(((cover_book_count+9)/10)); cover_book_page=$((cover_book_page+rr_delta)); [ "$cover_book_page" -le "$rr_max" ] || cover_book_page=$rr_max; [ "$cover_book_page" -gt 0 ] || cover_book_page=1; fi;;
     settings_cover_item_*)
         rr_slot="${action#settings_cover_item_}"
-        case "$rr_slot" in 1|2|3|4|5|6) :;; *) return 1;; esac
+        case "$rr_slot" in 1|2|3|4|5|6|7|8|9|10) :;; *) return 1;; esac
         if [ "$mode" = settings_cover_images ]; then
             [ "$rr_slot" -le 4 ] || return 1
             rr_index=$(((cover_page-1)*4+rr_slot)); rr_name="$(sed -n "${rr_index}p" "$SESSION_DIR/custom-images.tsv")"
@@ -167,7 +265,7 @@ rr_cover_action() {
             if rr_cover_save "$rr_name"; then mode=settings_cover_manage
             else settings_error='图片无效或保存失败，请重新选择'; fi
         elif [ "$mode" = settings_cover_books ]; then
-            rr_index=$(((cover_book_page-1)*6+rr_slot)); rr_line="$(sed -n "${rr_index}p" "$SESSION_DIR/custom-books.tsv")"
+            rr_index=$(((cover_book_page-1)*10+rr_slot)); rr_line="$(sed -n "${rr_index}p" "$SESSION_DIR/custom-books.tsv")"
             [ -n "$rr_line" ] || return 0
             cover_target_id="${rr_line%%	*}"; cover_target_id="${cover_target_id#book:}"; cover_target_title="${rr_line#*	}"
             cover_target_kind=book

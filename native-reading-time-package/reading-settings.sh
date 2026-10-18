@@ -16,7 +16,7 @@ rr_settings_draw() {
             ot 42 560 104 300 REGULAR "已关闭 · 已选 $idle_minutes 分钟"
         fi
     elif [ "${mode#settings_cover}" != "$mode" ]; then
-        rr_cover_draw
+        rr_cover_draw || return 1
     elif [ "$mode" = settings_idle ]; then
         rr_settings_image "$SETTINGS_ASSETS/settings-switch-$idle_enabled.png" 1016 431 152 78
         if [ "$idle_enabled" = 1 ]; then

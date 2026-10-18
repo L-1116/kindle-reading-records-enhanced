@@ -62,16 +62,24 @@ def covers(out):
     button(d,(104,1250,1168,1380),'取消选择')
     text(d,80,1490,'真实封面优先；图片失效时自动使用下一级封面。',32,MUTED)
     im.save(out/'settings_cover_manage.png')
-    for mode,title,size,step,height in (('images','选择图片',4,260,230),('books','历史书籍',6,160,140)):
+    for mode,title,size,step,height in (('images','选择图片',4,260,230),('books','历史书籍',10,204,184)):
         im,d=page(title)
         for row in range(size):
-            y=310+row*step
-            d.rounded_rectangle((80,y,1192,y+height),16,outline=160,width=2)
+            x=80+(row%2)*568 if mode=='books' else 80
+            y=310+(row//2 if mode=='books' else row)*step
+            d.rounded_rectangle((x,y,x+(544 if mode=='books' else 1112),y+height),16,outline=160,width=2)
         button(d,(80,1400,410,1520),'上一页')
         button(d,(862,1400,1192,1520),'下一页')
         if mode=='images': button(d,(452,1400,820,1520),'重新扫描',34)
         text(d,636,1594,'轻触条目选择，返回保留原有选择。',30,MUTED,center=True)
         im.save(out/f'settings_cover_{mode}.png')
+    # Full white backdrop makes the modal visually and interactively exclusive.
+    im=Image.new('L',(1272,1696),PAPER);d=ImageDraw.Draw(im)
+    d.rounded_rectangle((160,390,1112,1320),24,outline=INK,width=3)
+    text(d,600,460,'选择页码',44,center=True)
+    button(d,(940,420,1100,500),'关闭',32)
+    text(d,636,544,'轻触数字跳转',30,MUTED,center=True)
+    im.save(out/'settings_cover_picker.png')
     im,d=page('图片目录与使用说明')
     for y,s,size in ((330,'用 USB 连接 Kindle，将图片复制到：',38),
                      (440,'reading-time/custom-covers/',40),

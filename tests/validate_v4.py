@@ -120,7 +120,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert visible_cleanups==[CLEAN],visible_cleanups
         if mutation!='unknown_alias':assert not (docs/'阅读记录.sh').exists()
         assert not (docs/'reading-records-uninstall.sh').exists() and not (docs/'安装好之后，确认无误了再点这个.sh').exists()
-        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned'):
+        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned','9.8.1-test7','9.8.1-test7-cleaned'):
             again=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130);assert again.returncode==0,again.stderr
             assert len(list(base.glob('.previous-install')))==1 and not list(base.glob('.v4-rollback.*'))
         if mutation=='scanner_failure':assert 'scanner_request=request_failed index_completion=unverified' in log
@@ -174,8 +174,8 @@ def main():
         cases=[('9.8.1-test4','',True),('9.8.1-test4-cleaned','',True)]
         cases += [('9.8.1-test4',m,False) for m in ('core_failure','activation_failure','interrupted','ks_residue','wrong_device','busy_ui')]
     if '--settings-upgrade' in sys.argv:
-        cases=[('9.8.1-test6','',True),('9.8.1-test6-cleaned','',True)]
-        cases += [('9.8.1-test6',m,False) for m in ('core_failure','activation_failure','interrupted','ks_residue','wrong_device','busy_ui')]
+        cases=[(None,'',True),('9.8.1-test7','',True),('9.8.1-test7-cleaned','',True)]
+        cases += [('9.8.1-test7',m,False) for m in ('core_failure','activation_failure','interrupted','ks_residue','wrong_device','busy_ui')]
     if '--idle-upgrade' in sys.argv:
         cases=[('V4','',True)]
         cases += [('V4',m,False) for m in ('core_failure','activation_failure','interrupted','lost_service','stopped_service','ks_residue','wrong_device','orphan','duplicate','busy_ui')]

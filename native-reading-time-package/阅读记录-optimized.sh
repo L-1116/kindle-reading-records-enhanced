@@ -421,12 +421,12 @@ cover_miss_forget() {
 }
 
 catalog_row_for_book() {
-    [ -r "$CATALOG" ] || return 1
+    [ -r "${3:-$CATALOG}" ] || return 1
     awk -F '\t' -v id="$1" -v title="$2" '
         function norm(s){s=tolower(s);sub(/\.(epub|mobi|pdf)$/, "", s);return s}
         id!="" && id!="unknown" {if($3==id)print;next}
         title!="" && ($3=="" || $3=="unknown") && norm($2)==norm(title) {print}
-    ' "$CATALOG" | {
+    ' "${3:-$CATALOG}" | {
         best_rank=-1; best_row=''
         while IFS= read -r candidate_row; do
             candidate_thumb="$(printf '%s\n' "$candidate_row" | awk -F '\t' '{print $4}')"
@@ -510,7 +510,7 @@ cache_embedded_cover() {
 # Unified local-only fallback: last-known-good mapping, Kindle's catalog
 # thumbnail, exact EBOK filename, then an EPUB/MOBI body extraction cached on
 # disk. PDF intentionally stops after Kindle's own thumbnail/cache path.
-resolveBookCover() {
+resolveOriginalBookCover() {
     resolve_id="$1"; resolve_title="$2"; resolve_key="$(cover_identity_key "$resolve_id" "$resolve_title")"
     cover_log "book id: $resolve_id"
     [ -n "$resolve_key" ] || return 1
@@ -521,8 +521,8 @@ resolveBookCover() {
         if cover_path_allowed "$resolve_path" && cover_decodable "$resolve_path"; then printf '%s\n' "$resolve_path"; return 0; fi
         cover_cache_forget "$resolve_key" || true
     fi
-    ensure_catalog
-    resolve_row="$(catalog_row_for_book "$resolve_id" "$resolve_title")"
+    [ "${3:-}" = cached ] || ensure_catalog
+    resolve_row="$(catalog_row_for_book "$resolve_id" "$resolve_title" "${4:-$CATALOG}")"
     if [ -n "$resolve_row" ]; then
         resolve_path="$(printf '%s\n' "$resolve_row" | awk -F '\t' '{print $4}')"
         cover_log "expected source: ${resolve_path:-none}"
@@ -536,6 +536,8 @@ resolveBookCover() {
         cover_log "expected source: $resolve_path"
         if cover_path_allowed "$resolve_path" && cover_decodable "$resolve_path"; then cover_cache_remember "$resolve_key" "$resolve_path" || true; printf '%s\n' "$resolve_path"; return 0; fi
     esac
+    # History cards use thumbnails and already extracted covers, never unpack books.
+    [ "${3:-}" != cached ] || return 1
     resolve_source="$(printf '%s\n' "$resolve_row" | awk -F '\t' '{print $5}')"
     case "$resolve_source" in file://*) resolve_source="${resolve_source#file://}";; esac
     if ! book_path_allowed "$resolve_source" && [ -n "$resolve_title" ]; then resolve_source="/mnt/us/documents/$resolve_title"; fi
@@ -543,6 +545,11 @@ resolveBookCover() {
         resolve_embedded="$(cache_embedded_cover "$resolve_key" "$resolve_source")"
         if [ -n "$resolve_embedded" ] && cover_decodable "$resolve_embedded"; then printf '%s\n' "$resolve_embedded"; return 0; fi
     fi
+    return 1
+}
+
+resolveBookCover() {
+    resolveOriginalBookCover "$1" "$2" && return 0
     cover_log "no decodable real cover; trying custom fallback"
     type rr_cover_fallback >/dev/null 2>&1 && rr_cover_fallback "$resolve_id" "$resolve_title"
 }
@@ -660,7 +667,7 @@ spec_toggle_button() {
     toggle_canvas="$1"; toggle_x="$2"; toggle_w="$3"; toggle_text="$4"; toggle_selected="$5"
     sround "$toggle_canvas" "$toggle_x" 2 "$toggle_w" 54 16 20
     if [ "$toggle_selected" -eq 1 ]; then toggle_ink=255; else sround "$toggle_canvas" $((toggle_x+2)) 4 $((toggle_w-4)) 50 14 255; toggle_ink=0; fi
-    stext "$toggle_canvas" B 28 $((toggle_x+toggle_w/2)) 10 center "$toggle_ink" "$toggle_text"
+    scenter "$toggle_canvas" B 28 $((toggle_x+toggle_w/2)) 29 "$toggle_ink" "$toggle_text"
 }
 
 spec_total_toggle_button() {
@@ -716,7 +723,8 @@ render_total() {
     pos=0; while IFS="$(printf '\t')" read -r axis_label mins color; do
         center=$((plot_left+plot_width*(2*pos+1)/(2*count))); x=$((center-bar_w/2)); bh=$((mins*chart_height/scale)); [ "$mins" -gt 0 ] && [ "$bh" -lt 8 ] && bh=8
         [ "$bh" -gt 0 ] && srect chart "$x" $((chart_base-bh)) "$bar_w" "$bh" "$color"
-        stext chart B "$axis_size" "$center" 650 center 0 "$axis_label"
+        if [ "$total_period" = week ]; then stext chart R 28 "$center" 650 center 0 "$axis_label"
+        else stext chart B "$axis_size" "$center" 650 center 0 "$axis_label"; fi
         [ "$mins" -gt 0 ] && sfitlabel chart B 20 "$center" $((chart_base-bh-32)) center 0 "$(chart_time_text "$mins")" "$plot_left" "$plot_right"
         pos=$((pos+1))
     done < "$TOTAL_VALUES"
@@ -1336,9 +1344,9 @@ render_books() {
         if [ -n "$progress" ]; then [ "$progress" -gt 100 ] && progress=100; stext books B 27 $((1090+BOOK_CONTENT_SHIFT_X)) $((y+195)) right 0 "阅读进度  ${progress}%"; srect books $((255+BOOK_CONTENT_SHIFT_X)) $((y+252)) 830 18 205; [ "$progress" -gt 0 ] && srect books $((255+BOOK_CONTENT_SHIFT_X)) $((y+252)) $((830*progress/100)) 18 20; else stext books R 24 $((1090+BOOK_CONTENT_SHIFT_X)) $((y+195)) right 0 "暂无进度"; fi; row=$((row+1))
     done < "$SESSION_DIR/book-view.tsv"
     if [ ! -s "$SESSION_DIR/book-view.tsv" ]; then stext books R 32 566 450 center 0 "当前范围暂无满5分钟的书籍"; fi
-    swrite books; canvas page 452 60 "$b"; stext page B 30 226 10 center 0 "第 ${book_page} 页，共 ${pages} 页"; swrite page; run_renderer || return 1
-    pgm_valid "$a" "$BOOK_CONTENT_W" "$BOOK_CONTENT_H" && pgm_valid "$b" 452 60 && pgm_valid "$SESSION_DIR/books-filters.pgm.new" 1132 58 || return 1; mv "$a" "$SESSION_DIR/books-content.pgm" && mv "$b" "$SESSION_DIR/books-page.pgm" && mv "$SESSION_DIR/books-filters.pgm.new" "$SESSION_DIR/books-filters.pgm" || return 1
-    image "$SESSION_DIR/books-filters.pgm" 70 285 1132 58 && image "$SESSION_DIR/books-content.pgm" "$BOOK_CONTENT_X" "$BOOK_CONTENT_Y" "$BOOK_CONTENT_W" "$BOOK_CONTENT_H" && image "$SESSION_DIR/books-page.pgm" 410 1480 452 60 || return 1
+    swrite books; canvas page 452 100 "$b"; scenter page B 30 226 50 0 "第 ${book_page} 页，共 ${pages} 页"; srect page 64 78 324 1 96; swrite page; run_renderer || return 1
+    pgm_valid "$a" "$BOOK_CONTENT_W" "$BOOK_CONTENT_H" && pgm_valid "$b" 452 100 && pgm_valid "$SESSION_DIR/books-filters.pgm.new" 1132 58 || return 1; mv "$a" "$SESSION_DIR/books-content.pgm" && mv "$b" "$SESSION_DIR/books-page.pgm" && mv "$SESSION_DIR/books-filters.pgm.new" "$SESSION_DIR/books-filters.pgm" || return 1
+    image "$SESSION_DIR/books-filters.pgm" 70 285 1132 58 && image "$SESSION_DIR/books-content.pgm" "$BOOK_CONTENT_X" "$BOOK_CONTENT_Y" "$BOOK_CONTENT_W" "$BOOK_CONTENT_H" && image "$SESSION_DIR/books-page.pgm" 410 1493 452 100 || return 1
     lua "$TITLE_LAYOUT" "$SESSION_DIR/book-view.tsv" 780 42 0 "$BOOK_ROW_H" > "$SESSION_DIR/book-titles.tsv" || return 1
     while IFS="$(printf '\t')" read -r title_y title_line; do
         [ -n "$title_line" ] || continue
@@ -1557,6 +1565,7 @@ while :; do
     standard_touch_action_received
     echo "$(date): dashboard action=$action mode=$mode"
     case "$action" in
+      page_jump) rr_pager_open books "$(book_pages)" "$book_page"; [ "$mode" != settings_cover_picker ] || perform_draw page_picker_open 1 1 0 0 1272 1696;;
       settings_*) rr_settings_action; perform_draw settings_change 1 1 0 0 1272 1696;;
       exit) break;;
       tab_total) if [ "$mode" = total ]; then metric_begin tab_total_noop; metric_end none 0 0; else mode=total; perform_draw tab_to_total 1 1 0 0 1272 1696; fi;;
@@ -1587,9 +1596,9 @@ while :; do
       week_day_*) week_index="${action#week_day_}"; week_date="$(awk -F '\t' -v n="$((week_index+1))" 'NR==n{print $1;exit}' "$WEEK_VIEW")"; [ -n "$week_date" ] && open_day_detail "$week_date" total || { metric_begin week_day_invalid; metric_end none 0 0; };;
       detail_prev) if [ "$detail_page" -gt 1 ]; then detail_page=$((detail_page-1)); perform_draw detail_previous 0 2 70 "$DETAIL_TOP" 1132 "$DETAIL_H"; else metric_begin detail_previous_noop; metric_end none 0 0; fi;;
       detail_next) if [ "$detail_page" -lt "$detail_pages" ]; then detail_page=$((detail_page+1)); perform_draw detail_next 0 2 70 "$DETAIL_TOP" 1132 "$DETAIL_H"; else metric_begin detail_next_noop; metric_end none 0 0; fi;;
-      books_7d|books_month|books_year|books_all) new_filter="${action#books_}"; if [ "$book_filter" = "$new_filter" ]; then metric_begin book_filter_noop; metric_end none 0 0; else book_filter="$new_filter"; book_page=1; perform_draw book_filter_change 0 0 55 285 1162 1275; fi;;
-      page_prev) if [ "$book_page" -gt 1 ]; then book_page=$((book_page-1)); perform_draw book_page_previous 0 0 70 345 1132 1215; else metric_begin page_previous_noop; metric_end none 0 0; fi;;
-      page_next) pages="$(book_pages)"; if [ "$book_page" -lt "$pages" ]; then book_page=$((book_page+1)); perform_draw book_page_next 0 0 70 345 1132 1215; else metric_begin page_next_noop; metric_end none 0 0; fi;;
+      books_7d|books_month|books_year|books_all) new_filter="${action#books_}"; if [ "$book_filter" = "$new_filter" ]; then metric_begin book_filter_noop; metric_end none 0 0; else book_filter="$new_filter"; book_page=1; perform_draw book_filter_change 0 0 55 285 1162 1310; fi;;
+      page_prev) if [ "$book_page" -gt 1 ]; then book_page=$((book_page-1)); perform_draw book_page_previous 0 0 70 345 1132 1250; else metric_begin page_previous_noop; metric_end none 0 0; fi;;
+      page_next) pages="$(book_pages)"; if [ "$book_page" -lt "$pages" ]; then book_page=$((book_page+1)); perform_draw book_page_next 0 0 70 345 1132 1250; else metric_begin page_next_noop; metric_end none 0 0; fi;;
       book_row_*) open_row="${action#book_row_}"; open_book_detail "$open_row"; open_result=$?; if [ "$open_result" -eq 1 ]; then fallback_to_legacy; elif [ "$open_result" -eq 2 ]; then metric_begin book_row_empty; metric_end none 0 0; fi;;
       *) metric_begin unknown_action; metric_end none 0 0;;
     esac

@@ -3,7 +3,7 @@ Windows uses the same C source in a host executable; ARM framebuffer, touch and
 sleep acceptance remain pending on Kindle. No simulated hardware claim.
 """
 from pathlib import Path
-import io, os, shlex, shutil, struct, subprocess, sys, tempfile, time
+import io, os, shlex, shutil, sqlite3, struct, subprocess, sys, tempfile, time
 from PIL import Image, ImageDraw, ImageFont
 from lupa.lua51 import LuaRuntime, LuaError
 
@@ -90,7 +90,7 @@ lua.execute(Path(sys.argv[1]).read_text(encoding='utf-8'))
     head=f'''
 export PATH="/usr/bin:/bin:$PATH"
 . {q(functions)}
-BASE={q(base)}; SESSION_DIR={q(session)}; SETTINGS_HELPERS={q(PKG)}; SETTINGS_ASSETS={q(PKG/'ui-calendar')}
+BASE={q(base)}; SESSION_DIR={q(session)}; SETTINGS_HELPERS={q(PKG)}; SETTINGS_ASSETS={q(PKG/'ui-calendar')}; RENDER_ASSETS={q(PKG/'render-assets')}
 lua() {{ {q(sys.executable)} {q(runner)} "$@"; }}
 . "$SETTINGS_HELPERS/reading-config.sh"
 . "$SETTINGS_HELPERS/reading-settings.sh"
@@ -104,6 +104,23 @@ act() {{ action="$1"; rr_settings_action; }}
         assert p.returncode==0,(p.returncode,p.stdout,p.stderr,code)
         return p.stdout.strip()
     assert shell('rr_cover_history; cat "$SESSION_DIR/custom-books.tsv"').count('book:')==5
+    # The page query retains exact IDs and escapes quoted IDs/titles. No
+    # optional location column or full progress snapshot is required.
+    page_input=session/'query-page.tsv'
+    page_input.write_text("book:id-a\t同名书\nbook:\t无 ID 第二本\nbook:x' OR 1=1 --\tquoted\nbook:unknown\tO'Brien.epub\n",encoding='utf-8')
+    query=shell('rr_cover_cmd catalog-query '+q(page_input))
+    with sqlite3.connect(':memory:') as db:
+        db.execute('CREATE TABLE Entries(p_titles_0_nominal,p_cdeKey,p_thumbnail,p_lastAccess)')
+        db.executemany('INSERT INTO Entries VALUES (?,?,?,?)',[
+            ('同名书','id-a','a.jpg',1),('同名书','id-b','b.jpg',2),
+            ('无 ID 第二本',None,'none.jpg',3),("quoted","x' OR 1=1 --",'q.jpg',4),
+            ("O'Brien",'unknown','title.jpg',5),('not requested','other','other.jpg',6)])
+        result=db.execute(query).fetchall()
+        assert {row[3] for row in result}=={'a.jpg','none.jpg','q.jpg','title.jpg'},result
+    page_input.write_text('book:ABCDEF0123456789\tABCDEF0123456789\n',encoding='utf-8')
+    hidden=shell('rr_cover_cmd cards '+q(page_input)).split('\t')
+    assert hidden[:2]==['book:ABCDEF0123456789','title:ABCDEF0123456789']
+    assert hidden[3]=='line:未知书籍',hidden
     assert shell('rr_cover_scan; echo "$cover_count"')=='7'
     # Navigation, confirmation, returning without selection, page bounds,
     # atomic save failures and independent special/empty/unknown identities.
@@ -141,18 +158,18 @@ exit 0
     assert shell("rr_cover_cmd get generic '真实 ID generic'")=='06 图片 六.png'
     assert shell('rr_cover_cmd count')=='4'
     # Empty historical identities retain their raw fallback key, while the UI
-    # supplies a readable label. More than six records still paginate lazily.
+    # supplies a readable label. Ten records per page, with four on the last.
     with history.open('a',encoding='utf-8') as f:
         f.write('2026-10-06\tunknown\t12\t\n')
         for i in range(8):f.write(f'2026-10-07\textra-{i}\t10\t第 {i} 本 '+('很长的历史书名 '*8)+'\n')
     shell('''
 rr_cover_history;test "$cover_book_count" = 14 || exit 1
 mode=settings_cover_books;act settings_cover_next;act settings_cover_next;act settings_cover_next
-test "$cover_book_page" = 3 || exit 2
+test "$cover_book_page" = 2 || exit 2
 act settings_cover_item_6;test "$mode" = settings_cover_books || exit 3
 act settings_cover_prev;act settings_cover_item_1
 test "$mode $cover_manage_return" = 'settings_cover_manage settings_cover_books' || exit 4
-act settings_cover_back;test "$cover_book_page" = 2 || exit 5
+act settings_cover_back;test "$cover_book_page" = 1 || exit 5
 cover_target_kind=book;cover_target_id=unknown;cover_target_title=''
 rr_cover_save '06 图片 六.png' || exit 6
 test "$(rr_cover_cmd get unknown '')" = '06 图片 六.png' || exit 7
@@ -189,30 +206,98 @@ custom_cover_enabled=1
     assert resolve('custom_cover_enabled=0; rm -f "$COVER_CACHE"; resolveBookCover id-a 同名书 || echo PLACEHOLDER')=='PLACEHOLDER'
     assert state.read_bytes()==saved
     assert pixel('id-a')==80 # Re-enabling restores prior choices, across processes.
+    # Status uses the same real resolver but must not unpack any source book.
+    status_setup='''
+extract_embedded_cover() { echo UNEXPECTED_EXTRACTION >&2; exit 70; }
+rr_generic="$(rr_cover_cmd generic)"; rr_generic_checked=0; rr_generic_valid=0
+status() { rr_cover_status "$@"; printf '%s\\n' "$rr_status"; }
+'''
+    def status(code):return resolve(status_setup+code)
+    assert status('status id-a 同名书 "03 portrait.jpeg"')=='专属封面'
+    assert status('status other 同名书 ""')=='通用封面'
+    assert status('custom_cover_enabled=0; status id-a 同名书 "03 portrait.jpeg"')=='暂无封面 · 专属未启用'
+    assert status('custom_cover_enabled=0; status other 同名书 ""')=='暂无封面'
+    assert status(f'printf "id-a\\t%s\\n" {q(good)} > "$COVER_CACHE"; status id-a 同名书 "03 portrait.jpeg"')=='原始封面 · 已设专属'
+    assert status('custom_cover_enabled=0; status id-a 同名书 "03 portrait.jpeg"')=='原始封面 · 专属未启用'
     # A broken cache entry must not hide another decodable native thumbnail.
     assert resolve(f'''printf 'id-a\\t%s\\n' {q(bad)} > "$COVER_CACHE"
 printf '0\\t同名书\\tid-a\\t%s\\tfile://missing\\n0\\t同名书\\tid-a\\t%s\\t\\n' {q(bad)} {q(good)} > "$CATALOG"
 resolveBookCover id-a 同名书''')==good.as_posix()
     (images/'03 portrait.jpeg').unlink();assert pixel('id-a')==179
     (images/names[0]).write_bytes(b'damaged');assert resolve('resolveBookCover id-a 同名书 || echo PLACEHOLDER')=='PLACEHOLDER'
+    assert status('status id-a 同名书 "03 portrait.jpeg"')=='暂无封面'
     assert history.read_bytes()==original_history and conf.read_bytes()==original_conf
     assert b'custom-cover' not in (base/'book-cover-cache.tsv').read_bytes() if (base/'book-cover-cache.tsv').exists() else True
     # Restore for previews and exercise deletion/rescan, generic clear, specific
-    # clear and a large six-row history page, without changing historical bytes.
+    # clear and a history page, without changing historical bytes.
     Image.new('RGB',(400,600),(179,)*3).save(images/names[0])
     assert shell('rr_cover_scan; echo "$cover_count"')=='6'
     shell('cover_target_kind=book; cover_target_id=id-b; cover_target_title=同名书; rr_cover_save ""')
     assert pixel('id-b')==179
+    # One state machine serves both lists: no-op single page, group navigation,
+    # last partial group, invalid/out-of-group selection and cancellation.
+    shell('''
+mode=books;rr_pager_open books 1 1;test "$mode" = books || exit 1
+for context in books settings_cover_books; do
+    mode=$context;rr_pager_open "$context" 50 8
+    test "$mode $RR_PAGER_START" = 'settings_cover_picker 1' || exit 2
+    act settings_cover_pager_pick_50;test "$mode" = settings_cover_picker || exit 3
+    act settings_cover_pager_next;act settings_cover_pager_next;act settings_cover_pager_next
+    test "$RR_PAGER_START" = 41 || exit 4
+    act settings_cover_pager_pick_51;test "$mode" = settings_cover_picker || exit 5
+    act settings_cover_pager_pick_50;test "$mode" = "$context" || exit 6
+    if [ "$context" = books ]; then test "$book_page" = 50 || exit 7
+    else test "$cover_book_page" = 50 || exit 8; fi
+    rr_pager_open "$context" 50 50;act settings_cover_pager_prev
+    test "$RR_PAGER_START" = 21 || exit 9
+    act settings_cover_pager_back;test "$mode" = "$context" || exit 10
+done
+''')
+    # A 503-book history inspects exactly the current ten, then only the last
+    # three. Neither history reload, full catalog initialization nor extraction
+    # is permitted while rendering or paging.
+    with history.open('a',encoding='utf-8') as f:
+        for i in range(498):f.write(f'2026-10-07\tlarge-{i:03d}\t10\t第 {i:03d} 本 '+('很长的中文书籍标题'*9)+'\n')
+    shell('''
+rr_cover_history;test "$cover_book_count" = 503 || exit 1
+ensure_catalog() { exit 91; };extract_embedded_cover() { exit 92; }
+resolveOriginalBookCover() { printf '%s\\n' "$1" >> "$SESSION_DIR/checked";return 1; }
+ot() { :; };rr_pager_render() { :; }
+custom_cover_enabled=0;mode=settings_cover_books
+rr_cover_draw_books;test "$(wc -l < "$SESSION_DIR/checked")" = 10 || exit 2
+test "$(wc -l < "$SESSION_DIR/custom-cards.tsv")" = 10 || exit 3
+rr_pager_open settings_cover_books 51 1
+act settings_cover_pager_next;act settings_cover_pager_next;act settings_cover_pager_pick_51
+rr_cover_draw_books;test "$(wc -l < "$SESSION_DIR/checked")" = 13 || exit 4
+test "$(wc -l < "$SESSION_DIR/custom-cards.tsv")" = 3 || exit 5
+test "$cover_book_page" = 51 || exit 6
+act settings_cover_item_4;test "$mode" = settings_cover_books || exit 7
+act settings_cover_item_3;test "$mode" = settings_cover_manage || exit 8
+test "book:$cover_target_id" = "$(sed -n '503p' "$SESSION_DIR/custom-books.tsv" | cut -f1)" || exit 9
+# Returning through cover management to image selection cannot inherit the
+# history loop's row counter and draw previews below the screen.
+mode=settings_cover_images;rr_cover_scan
+rr_cover_preview() { test "$3" -lt 1300 || exit 72; }
+rr_cover_text() { test "$2" -lt 1300 || exit 73; }
+rr_cover_current() { :; }
+rr_cover_draw
+''')
+    history.write_bytes(original_history)
     # Log real FBInk argv from production OT and cover drawing functions.
     drawhead='''
 scale_len() { echo "$1"; }; scale_x() { echo "$1"; }; scale_y() { echo "$1"; }; scale_right() { echo "$1"; }
 fb() { printf 'fb'; printf '\\t%s' "$@"; printf '\\n'; }
 '''+f'RFONT={q(PKG/"NotoSansCJKsc-Regular.otf")}\n'
-    for mode in ('settings_cover','settings_cover_manage','settings_cover_images','settings_cover_books','settings_cover_info'):
+    # Render ten long-title cards and the modal through the production renderer.
+    with history.open('a',encoding='utf-8') as f:
+        for i in range(8):f.write(f'2026-10-07\tlong-{i}\t10\t'+('长中文书名 Mixed Title '*12)+'\n')
+    for mode in ('settings_cover','settings_cover_manage','settings_cover_images','settings_cover_books','settings_cover_info','settings_cover_picker'):
         output=shell(drawhead+f'''
 rr_cover_scan; rr_cover_history
 cover_target_kind=generic; cover_target_title='通用替代封面'
-custom_cover_enabled=1;mode={mode};rr_settings_draw
+custom_cover_enabled=1;mode={mode}
+[ "$mode" != settings_cover_picker ] || rr_pager_open books 50 8
+rr_settings_draw
 ''')
         im=Image.open(PKG/f'ui-calendar/{mode}.png').convert('L');d=ImageDraw.Draw(im)
         for line in output.splitlines():
@@ -229,6 +314,7 @@ custom_cover_enabled=1;mode={mode};rr_settings_draw
                 assert box[2]<=1272-right and box[3]<1696,(mode,args[-1],box,right)
                 d.text((x,y),args[-1],font=f,fill=0)
         im.save(OUT/f'{mode}.png')
+    history.write_bytes(original_history)
     shell('cover_target_kind=generic;rr_cover_save ""')
     assert resolve('resolveBookCover other 同名书 || echo PLACEHOLDER')=='PLACEHOLDER'
     # Preserve unknown association versions on attempted writes.
@@ -242,16 +328,50 @@ cases=[]
 for m in ('settings_cover_manage','settings_cover_images','settings_cover_books','settings_cover_info'):
     cases += [(m,160,100,'settings_cover_back'),(m,50,100,'')]
 cases += [('settings_cover',600,400,'settings_cover_generic'),('settings_cover',600,700,'settings_cover_books'),('settings_cover',600,1000,'settings_cover_info'),('settings_cover',600,1200,'settings_cover_scan'),('settings_cover_manage',600,1140,'settings_cover_choose'),('settings_cover_manage',600,1300,'settings_cover_clear')]
-for m,n,step,h in [('settings_cover_images',4,260,230),('settings_cover_books',6,160,140)]:
+for m,n,step,h in [('settings_cover_images',4,260,230),('settings_cover_books',10,204,184)]:
     for i in range(n):
-        y=310+i*step
-        cases += [(m,600,y+10,f'settings_cover_item_{i+1}'),(m,79,y+10,''),(m,600,y+h+1,'')]
+        x=80+(i%2)*568 if m=='settings_cover_books' else 80
+        y=310+(i//2 if m=='settings_cover_books' else i)*step
+        cases += [(m,x+10,y+10,f'settings_cover_item_{i+1}'),(m,x+300,y+h,f'settings_cover_item_{i+1}'),(m,79,y+10,''),(m,x+100,y+h+1,'')]
     cases += [(m,200,1460,'settings_cover_prev'),(m,1000,1460,'settings_cover_next')]
+cases += [('settings_cover_books',636,1460,'settings_cover_page'),('books',636,1530,'page_jump')]
+cases += [('settings_cover_books',636,360+row*204,'') for row in range(5)]
+for first,total in ((1,8),(1,50),(21,50),(41,50)):
+    os.environ['RR_PAGER_START']=str(first);os.environ['RR_PAGER_TOTAL']=str(total)
+    # Evaluated in the loop below with each modal's own numeric environment.
+    for i in range(20):
+        n=first+i;x=196+(i%5)*180+80;y=600+(i//5)*140+56
+        cases.append((f'settings_cover_picker:{first}:{total}',x,y,f'settings_cover_pager_pick_{n}' if n<=total else ''))
+    cases += [(f'settings_cover_picker:{first}:{total}',1010,460,'settings_cover_pager_back'),
+              (f'settings_cover_picker:{first}:{total}',200,1460,''),
+              (f'settings_cover_picker:{first}:{total}',600,200,''),
+              (f'settings_cover_picker:{first}:{total}',296,1225,'settings_cover_pager_prev' if first>1 else ''),
+              (f'settings_cover_picker:{first}:{total}',976,1225,'settings_cover_pager_next' if first+20<=total else '')]
+del os.environ['RR_PAGER_START'];del os.environ['RR_PAGER_TOTAL']
+prefix=touch[:touch.index('\nnote(string.format("interactive watcher started')]+ '\nreturn action_for_physical'
+for w,h,ox,oy in ((1272,1696,0,0),(1264,1685,0,0),(900,1200,20,40),(600,800,0,0)):
+    readers={}
+    for tagged,x,y,expected in cases:
+        if tagged not in readers:
+            mode=tagged
+            if ':' in mode:
+                mode,first,total=mode.split(':');os.environ['RR_PAGER_START']=first;os.environ['RR_PAGER_TOTAL']=total
+            lua=LuaRuntime();lua.globals().arg=lua.table_from({3:mode,6:ox,7:oy,8:w,9:h,17:w+2*ox,18:h+2*oy})
+            readers[tagged]=(lua,lua.execute(prefix))
+        # getenv is read when a modal tap is mapped, so restore its group.
+        if ':' in tagged:
+            _,first,total=tagged.split(':');os.environ['RR_PAGER_START']=first;os.environ['RR_PAGER_TOTAL']=total
+        actual=readers[tagged][1](ox+x*w/1272,oy+y*h/1696,'direct')
+        assert (actual or '')==expected,(tagged,w,h,x,y,actual,expected)
 with tempfile.TemporaryDirectory(dir=OUT) as tmp:
     for legacy in ('current','legacy'):
         for size in (16,24):
             for mode,x,y,expected in cases:
+                if ':' in mode:
+                    mode,first,total=mode.split(':');os.environ['RR_PAGER_START']=first;os.environ['RR_PAGER_TOTAL']=total
                 p=Path(tmp)/'input';p.write_bytes(b''.join(bytes(size-8)+struct.pack('<HHi',*e) for e in [(3,53,x),(3,54,y),(0,0,0)]))
+                # Compatibility books retain their historical non-jump layout.
+                if legacy=='legacy' and mode=='books' and expected=='page_jump':continue
                 args=[p.as_posix(),str(Path(tmp)/'log'),mode,0,31,0,0,1272,1696,1,1,1576,'week','7d','direct',size,1272,1696,str(Path(tmp)/'report'),'unknown','unknown','unknown','unknown',legacy]
                 lua=LuaRuntime();lua.globals().arg=lua.table_from({i+1:str(v) for i,v in enumerate(args)})
                 out=[];lua.globals().capture=lambda *v:out.append(''.join(map(str,v)))
@@ -259,4 +379,4 @@ with tempfile.TemporaryDirectory(dir=OUT) as tmp:
                 try:lua.execute(touch)
                 except LuaError as e:assert f'EXIT:{0 if expected else 2}' in str(e),(mode,x,y,str(e))
                 assert ''.join(out).strip()==expected,(mode,x,y,out,expected)
-print('Custom covers PASS: native JPEG/PNG decode + safety/limits/cache, Lua persistence/identity, real resolver priority, shell navigation, 5 page previews, evdev ABIs. ARM/Kindle acceptance PENDING.')
+print('Custom covers PASS: native decoder/cache, association identity, real source priority/disabled state, 503-book bounded paging, both shared jump targets, six page previews, modal isolation and both evdev ABIs. ARM/Kindle acceptance PENDING.')

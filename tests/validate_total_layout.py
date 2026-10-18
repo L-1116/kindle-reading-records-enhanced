@@ -35,7 +35,7 @@ allowed = {'reading-config.sh', 'reading-settings.sh', 'ui-calendar/settings.png
            'reading-custom-covers.sh','reading-custom-covers.lua','cover-image',
            'install-manifest.txt','ui-calendar/settings_cover_manage.png',
            'ui-calendar/settings_cover_images.png','ui-calendar/settings_cover_books.png',
-           'ui-calendar/settings_cover_info.png'}
+           'ui-calendar/settings_cover_info.png','ui-calendar/settings_cover_picker.png'}
 for path in PKG.rglob('*'):
     if not path.is_file() or path.relative_to(PKG).as_posix() in allowed:
         continue
@@ -49,7 +49,7 @@ for path in PKG.rglob('*'):
         actual, previous = actual.replace(b'\r\n', b'\n'), previous.replace(b'\r\n', b'\n')
     assert actual == previous, path
 cleanup = ROOT/'v4/cleanup.sh'
-assert cleanup.read_bytes().replace(b'9.8.1-5.20-vera-test7', b'9.8.1-5.20-vera-test3').replace(b'reading-records-v4-install.sh', b'reading-records-9.8.1-install.sh') == subprocess.check_output(['git','show','63e34dba:v4/cleanup.sh'], cwd=ROOT)
+assert cleanup.read_bytes().replace(b'9.8.1-5.20-vera-test8', b'9.8.1-5.20-vera-test3').replace(b'reading-records-v4-install.sh', b'reading-records-9.8.1-install.sh') == subprocess.check_output(['git','show','63e34dba:v4/cleanup.sh'], cwd=ROOT)
 
 old_bg = subprocess.check_output(['git', 'show',
     '63e34dba:native-reading-time-package/ui-calendar/total.png'], cwd=ROOT)
@@ -72,6 +72,15 @@ def preserved_shell(source):
     # Full settings navigation redraws the calendar month title on return.
     source = source.replace('perform_draw settings_change 1 1 0 0 1272 1696',
                             'perform_draw settings_change 1 0 0 0 1272 1696')
+    # test8 intentionally changes only these book controls and weekday glyphs.
+    source=source.replace('    scenter "$toggle_canvas" B 28 $((toggle_x+toggle_w/2)) 29 "$toggle_ink" "$toggle_text"', '    stext "$toggle_canvas" B 28 $((toggle_x+toggle_w/2)) 10 center "$toggle_ink" "$toggle_text"')
+    source=source.replace('        if [ "$total_period" = week ]; then stext chart R 28 "$center" 650 center 0 "$axis_label"\n        else stext chart B "$axis_size" "$center" 650 center 0 "$axis_label"; fi', '        stext chart B "$axis_size" "$center" 650 center 0 "$axis_label"')
+    source=source.replace('canvas page 452 100 "$b"; scenter page B 30 226 50 0 "第 ${book_page} 页，共 ${pages} 页"; srect page 64 78 324 1 96', 'canvas page 452 60 "$b"; stext page B 30 226 10 center 0 "第 ${book_page} 页，共 ${pages} 页"')
+    source=source.replace('pgm_valid "$b" 452 100','pgm_valid "$b" 452 60').replace('1493 452 100','1480 452 60')
+    source=source.replace('book_filter_change 0 0 55 285 1162 1310','book_filter_change 0 0 55 285 1162 1275')
+    source=source.replace('book_page_previous 0 0 70 345 1132 1250','book_page_previous 0 0 70 345 1132 1215')
+    source=source.replace('book_page_next 0 0 70 345 1132 1250','book_page_next 0 0 70 345 1132 1215')
+    source=source.replace('      page_jump) rr_pager_open books "$(book_pages)" "$book_page"; [ "$mode" != settings_cover_picker ] || perform_draw page_picker_open 1 1 0 0 1272 1696;;\n','')
     return (source[:source.index('\ndashboard_active=0;')] +
             source[source.index('\nperform_draw()'):source.index('\nrr_perf geometry_begin')] +
             source[source.index('    standard_touch_action_received\n'):])
@@ -85,8 +94,26 @@ def outside_total_touch(source):
     prefix = source[:start]
     a = prefix.index('local function settings_action(')
     b = prefix.index('local function action_for_logical(', a)
-    return prefix[:a] + prefix[b:] + source[end:]
+    result=prefix[:a] + prefix[b:] + source[end:]
+    return result.replace('        if inside(px, py, 410, 1493, 862, 1593) then return "page_jump" end\n','')
 assert outside_total_touch(before) == outside_total_touch(after)
+
+# Actual glyph-mask centering for all four filters and the underlined pager.
+filters=Image.open(SESSION/'books-filters.pgm').convert('L')
+for x,w,selected in ((0,263,True),(290,263,False),(580,263,False),(870,262,False)):
+    centered(filters,(x+20,8,x+2*(w//2)-20,50),selected)
+page=Image.open(SESSION/'books-page.pgm').convert('L')
+assert page.size==(452,100)
+centered(page,(0,22,452,78))
+assert all(page.getpixel((x,78))==96 for x in range(64,388))
+# Use the visible button glyphs, whose center differs from the broad touch box.
+background=Image.open(PKG/'ui-calendar/books.png').convert('L')
+for box in ((140,1510,350,1576),(940,1510,1140,1576)):
+    bounds=background.crop(box).point(lambda p:255 if p<80 else 0).getbbox()
+    assert abs((bounds[1]+bounds[3])/2+box[1]-(1493+50))<=1
+assert '1493\t452\t100' in (SESSION/'draw.tsv').read_text(encoding='utf-8')
+assert 'book_page_next 0 0 70 345 1132 1250' in (PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
+
 
 # Keep chart geometry intact while checking every selected/unselected control.
 specs = []
@@ -98,6 +125,8 @@ for period in ('week', 'year', 'all'):
     page.paste(Image.open(PKG/'ui-calendar/settings-button.png'), (1006,54))
     page.save(preview)
     specs.append(spec)
+    labels=[line.split('\t') for line in spec.splitlines() if line.startswith('text\tchart\t') and line.endswith(tuple('周'+d for d in '一二三四五六日'))]
+    if period=='week':assert len(labels)==7 and all(row[2:4]==['R','28'] for row in labels)
     toggle = Image.open(SESSION/'total-toggle.pgm').convert('L')
     assert toggle.size == (1122, 88)
     for i, selected in enumerate(('week', 'year', 'all')):

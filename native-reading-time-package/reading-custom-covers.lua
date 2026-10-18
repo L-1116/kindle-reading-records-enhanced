@@ -34,6 +34,25 @@ if f then
     else store_valid=false end
     f:close()
 end
+local advances
+local function wrapped(s,size,limit,lines)
+    if s:sub(1,1)=='-' then s=' '..s end -- Never expose a name as an FBInk option.
+    advances=advances or dofile((arg[0]:match('^(.*)/') or '.')..'/reading-insights-title-widths.lua')
+    local chars={};for ch in s:gmatch('[%z\1-\127\194-\244][\128-\191]*') do chars[#chars+1]=ch end
+    local out,part,used={}, {},0
+    for i,ch in ipairs(chars) do
+        local b=ch:byte();local w=((b>=32 and b<=126) and advances[b-31] or 1)*size*1.08
+        local reserve=(#out==lines-1 and i<#chars) and size*1.08 or 0
+        if used+w>limit-reserve then
+            if #out==lines-1 then part[#part+1]='…';break end
+            out[#out+1]=table.concat(part);part={};used=0
+        end
+        part[#part+1]=ch;used=used+w
+    end
+    out[#out+1]=table.concat(part)
+    for i,line in ipairs(out) do if line:sub(1,1)=='-' then out[i]=' '..line end end
+    return out
+end
 local k=hex(command=='generic' and 'generic' or key(arg[3],arg[4]))
 if command=='generic' or command=='get' then
     local v=rows[k]; if v then io.write(unhex(v),'\n') end
@@ -80,15 +99,35 @@ elseif command=='history' then
         -- display label, so a nameless historical identity still resolves.
         io.write('book:',b.id,'\t',b.title,'\n')
     end
-elseif command=='text' then
-    local s=arg[3] or '';local size=tonumber(arg[4]) or 34;local limit=tonumber(arg[5]) or 800
-    if s:sub(1,1)=='-' then s=' '..s end -- Never expose a user name as an FBInk option.
-    local advances=dofile((arg[0]:match('^(.*)/') or '.')..'/reading-insights-title-widths.lua')
-    local used,out=0,{}
-    for ch in s:gmatch('[%z\1-\127\194-\244][\128-\191]*') do
-        local b=ch:byte();local w=((b>=32 and b<=126) and advances[b-31] or 1)*size*1.08
-        if used+w>limit-size*1.08 then out[#out+1]='…';break end
-        out[#out+1]=ch;used=used+w
+elseif command=='catalog-query' then
+    local predicates={};local n=0
+    local function quote(s) return "'"..s:gsub("'","''").."'" end
+    for line in io.lines(assert(arg[3])) do
+        n=n+1;if n>10 then break end
+        local id,title=line:match('^book:([^\t]*)\t(.*)$')
+        if id and id~='' and id~='unknown' then
+            predicates[#predicates+1]='p_cdeKey='..quote(id)
+        elseif title and title~='' then
+            title=title:lower():gsub('%.epub$',''):gsub('%.mobi$',''):gsub('%.pdf$','')
+            local norm="lower(CASE WHEN lower(substr(p_titles_0_nominal,-5)) IN ('.epub','.mobi') THEN substr(p_titles_0_nominal,1,length(p_titles_0_nominal)-5) WHEN lower(substr(p_titles_0_nominal,-4))='.pdf' THEN substr(p_titles_0_nominal,1,length(p_titles_0_nominal)-4) ELSE p_titles_0_nominal END)"
+            predicates[#predicates+1]="((p_cdeKey IS NULL OR p_cdeKey='' OR p_cdeKey='unknown') AND "..norm..'='..quote(title)..')'
+        end
     end
-    io.write(table.concat(out),'\n')
+    io.write("SELECT -1,replace(replace(COALESCE(p_titles_0_nominal,''),char(9),' '),char(10),' '),COALESCE(p_cdeKey,''),replace(replace(COALESCE(p_thumbnail,''),char(9),' '),char(10),' '),'','' FROM Entries WHERE ",#predicates>0 and table.concat(predicates,' OR ') or '0'," ORDER BY p_lastAccess DESC LIMIT 80;\n")
+elseif command=='cards' then
+    -- Input is already sliced to the visible page. Load associations/metrics once.
+    local n=0
+    for line in io.lines(assert(arg[3])) do
+        n=n+1;if n>10 then break end
+        local id,title=line:match('^book:([^\t]*)\t(.*)$')
+        if id then
+            local label=usable(title,id) and title or '未知书籍'
+            local t=wrapped(label,34,500,2)
+            local name=rows[hex(key(id,title))]
+            io.write('book:',id,'\ttitle:',title,'\tname:',name and unhex(name) or '',
+                '\tline:',t[1] or '', '\tline:',t[2] or '', '\n')
+        end
+    end
+elseif command=='text' then
+    io.write(wrapped(arg[3] or '',tonumber(arg[4]) or 34,tonumber(arg[5]) or 800,1)[1],'\n')
 else os.exit(2) end

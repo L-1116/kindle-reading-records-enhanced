@@ -79,6 +79,22 @@ local function inside(px, py, left, top, right, bottom)
     return px >= left and px <= right and py >= top and py <= bottom
 end
 local function settings_action(px, py)
+    if mode=='settings_cover_picker' then
+        -- Consume all modal taps before any settings, tabs or book hitboxes.
+        if inside(px,py,940,420,1100,500) or inside(px,py,64,54,256,146) then return 'settings_cover_pager_back' end
+        local total=tonumber(os.getenv('RR_PAGER_TOTAL')) or 1
+        local first=tonumber(os.getenv('RR_PAGER_START')) or 1
+        if inside(px,py,196,600,1076,1132) then
+            local col,row=math.floor((px-196)/180),math.floor((py-600)/140)
+            local n=first+row*5+col
+            if col<5 and row<4 and (px-196)%180<160 and (py-600)%140<112 and n<=total then
+                return 'settings_cover_pager_pick_'..n
+            end
+        end
+        if first>1 and inside(px,py,196,1190,450,1260) then return 'settings_cover_pager_prev' end
+        if first+20<=total and inside(px,py,822,1190,1076,1260) then return 'settings_cover_pager_next' end
+        return false
+    end
     if mode:match('^settings_cover') then
         if mode~='settings_cover' and inside(px,py,64,54,256,146) then return 'settings_cover_back' end
         if mode=='settings_cover' then
@@ -92,12 +108,19 @@ local function settings_action(px, py)
         elseif mode=='settings_cover_images' or mode=='settings_cover_books' then
             if inside(px,py,80,1400,410,1520) then return 'settings_cover_prev' end
             if inside(px,py,862,1400,1192,1520) then return 'settings_cover_next' end
-            if mode=='settings_cover_images' and inside(px,py,452,1400,820,1520) then return 'settings_cover_scan' end
-            local count,step,height=6,160,140
-            if mode=='settings_cover_images' then count,step,height=4,260,230 end
-            for i=1,count do
-                local y=310+(i-1)*step
-                if inside(px,py,80,y,1192,y+height) then return 'settings_cover_item_'..i end
+            if mode=='settings_cover_images' then
+                if inside(px,py,452,1400,820,1520) then return 'settings_cover_scan' end
+                for i=1,4 do
+                    local y=310+(i-1)*260
+                    if inside(px,py,80,y,1192,y+230) then return 'settings_cover_item_'..i end
+                end
+            else
+                if inside(px,py,410,1410,862,1510) then return 'settings_cover_page' end
+                for i=1,10 do
+                    local x=80+((i-1)%2)*568
+                    local y=310+math.floor((i-1)/2)*204
+                    if inside(px,py,x,y,x+544,y+184) then return 'settings_cover_item_'..i end
+                end
             end
         end
         if mode~='settings_cover' then return false end
@@ -223,6 +246,7 @@ local function action_for_logical(px, py)
             if row > 3 then row = 3 end
             return "book_row_" .. row
         end
+        if inside(px, py, 410, 1493, 862, 1593) then return "page_jump" end
         if inside(px, py, 55, 1465, 385, 1595) then return "page_prev" end
         if inside(px, py, 885, 1465, 1217, 1595) then return "page_next" end
     end

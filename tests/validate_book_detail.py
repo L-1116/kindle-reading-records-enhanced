@@ -246,9 +246,10 @@ assert any(line == f"db-id\t{db_rel}" for line in cover_probe)
 assert not any(line.startswith("stale-id\t") for line in cover_probe)
 draw_lines = (SESSION / "draw.tsv").read_text(encoding="utf-8").splitlines()
 assert any(line == f"image\t{cached_rel}\t10\t20\t190\t285" for line in draw_lines)
-resolver = viewer[viewer.index("resolveBookCover()") : viewer.index("render_cover_placeholder()")]
+resolver = viewer[viewer.index("resolveOriginalBookCover()") : viewer.index("render_cover_placeholder()")]
 assert "cover_cache_lookup" in resolver and "ensure_catalog" in resolver and "p_thumbnail" not in resolver
-assert all(word not in resolver for word in ("find ", "find\t", "ls ", "rglob"))
+resolver_commands='\n'.join(line for line in resolver.splitlines() if not line.lstrip().startswith('#'))
+assert all(word not in resolver_commands for word in ("find ", "find\t", "ls ", "rglob"))
 assert viewer.count('renderBookCover "') == 3
 passed("cover resolver and cache", "One shared resolver serves all three pages: valid last-known-good cache first, one-session catalog thumbnail, exact EBOK candidate, then cached local-file extraction and fixed 2:3 fallback—without directory scans.")
 
