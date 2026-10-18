@@ -138,7 +138,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert visible_cleanups==[CLEAN],visible_cleanups
         if mutation!='unknown_alias':assert not (docs/'阅读记录.sh').exists()
         assert not (docs/'reading-records-uninstall.sh').exists() and not (docs/'安装好之后，确认无误了再点这个.sh').exists()
-        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned','9.8.1-test7','9.8.1-test7-cleaned','9.8.1-test8'):
+        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned','9.8.1-test7','9.8.1-test7-cleaned','9.8.1-test8','9.8.1-test8-cleaned'):
             if mutation=='cover_dir_missing':covers.rmdir() # Repair must recreate it too.
             again=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130);assert again.returncode==0,again.stderr
             assert covers.is_dir()
@@ -201,19 +201,22 @@ def main():
     if '--idle-upgrade' in sys.argv:
         cases=[('V4','',True)]
         cases += [('V4',m,False) for m in ('core_failure','activation_failure','interrupted','lost_service','stopped_service','ks_residue','wrong_device','orphan','duplicate','busy_ui')]
-    if '--cover-directory' in sys.argv:
-        SIMPLE_ARCHIVE=ROOT/'build/cover-directory-install-test'/f'{PRODUCT_VERSION}.zip'
+    if '--cover-directory' in sys.argv or '--formal-release' in sys.argv:
         cases=[(None,'',True),('9.8.1-test8','cover_dir_missing',True),('9.8.1-test8','',True),
                ('9.8.1-test8','activation_failure',False),(None,'cover_dir_file',False),(None,'cover_dir_symlink',False)]
+    if '--formal-release' in sys.argv:
+        cases += [('V4','',True),('9.8.1-test8-cleaned','',True)]
+        cases += [('9.8.1-test8',m,False) for m in ('core_failure','interrupted','ks_residue','wrong_device','busy_ui')]
+    if '--archive' in sys.argv:SIMPLE_ARCHIVE=Path(sys.argv[sys.argv.index('--archive')+1]).resolve()
     for p,m,c in cases:
         with tempfile.TemporaryDirectory(prefix='standard-install-',dir=OUT) as name:results.append(run(Path(name),previous=p,mutation=m,cleanup=c))
         print(p or 'fresh',m or 'install + cleanup','PASS',flush=True)
-    for tag in (() if '--cover-directory' in sys.argv or '--device-fix' in sys.argv or '--idle-upgrade' in sys.argv or '--smoke' in sys.argv or '--power-upgrade' in sys.argv or '--settings-upgrade' in sys.argv else ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3')):
+    for tag in (() if '--formal-release' in sys.argv or '--cover-directory' in sys.argv or '--device-fix' in sys.argv or '--idle-upgrade' in sys.argv or '--smoke' in sys.argv or '--power-upgrade' in sys.argv or '--settings-upgrade' in sys.argv else ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3')):
         with tempfile.TemporaryDirectory(prefix='standard-legacy-',dir=OUT) as name:results.append(run(Path(name),previous='V3',cleanup=True,legacy_tag=tag))
         print('legacy payload',tag,'PASS',flush=True)
     if '--cover-directory' not in sys.argv:
         with tempfile.TemporaryDirectory(prefix='standard-unknown-',dir=OUT) as name:results.append(run(Path(name),previous='V4' if '--idle-upgrade' in sys.argv else 'V3',cleanup=True,cleanup_unknown=True))
     assert len({row['package_sha256'] for row in results})==1, 'Package changed during matrix; rerun against frozen ZIP'
-    result_name='custom-cover-directory-install-results.json' if '--cover-directory' in sys.argv else 'standard-install-results.json'
+    result_name='formal-release-install-results.json' if '--formal-release' in sys.argv else ('custom-cover-directory-install-results.json' if '--cover-directory' in sys.argv else 'standard-install-results.json')
     (OUT/result_name).write_text(json.dumps({'result':'PASS','checks':results,'hardware':'PENDING'},indent=2),encoding='utf-8')
 if __name__=='__main__':main()

@@ -14,11 +14,11 @@ from package_release import FILES as STANDARD_FILES
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCT_VERSION = "9.8.1-5.20-vera-test8"
+PRODUCT_VERSION = "9.8.1-5.20-vera"
 # Product/UI revision only: keep the verified daemon/helper runtime paths.
 RUNTIME_VERSION = "9.8.1-5.20-vera-test1"
-DIST = ROOT / "build/standard-9.8.1-test8"
-SIMPLE_ARCHIVE = DIST / f"{PRODUCT_VERSION}.zip"
+DIST = ROOT / "dist/v9.8.1"
+SIMPLE_ARCHIVE = DIST / "Kindle-Reading-Records-v9.8.1-5.20-vera.zip"
 BOOT_NAME = "reading-records-v4-install.sh"
 TAR_NAME = "阅读记录安装数据.tar"
 
@@ -61,7 +61,7 @@ def sources(variant: str) -> dict[str, bytes]:
     bootstrap_path = f"/mnt/us/documents/{BOOT_NAME}"
     cleanup_path = "/mnt/us/documents/reading-records-install-cleanup.sh"
     result["RUNME.sh"] = f'#!/bin/sh\n# READING_RECORDS_V4_RUNME\nexec /bin/sh "{bootstrap_path}"\n'.encode()
-    result["README.txt"] = (f"Kindle 阅读记录 {PRODUCT_VERSION} Standard 测试安装包\n优先使用 documents 中的两个简易安装文件。\n此完整包保留 ;log runme 和 KUAL 入口。\n").encode()
+    result["README.txt"] = (f"Kindle 阅读记录 {PRODUCT_VERSION} Standard 安装包\n只解压外层 ZIP 一次，把安装脚本和数据 TAR 一起复制到 documents。\n不要继续解压 TAR。\n").encode()
     legacy_document = "documents/reading-records-install.sh" if variant == "standard" else "documents/reading-records-ks-install.sh"
     result[legacy_document] = f'#!/bin/sh\n# Name: 安装阅读记录\nexec /bin/sh "{bootstrap_path}"\n'.encode()
     kual = f'''#!/bin/sh
@@ -81,7 +81,7 @@ exit 127
     result["v4/cleanup.sh"] = (ROOT / "v4/cleanup.sh").read_bytes()
     result["native-reading-time-package/migration-manifest.tsv"] = ownership_manifest(result, posix_cksum, make_tar)
     build_id = sha(b"".join(name.encode() + b"\0" + sha(raw).encode() for name, raw in sorted(result.items())))[:20]
-    result["BUILD-INFO"] = f"product_version={PRODUCT_VERSION}\nvariant=standard\nbuild_id={build_id}\nsource_baseline=e0e7544242ee7b85c7c95f224937de5915d0bd03\n".encode()
+    result["BUILD-INFO"] = f"product_version={PRODUCT_VERSION}\nvariant=standard\nbuild_id={build_id}\nsource_baseline=e8b34ffc89486678557ef4bebce143515b16f1b3\n".encode()
     entries = [{"path": name, "size": len(raw), "sha256": sha(raw)} for name, raw in sorted(result.items())]
     manifest_name = "PACKAGE-MANIFEST.json" if variant == "standard" else "PACKAGE-MANIFEST-KS.json"
     result[manifest_name] = (json.dumps({"format": 4, "installer_format": "two-file-1", "product_version": PRODUCT_VERSION, "variant": variant, "files": entries}, ensure_ascii=False, indent=2) + "\n").encode()
