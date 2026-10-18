@@ -28,6 +28,7 @@ RELEASE="$BASE/releases/$RUNTIME_VERSION"
 RELEASE_ICON="$RELEASE/assets/launcher-icon.png"
 RELEASE_APP="$RELEASE/bin/reading-records.sh"
 COVER_CACHE_DIR="$BASE/book-covers"
+CUSTOM_COVER_DIR="$BASE/custom-covers"
 STAGE="$BASE/.install-9.8.1-5.20-vera-test8.$$"
 ROOT_RW=0; ACTIVATED=0; SERVICE_WAS_RUNNING=0; ROLLBACK_DONE=0
 
@@ -96,6 +97,7 @@ atomic_file() { src="$1"; dst="$2"; mode="$3"; tmp="${dst}.new.$$"; cp "$src" "$
 [ -x "${READING_INITCTL:-/sbin/initctl}" ] || fail "Upstart not found"
 command -v cmp >/dev/null 2>&1 || fail "cmp unavailable"
 command -v sha256sum >/dev/null 2>&1 || fail "sha256sum unavailable"
+[ ! -L "$CUSTOM_COVER_DIR" ] && { [ ! -e "$CUSTOM_COVER_DIR" ] || [ -d "$CUSTOM_COVER_DIR" ]; } || fail "custom cover image directory path is occupied: $CUSTOM_COVER_DIR"
 for f in reading-custom-covers.sh reading-custom-covers.lua cover-image native-reading-time-daemon.sh native-reading-time.conf 阅读记录.sh 阅读记录-entry.sh 阅读记录-optimized.sh launch.sh diagnostics.sh uninstall.sh install-manifest.txt cleanup-manifest.txt compat/detect_env.sh reading-insights-touch.lua reading-insights-render.lua reading-insights-cache.awk reading-insights-cover.lua reading-insights-touch-probe.lua reading-insights-touch-preflight.sh reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua NotoSansCJKsc-Regular.otf FONT-LICENSE.txt launcher-icon.png; do [ -f "$PKG/$f" ] || fail "missing payload: $f"; done
 for f in resources/reading-records-uninstall.sh resources/kual/reading-records-installer/bin/action.sh resources/kual/reading-records-installer/config.xml resources/kual/reading-records-installer/menu.json; do [ -f "$PKG/$f" ] || fail "missing lifecycle resource: $f"; done
 for f in total.png daily.png books.png day-1.png day-31.png; do [ -f "$PKG/ui/$f" ] || fail "missing UI asset: $f"; done
@@ -152,7 +154,7 @@ if [ -f "$DATA" ]; then
     if [ ! -e "$DATA.bak" ]; then cp "$DATA" "$DATA.bak.new.$$" || fail "cannot create reading history backup"; mv "$DATA.bak.new.$$" "$DATA.bak" || fail "cannot publish reading history backup"; echo "$(date): created reading-time.tsv.bak"
     else echo "$(date): preserved existing reading-time.tsv.bak"; fi
 fi
-mkdir -p "$BASE/bin" "$BASE/compat" "$BASE/ui" "$BASE/fonts" "$ASSET_DIR" "$COVER_CACHE_DIR" "$RELEASE/bin" "$RELEASE/ui" "$RELEASE/ui-calendar" "$RELEASE/render-assets" "$RELEASE/assets" "$DOCS" || fail "cannot create installation directories"
+mkdir -p "$BASE/bin" "$BASE/compat" "$BASE/ui" "$BASE/fonts" "$ASSET_DIR" "$COVER_CACHE_DIR" "$CUSTOM_COVER_DIR" "$RELEASE/bin" "$RELEASE/ui" "$RELEASE/ui-calendar" "$RELEASE/render-assets" "$RELEASE/assets" "$DOCS" || fail "cannot create installation directories"
 chmod 700 "$COVER_CACHE_DIR" || fail "cannot set cover cache directory permissions"
 for f in "$STAGE/release/ui-calendar/"*.png; do atomic_file "$f" "$RELEASE/ui-calendar/${f##*/}" 644 || fail "cannot install calendar UI"; done
 for f in reading-power.sh reading-config.sh reading-settings.sh reading-custom-covers.sh reading-custom-covers.lua cover-image reading-idle.sh reading-idle-touch.lua reading-insights-touch-probe.lua reading-insights-touch-preflight.sh reading-insights-touch-ui.lua reading-insights-titles.lua reading-insights-title-widths.lua; do atomic_file "$STAGE/release/bin/$f" "$RELEASE/bin/$f" 644 || fail "cannot install calendar helper"; done

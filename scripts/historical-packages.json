@@ -187,5 +187,12 @@
     "sha256": "bd1e94abc4059d2d97d4e0c4e9f56d7b08278e4b787e9afc6008acd60ce45182",
     "official": false,
     "provenance": "Original device-accepted Standard test7 from e0e7544242ee7b85c7c95f224937de5915d0bd03; KPW6 / 5.20.1 / Vera acceptance confirmed by the user; retained unchanged."
+  },
+  {
+    "id": "9.8.1-test8",
+    "path": "build/standard-9.8.1-test8/9.8.1-5.20-vera-test8.zip",
+    "sha256": "0c27c599dc4831ef6bd3995002f80d22feabe3ebb4873219b6221c7f7112c6c4",
+    "official": false,
+    "provenance": "Original Standard test8 from c1cccc4; device acceptance confirmed by the user; retained unchanged before the install-time custom-cover-directory fix."
   }
 ]

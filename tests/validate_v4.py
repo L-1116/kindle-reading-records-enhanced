@@ -25,7 +25,7 @@ def seed(session,previous):
     docs.mkdir(parents=True);(base/'bin').mkdir(parents=True);upstart.mkdir()
     protected={
         base/'reading-time.tsv':b'date\tbook_id\tseconds\ttitle\n2026-10-01\told\t120\tHistory\n',
-        base/'user.conf':b'preference=keep\nidle_pause_enabled=1\nidle_pause_minutes=17\n',base/'reading-time.tsv.bak':b'previous backup',
+        base/'user.conf':b'preference=keep\nidle_pause_enabled=1\nidle_pause_minutes=17\ncustom_cover_enabled=0\n',base/'reading-time.tsv.bak':b'previous backup',
         base/'book-covers/cover.jpg':b'cover',base/'book-cover-cache.tsv':b'cover cache',
         base/'book-cover-misses.tsv':b'miss cache',base/'service.log':b'core service evidence',
         base/'custom-covers/中文 cover.png':b'original user picture',
@@ -60,6 +60,19 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         if previous=='mixed':
             # Deliberate known leftover alias, after a real V4 installation.
             put(docs/'阅读记录.sh',historical('v9.7.4','native-reading-time-package/阅读记录-optimized.sh'))
+    covers=base/'custom-covers'
+    if mutation in ('cover_dir_missing','cover_dir_file','cover_dir_symlink'):
+        # Remove only the fixture's own picture and empty directory, modeling
+        # an installation whose dashboard has never initialized this storage.
+        picture=covers/'中文 cover.png'
+        if picture in protected:picture.unlink();protected.pop(picture);covers.rmdir()
+        if mutation=='cover_dir_file':
+            put(covers,b'user file at the requested directory path');protected[covers]=covers.read_bytes()
+        elif mutation=='cover_dir_symlink':
+            target=session/'cover-link-target';put(target/'keep.jpg',b'linked user picture')
+            protected[target/'keep.jpg']=b'linked user picture'
+            if os.name=='nt':env['MSYS']='winsymlinks:sys'
+            subprocess.run([SHELL,'-c','/usr/bin/ln -s "$1" "$2" && test -L "$2"','fixture',target.as_posix(),covers.as_posix()],env=env,check=True)
     if mutation=='lost_service':(upstart/'native-reading-time.conf').unlink(missing_ok=True)
     if mutation=='stopped_service':(session/'service-fixture/running').unlink(missing_ok=True);put(session/'service-fixture/proc/123/cmdline',b'')
     if mutation=='initial_rw':put(session/'service-fixture/mounts',b'/dev/root / ext3 rw,relatime 0 0\n')
@@ -95,16 +108,21 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
     before_metadata={p:p.read_bytes() for p in (base/'VERSION',base/'release-info') if p.is_file()}
     result=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130)
     log=(docs/'reading-records-v4-install.log').read_text(encoding='utf-8',errors='replace')
-    failed=mutation in ('core_failure','activation_failure','interrupted','missing_payload','bad_checksum','cross_variant','ks_residue','wrong_device','unknown_formal','orphan','duplicate','busy_ui')
+    failed=mutation in ('core_failure','activation_failure','interrupted','missing_payload','bad_checksum','cross_variant','ks_residue','wrong_device','unknown_formal','orphan','duplicate','busy_ui','cover_dir_file','cover_dir_symlink')
     assert (result.returncode!=0)==failed,(previous,mutation,result.returncode,result.stderr,log,(base/'install.log').read_text(errors='replace')[-2500:] if (base/'install.log').exists() else '')
     assert all(p.read_bytes()==raw for p,raw in protected.items())
     if failed:
+        if mutation in ('cover_dir_file','cover_dir_symlink'):
+            assert 'custom cover image directory path is occupied' in (base/'install.log').read_text(errors='replace')
+            if mutation=='cover_dir_symlink':subprocess.run([SHELL,'-c','test -L "$1"','fixture',covers.as_posix()],env=env,check=True)
         assert all((us/path).is_file() and (us/path).read_bytes()==raw for path,raw in before.items()),(mutation,[path for path,raw in before.items() if not (us/path).is_file() or (us/path).read_bytes()!=raw])
         assert (docs/CLEAN).exists()==('documents/'+CLEAN in before)
         assert all(p.read_bytes()==raw for p,raw in before_metadata.items()),mutation
         assert (docs/'reading-records-v4-install.log').read_bytes().startswith(old_evidence_log)
         assert 'installation_status=failed' in (docs/'reading-records-v4-install-result.txt').read_text(encoding='utf-8')
     else:
+        assert covers.is_dir() and not covers.is_symlink(), 'directory must exist before the dashboard is launched'
+        if (base/'user.conf').exists():assert 'custom_cover_enabled=1' not in (base/'user.conf').read_text()
         assert (docs/'reading-records.sh').read_bytes()==(ROOT/'native-reading-time-package/阅读记录-entry.sh').read_bytes()
         if previous is None:assert (base/'reading-time.tsv').read_bytes()==b'date\tbook_id\tseconds\ttitle\n'
         assert (base/'VERSION').read_text().strip()==PRODUCT_VERSION
@@ -120,8 +138,10 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert visible_cleanups==[CLEAN],visible_cleanups
         if mutation!='unknown_alias':assert not (docs/'阅读记录.sh').exists()
         assert not (docs/'reading-records-uninstall.sh').exists() and not (docs/'安装好之后，确认无误了再点这个.sh').exists()
-        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned','9.8.1-test7','9.8.1-test7-cleaned'):
+        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned','9.8.1-test7','9.8.1-test7-cleaned','9.8.1-test8'):
+            if mutation=='cover_dir_missing':covers.rmdir() # Repair must recreate it too.
             again=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130);assert again.returncode==0,again.stderr
+            assert covers.is_dir()
             assert len(list(base.glob('.previous-install')))==1 and not list(base.glob('.v4-rollback.*'))
         if mutation=='scanner_failure':assert 'scanner_request=request_failed index_completion=unverified' in log
         if cleanup:
@@ -152,12 +172,14 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
                 if mutation=='scanner_failure':assert 'scanner_request=request_failed index_completion=unverified' in (base/'cleanup-last.log').read_text(encoding='utf-8')
                 c=subprocess.run([SHELL,backup.as_posix()],env=env,capture_output=True,timeout=90);assert c.returncode==0,c.stderr
             assert all(p.read_bytes()==raw for p,raw in protected.items())
+    if not failed:assert covers.is_dir(), 'installation cleanup must preserve the user image directory'
     calls=(session/'service-fixture/calls').read_text(errors='replace') if (session/'service-fixture/calls').exists() else ''
     if previous and not failed:
         assert 'stop native-reading-time' in calls and 'start native-reading-time' in calls,(mutation,calls)
     return {'package_sha256':package_sha,'scenario':str(previous or 'fresh')+' '+mutation,'result':'PASS','scanner_index_completion':'UNVERIFIED','protected_files':len(protected)}
 
 def main():
+    global SIMPLE_ARCHIVE
     results=[]
     cases=[(p,'',True) for p in (None,'9.7.4','V1','V2','V3','normal','V4','mixed','deleted-formal')]
     cases += [('mixed',m,False) for m in ('core_failure','activation_failure','interrupted','missing_payload','bad_checksum','cross_variant','ks_residue','wrong_device','unknown_formal','unknown_alias','duplicate','orphan','scanner_failure','lost_service','stopped_service','initial_rw','busy_ui')]
@@ -179,13 +201,19 @@ def main():
     if '--idle-upgrade' in sys.argv:
         cases=[('V4','',True)]
         cases += [('V4',m,False) for m in ('core_failure','activation_failure','interrupted','lost_service','stopped_service','ks_residue','wrong_device','orphan','duplicate','busy_ui')]
+    if '--cover-directory' in sys.argv:
+        SIMPLE_ARCHIVE=ROOT/'build/cover-directory-install-test'/f'{PRODUCT_VERSION}.zip'
+        cases=[(None,'',True),('9.8.1-test8','cover_dir_missing',True),('9.8.1-test8','',True),
+               ('9.8.1-test8','activation_failure',False),(None,'cover_dir_file',False),(None,'cover_dir_symlink',False)]
     for p,m,c in cases:
         with tempfile.TemporaryDirectory(prefix='standard-install-',dir=OUT) as name:results.append(run(Path(name),previous=p,mutation=m,cleanup=c))
         print(p or 'fresh',m or 'install + cleanup','PASS',flush=True)
-    for tag in (() if '--device-fix' in sys.argv or '--idle-upgrade' in sys.argv or '--smoke' in sys.argv or '--power-upgrade' in sys.argv or '--settings-upgrade' in sys.argv else ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3')):
+    for tag in (() if '--cover-directory' in sys.argv or '--device-fix' in sys.argv or '--idle-upgrade' in sys.argv or '--smoke' in sys.argv or '--power-upgrade' in sys.argv or '--settings-upgrade' in sys.argv else ('v9.7.4','v9.7.5-test.1','v9.7.5-compat-v2','v9.7.5-compat-v3')):
         with tempfile.TemporaryDirectory(prefix='standard-legacy-',dir=OUT) as name:results.append(run(Path(name),previous='V3',cleanup=True,legacy_tag=tag))
         print('legacy payload',tag,'PASS',flush=True)
-    with tempfile.TemporaryDirectory(prefix='standard-unknown-',dir=OUT) as name:results.append(run(Path(name),previous='V4' if '--idle-upgrade' in sys.argv else 'V3',cleanup=True,cleanup_unknown=True))
+    if '--cover-directory' not in sys.argv:
+        with tempfile.TemporaryDirectory(prefix='standard-unknown-',dir=OUT) as name:results.append(run(Path(name),previous='V4' if '--idle-upgrade' in sys.argv else 'V3',cleanup=True,cleanup_unknown=True))
     assert len({row['package_sha256'] for row in results})==1, 'Package changed during matrix; rerun against frozen ZIP'
-    (OUT/'standard-install-results.json').write_text(json.dumps({'result':'PASS','checks':results,'hardware':'PENDING'},indent=2),encoding='utf-8')
+    result_name='custom-cover-directory-install-results.json' if '--cover-directory' in sys.argv else 'standard-install-results.json'
+    (OUT/result_name).write_text(json.dumps({'result':'PASS','checks':results,'hardware':'PENDING'},indent=2),encoding='utf-8')
 if __name__=='__main__':main()
