@@ -7,9 +7,12 @@ import struct
 import subprocess
 import tempfile
 import io
+import sys
 from PIL import Image, ImageChops, ImageOps
 from lupa.lua51 import LuaRuntime, LuaError
 from validate_stats_filters import ROOT, PKG, OUT, SESSION, render, touch_source
+sys.path.insert(0, str(ROOT/'scripts'))
+from build_v4 import PRODUCT_VERSION
 
 
 def ink_box(image, white=False):
@@ -49,7 +52,7 @@ for path in PKG.rglob('*'):
         actual, previous = actual.replace(b'\r\n', b'\n'), previous.replace(b'\r\n', b'\n')
     assert actual == previous, path
 cleanup = ROOT/'v4/cleanup.sh'
-assert cleanup.read_bytes().replace(b'9.8.1-5.20-vera-test8', b'9.8.1-5.20-vera-test3').replace(b'reading-records-v4-install.sh', b'reading-records-9.8.1-install.sh') == subprocess.check_output(['git','show','63e34dba:v4/cleanup.sh'], cwd=ROOT)
+assert cleanup.read_bytes().replace(b'PRODUCT_VERSION='+PRODUCT_VERSION.encode()+b'\n', b'PRODUCT_VERSION=9.8.1-5.20-vera-test3\n').replace(b'reading-records-v4-install.sh', b'reading-records-9.8.1-install.sh') == subprocess.check_output(['git','show','63e34dba:v4/cleanup.sh'], cwd=ROOT)
 
 old_bg = subprocess.check_output(['git', 'show',
     '63e34dba:native-reading-time-package/ui-calendar/total.png'], cwd=ROOT)

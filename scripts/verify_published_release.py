@@ -5,11 +5,14 @@ ROOT=Path(__file__).resolve().parents[1]
 REPO='L-1116/kindle-reading-records-enhanced'
 HISTORICAL_REPORT=ROOT/'docs/releases/9.7.6-5.20.1-vera-verification.json'
 REPLACEMENT_REPORT=ROOT/'docs/releases/9.7.6-5.20.1-vera-replacement-verification.json'
-REPORT=REPLACEMENT_REPORT if REPLACEMENT_REPORT.exists() else HISTORICAL_REPORT
+CURRENT_REPORT=ROOT/'docs/releases/v9.8.1-verification.json'
+REPORT=CURRENT_REPORT if CURRENT_REPORT.exists() else (REPLACEMENT_REPORT if REPLACEMENT_REPORT.exists() else HISTORICAL_REPORT)
 def sha(raw):return hashlib.sha256(raw).hexdigest()
 def verify_source(report):
     for name,expected in report['production_source_sha256'].items():
-        assert sha((ROOT/name).read_bytes())==expected,'Frozen production source differs: '+name
+        actual=sha((ROOT/name).read_bytes())
+        alternate=report.get('source_checkout_line_endings',{}).get(name,{}).get('git_blob_sha256')
+        assert actual==expected or (alternate and actual==alternate),'Frozen production source differs: '+name
     assert report['variant']=='standard' and report['tag']=='v'+report.get('release_version',report['product_version'])
 def verify_zip(raw,report):
     assert len(raw)==report['zip_size'] and sha(raw)==report['zip_sha256'],'Release ZIP differs from approved candidate'
@@ -32,6 +35,16 @@ def verify_zip(raw,report):
 def fetch(url):
     request=urllib.request.Request(url,headers={'User-Agent':'Kindle-Release-Verification','Accept':'application/vnd.github+json'})
     with urllib.request.urlopen(request,timeout=120) as response:return response.read()
+def release_asset(release,report):
+    assert release['tag_name']==report['tag'] and not release['draft'] and not release['prerelease']
+    assert release['name']==report.get('release_title',report.get('release_version',report['product_version']))
+    # A plugin release can gain independently verified firmware assets later.
+    matches=[a for a in release['assets'] if a['name']==report['zip_file']]
+    assert len(matches)==1,'Expected exactly one matching environment asset'
+    asset=matches[0]
+    assert asset['size']==report['zip_size'] and asset['state']=='uploaded'
+    if asset.get('digest'):assert asset['digest']=='sha256:'+report['zip_sha256']
+    return asset
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source-only',action='store_true')
@@ -43,11 +56,7 @@ def main():
     if args.zip:verify_zip(args.zip.read_bytes(),report)
     if args.github:
         release=json.loads(fetch('https://api.github.com/repos/'+REPO+'/releases/tags/'+report['tag']))
-        assert release['name']==report.get('release_version',report['product_version']) and not release['draft'] and not release['prerelease']
-        assert len(release['assets'])==1 and release['assets'][0]['name']==report['zip_file']
-        asset=release['assets'][0]
-        assert asset['size']==report['zip_size'] and asset['state']=='uploaded'
-        if asset.get('digest'):assert asset['digest']=='sha256:'+report['zip_sha256']
+        asset=release_asset(release,report)
         verify_zip(fetch(asset['browser_download_url']),report)
     assert args.source_only or args.zip or args.github,'Select source or asset verification'
     print('PASS: frozen Standard release sources'+('; original ZIP verified' if args.zip or args.github else ''))

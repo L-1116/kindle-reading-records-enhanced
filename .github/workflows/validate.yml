@@ -2,7 +2,7 @@ name: Validate
 
 on:
   push:
-    branches: [main, codex/v4-install-system, codex/release-9.7.6-5.20.1-vera]
+    branches: [main, codex/v4-install-system, codex/release-9.7.6-5.20.1-vera, codex/release-9.8.1-5.20-vera]
     tags: ["v*"]
   pull_request:
   release:
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   offline-validation:
-    if: github.event_name != 'release' && github.ref != 'refs/tags/v9.7.6-5.20.1-vera' && github.ref != 'refs/heads/codex/release-9.7.6-5.20.1-vera'
+    if: github.event_name != 'release' && github.ref != 'refs/tags/v9.7.6-5.20.1-vera' && github.ref != 'refs/heads/codex/release-9.7.6-5.20.1-vera' && github.ref != 'refs/tags/v9.8.1' && github.ref != 'refs/heads/codex/release-9.8.1-5.20-vera' && github.head_ref != 'codex/release-9.8.1-5.20-vera'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,3 +40,16 @@ jobs:
         run: python tests/validate_device_variant_permissions.py
       - if: github.event_name == 'release'
         run: python scripts/verify_published_release.py --github
+
+  verified-standard-9-8-1:
+    if: github.ref == 'refs/tags/v9.8.1' || github.ref == 'refs/heads/codex/release-9.8.1-5.20-vera' || github.head_ref == 'codex/release-9.8.1-5.20-vera'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python scripts/verify_published_release.py --source-only --report docs/releases/v9.8.1-verification.json
+      - run: python tests/validate_release_assets.py
+      - if: github.event_name == 'release'
+        run: python scripts/verify_published_release.py --github --report docs/releases/v9.8.1-verification.json

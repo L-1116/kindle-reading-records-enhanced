@@ -1,66 +1,70 @@
-# Kindle Reading Records Enhanced
+# Kindle 阅读记录
 
-适用于越狱 Kindle 的原生阅读时长统计插件增强版，可在设备上查看月历、阅读热力、累计统计、最近 8 周、月份详情、阅读书籍、本地封面和单书详情。
+适用于已越狱 Kindle 的本地阅读记录插件。原生阅读器处于前台、屏幕亮起时记录阅读时长，可查看月历热力、每日与累计统计、最近 8 周、阅读书籍、本地封面、月份与单书详情。
 
-当前正式版本：**[9.7.6-5.20.1-vera](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6-5.20.1-vera)**。
+**[下载最新正式版本](https://github.com/L-1116/kindle-reading-records-enhanced/releases/latest)** · [v9.8.1 发布页](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.8.1) · [v9.7.6 其他环境](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6) · [安装与原地升级](docs/安装与回滚.md)
 
-本项目基于 [Plutoill/kindle-reading-records](https://github.com/Plutoill/kindle-reading-records) 的代码，经原作者授权后继续迭代。本仓库不是上游项目的官方版本；原始工作归 Plutoill，本仓库中的后续增强和维护由 L-1116 完成。
+新版 **v9.8.1** 独立发布，当前提供 **9.8.1-5.20-vera Standard 普通版**，已确认环境为 **KPW6（Paperwhite 12 代）/ 固件 5.20.1 / Vera 越狱**。其他机型、固件和越狱组合尚未完成本版实机验证；KS（Kindle Scribe）不适用。其他环境请按下表选择已验证的 v9.7.6 安装包。**不要下载 GitHub 自动生成的 Source code ZIP，它不是 Kindle 安装包。**
 
-本次为 **Standard 普通版正式发布**，不发布 KS 版。原正式基线已在 **KPW6（Kindle Paperwhite 12 代）、固件 5.20.1、Vera 越狱**环境完成实机验证，启动、计时、覆盖升级、清理入口名称及自删除功能均正常。
+## v9.8.1 新功能
 
-## 2026-10-14 安装识别修复
+- **自定义缺失封面**：支持通用替代图片，也可给每本书指定专属图片；已有可用原始封面继续优先使用。历史书籍以双列卡片显示，并标明当前封面来源。
+- **新增设置界面**：在插件内管理计时选项和自定义封面。
+- **自定义无操作计时上限**：可设置连续多少分钟无触摸后暂停计时（1～1440 分钟），再次触摸后恢复，减少忘记翻页时的误计时；可单独开关。
+- **累计时长与阅读书籍 UI 更新**：调整文字、图表和按钮布局；阅读书籍及历史书籍均可点击底部页码直接跳页，历史书籍每页显示 10 本。
+- **修复插件界面无法熄屏的问题**，改善停留在插件内时的休眠与恢复行为。
 
-当前 Release 下载附件已更新为用户实机测试成功的 test2 原包内容。外层文件名仍为 `9.7.6-5.20.1-vera.zip`，包内版本为 `9.7.6-5.20.1-vera-test2`。修复型号信息缺失时的安装失败；首次安装、覆盖升级和 repair 共用 KS 检查。确认 KS、明确来源冲突或 KS 残留则停止；其他设备继续原有环境及功能检查。日志不记录完整序列号。
+安装完成后，USB 存储中的 `reading-time/custom-covers/` 图片目录即已存在，无需先启动插件或开启封面开关。把 JPG / PNG 图片复制到该目录，再到“设置 → 自定义缺失封面”启用并选择通用或专属图片。自定义封面与无操作暂停计时初始均关闭，已有设置在升级时保留。
 
-本次仅修复安装识别，78 个既有运行文件保持原正式包字节。原 Tag 保留首次发布源码，[当前发布分支](https://github.com/L-1116/kindle-reading-records-enhanced/tree/codex/release-9.7.6-5.20.1-vera) 包含本次修复。
+[完整发布说明与封面使用方法](docs/releases/v9.8.1.md)。v9.8.1 使用独立的 Release 和 `v9.8.1` Tag，后续适配并验证的其他固件包可作为同一页面的新附件加入。
 
-## 本版改进
-
-- **5.20.1 计时服务恢复**：保留服务配置持久副本、健康检查、按需恢复、Upstart 验证、挂载恢复和生命周期锁。正常服务快速返回，避免重复启动计时进程；原计时规则与 TSV 格式不变。
-- **启动性能优化**：减少启动链重复校验及不必要的等待，保留实际 framebuffer 命令验证、fallback、单实例锁、横屏和电源恢复。KPW6 实机启动速度已达到可接受水平。
-- **两文件简易安装**：首次安装、旧版原地升级和同版修复均自动处理，无需卸载旧版、选择 runtime 或手动安装服务。
-- **安全升级与清理**：按真实路径和已知历史内容迁移旧启动及清理入口，保留一个“阅读记录”。清理入口严格显示 **“确认无误之后，再点这个”**，执行后自删除并请求书库 scanner 更新。
-- **数据与回滚保护**：历史阅读记录、配置、封面缓存和必要服务保留。安装失败恢复旧状态，旧 release 在确认清理时经逐文件验证且无有效引用后才移除；归属不明的文件保留并报告。
-
-继续保留既有 5.17、5.18、5.19 和 GC16 兼容路径，目标固件名称不意味着只允许该固件运行。原基线实机验收环境为 KPW6 / 5.20.1 / Vera，本次 test2 修复包已获用户测试成功确认。已安装 KS 的设备会被普通版安装器安全拒绝，不应使用本包覆盖。自动恢复无法补算停服期间未记录的阅读时长。
-
-## 首次安装与覆盖升级
-
-下载本 Release 的 **`9.7.6-5.20.1-vera.zip`**，不要把 GitHub 自动生成的 Source code 压缩包当作安装包。Kindle 需已越狱并具有可用的 SH Integration 书库 Scriptlet 支持。
-
-1. 只解压 ZIP 一次，得到 `reading-records-v4-install.sh` 和 `阅读记录安装数据.tar`；**不要继续解压 tar**。脚本保留已有物理文件名，包内版本为 `9.7.6-5.20.1-vera-test2`。
-2. 把两个文件一起复制到 Kindle `documents` 目录，安全弹出。
-3. 点击书库 **“安装阅读记录”** 并等待安装完成。旧普通版用户使用相同步骤直接覆盖升级，**无需先卸载或手动删除旧版**。
-4. 打开 **“阅读记录”**，确认历史记录和新增计时正常。
-5. 点击 **“确认无误之后，再点这个”**。安装文件及已确认无效的旧入口会被安全清理，清理入口随后删除自己，扫描更新后仅保留一个“阅读记录”。
-
-**历史阅读数据可以保留。** 升级与清理不会清空 `reading-time.tsv`、历史备份、用户配置或封面缓存，也不会删除当前 runtime 或必要计时服务。清理入口用于清除安装文件，不卸载插件。scanner 请求接受不等于索引已完成，书库显示更新可能需要等待。
-
-## 验收与安装包校验
-
-用户已确认 test2 测试成功，当前附件直接使用该验收 ZIP 的原始字节，只调整外层文件名。此次离线通过 203 个设备识别及入口用例、6 个权限用例、20 个安装安全场景和 12 项相关回归；此前 KPW6 的计时恢复和快速启动成果保持。
-
-- 文件：`9.7.6-5.20.1-vera.zip`（包内版本 `9.7.6-5.20.1-vera-test2`）
-- 大小：15,227,772 字节
-- 构建标识：`b1f08cf0bdbcceae6abb`
-- SHA-256：`45d333a6c677e66a927d48c5cb3e3de1d182b94e73e1ad4db96f0736e82d4a44`
-
-ZIP 顶层严格为两个安装文件。手动附件仅提供 Standard。旧正式 ZIP、初次发布校验、test1、Git Tag 和既有 KS 文件保留。用户本次测试成功确认未注明具体设备及逐项结果，不扩写为所有机型均完成实机验收。
-
-## 界面预览
+## 界面预览（旧版参考）
 
 | 每日时长 | 阅读书籍 | 当天详情 |
 |---|---|---|
 | ![每日时长](docs/images/daily.png) | ![阅读书籍](docs/images/books.png) | ![当天详情](docs/images/day-detail.png) |
 
-## 开发与版本记录
+## 安装包选择
 
-发布说明见 [当前附件更新](docs/releases/9.7.6-5.20.1-vera-replacement.md)，源码与包的校验记录见 [当前校验清单](docs/releases/9.7.6-5.20.1-vera-replacement-verification.json)；[初次发布记录](docs/releases/9.7.6-5.20.1-vera.md) 与 [初次校验清单](docs/releases/9.7.6-5.20.1-vera-verification.json) 保留，版本历史见 [CHANGELOG.md](CHANGELOG.md)。
+下列均为 **Standard 普通版**，不能用于 KS（Kindle Scribe）。新版只提供第一行环境的安装包；其他环境保留 v9.7.6，不包含 v9.8.1 的新功能。
 
-开发需要 Python 3.11+、POSIX sh/dash 及 `requirements-dev.txt` 中的依赖。完整离线回归和历史归属清单生成需要开发者本地保存的历史安装包与基线快照；它们不是普通用户的安装依赖，也不作为日志、测试数据或构建缓存提交。`scripts/package_release.py` 默认仅生成 Standard 本地候选；本轮发布直接使用已验证 ZIP。注册测试为 `scripts/validate_all.py`，发布源码校验为 `scripts/verify_published_release.py`。结果与缓存写入 `build/`，本地交付文件写入 `dist/`。
+| 固件与越狱方式 | 适用范围与实机证据 | 安装 ZIP |
+|---|---|---|
+| **v9.8.1：5.20.1 / Vera** | **已验收 KPW6 / 5.20.1 / Vera**；其他组合尚未验证，KS 不适用 | [Kindle-Reading-Records-v9.8.1-5.20-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera.zip) |
+| v9.7.6：5.20.1（保留 5.17 / 5.18 / 5.19 及 GC16 兼容路径，未据此追加实机结论） / vera | 普通 Kindle（排除 Scribe / KS）；用户确认当前 test2 实机成功，具体机型未注明；此前原基线为 KPW6 / 5.20.1 / Vera | [Kindle-Reading-Records-v9.7.6-5.20-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.20-vera.zip) |
+| v9.7.6：5.19.x / vera | 普通 Kindle（已验收 KPW6；排除 Scribe / KS）；KPW6 / 5.19.6 / Vera | [Kindle-Reading-Records-v9.7.6-5.19-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.19-vera.zip) |
+| v9.7.6：仅 5.18.1.1.1 / springbreak | 仅 KPW4（Paperwhite 10 代）；一台 KPW4 / 5.18.1.1.1 / SpringBreak | [Kindle-Reading-Records-v9.7.6-5.18-springbreak.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.18-springbreak.zip) |
 
-## 授权说明
+文件名中的 `5.20` 是环境选择标签，当前确认的目标固件为 **5.20.1**，不代表全部 5.20 小版本。v9.8.1 延续既有 5.17、5.18、5.19 与 GC16 兼容路径，但这些路径不等于本版已在相关环境实机验收或已提供对应安装包。v9.7.6 各包的独立来源、适用范围与校验值见其原 Release；KPW4 SpringBreak 包不能扩大为所有 5.18 或其他机型。
 
-本仓库不附加通用软件许可证，也不应被视为向第三方授予复制、修改或再发布代码的许可。上游代码经原作者明确授权在此发布；如需复用，请分别联系相关权利人。
+## 安装与原地升级
 
-随包 `NotoSansCJKsc-Regular.otf` 字体仍按 SIL Open Font License 1.1 分发，完整条款见 `native-reading-time-package/FONT-LICENSE.txt`。
+Kindle 须已越狱并具备可用的书库 Scriptlet 执行支持。Vera 包使用 SH Integration；SpringBreak 仅确认上述 KPW4 的书库脚本入口，不假定其他越狱环境的安装方式相同。
+
+1. **先备份 Kindle 的 `reading-time` 文件夹**，包含历史记录、配置和封面缓存。
+2. 下载匹配的安装 ZIP，只解压一次；把得到的安装脚本和数据 TAR 一起复制到 Kindle `documents`。**不要继续解压 TAR。**
+3. 安全弹出 Kindle，在书库点击“安装阅读记录”，等待安装完成。旧普通版使用相同步骤原地升级，无需先卸载或手动删除原数据。
+4. 打开“阅读记录”，确认历史和新增计时正常，再执行该包对应的安装文件清理。
+
+| 安装包 | 解压后复制到 documents 的两个文件 | 清理入口 |
+|---|---|---|
+| v9.8.1 / v9.7.6 的 5.20 Vera（目标 5.20.1） | `reading-records-v4-install.sh` + `阅读记录安装数据.tar` | 确认无误之后，再点这个 |
+| 5.19 Vera / KPW4 SpringBreak | `reading-records-9.7.6-install.sh` + `reading-records-9.7.6-data.tar` | 安装好之后，确认无误了再点这个 |
+
+清理不是卸载。安装、升级与清理沿用已验证的事务和保护规则，保留阅读历史、用户配置、封面缓存、当前运行资源及必要回滚文件；归属不明的资源不会被当作普通残留随意删除。不要手动清空 `reading-time`。5.20.1 服务恢复无法补算停服期间未记录的时长；KPW4 SpringBreak 每次会话约 120 秒自动退出，也可主动退出。
+
+失败时保留安装文件和备份，通过 [Issues](https://github.com/L-1116/kindle-reading-records-enhanced/issues) 提供机型、固件、越狱方式、操作步骤与错误现象。已有异常日志仅用于售后；普通用户无需执行诊断命令、选择 runtime 或测试二进制。
+
+## 历史版本与开发
+
+[全部历史 Releases](https://github.com/L-1116/kindle-reading-records-enhanced/releases) · [9.7.5 兼容版 V3](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-compat-v3) · [9.7.4](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.4) · [历史 KS 测试版](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-KS-1)
+
+v9.8.1 与 v9.7.6 分属独立 Release。既有 9.7.6 页面、Tag 与附件保持原样。详细更新见 [CHANGELOG](CHANGELOG.md)、[v9.8.1 发布说明](docs/releases/v9.8.1.md) 和 [v9.7.6 发布说明](docs/releases/v9.7.6.md)。
+
+各环境安装包独立验证，源提交、内部版本与校验值记录在相应 Release。main 仅同步用户文档，运行源码以相应版本 Tag 和发布分支为准。普通用户只需下载 Assets 中匹配环境的安装 ZIP。
+
+## 作者、上游授权与致谢
+
+本项目基于 [Plutoill/kindle-reading-records](https://github.com/Plutoill/kindle-reading-records) 的代码，经原作者明确授权后继续维护。原始工作归 Plutoill，后续增强和维护由 L-1116 完成；本仓库不是上游或 Amazon 的官方版本。
+
+本仓库不附加通用软件许可证，也不应被视为向第三方授予复制、修改或再发布代码的许可；如需复用，请分别联系相关权利人。随包 NotoSansCJK 字体按 SIL Open Font License 1.1 分发，条款见 [FONT-LICENSE.txt](native-reading-time-package/FONT-LICENSE.txt)。
