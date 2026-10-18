@@ -2,11 +2,23 @@
 
 适用于已越狱 Kindle 的本地阅读记录插件。原生阅读器处于前台、屏幕亮起时记录阅读时长，可查看月历热力、每日与累计统计、最近 8 周、阅读书籍、本地封面、月份与单书详情。
 
-**[下载最新正式版本](https://github.com/L-1116/kindle-reading-records-enhanced/releases/latest)** · [v9.7.6 统一发布页](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6) · [安装与原地升级](docs/安装与回滚.md)
+**[下载最新正式版本](https://github.com/L-1116/kindle-reading-records-enhanced/releases/latest)** · [v9.8.1 发布页](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.8.1) · [v9.7.6 其他环境](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6) · [安装与原地升级](docs/安装与回滚.md)
 
-当前正式版本为 **v9.7.6｜多固件兼容版**。在同一 Release 的 **Assets** 中选择匹配固件、越狱方式和机型的安装 ZIP。**不要下载 GitHub 自动生成的 Source code ZIP，它不是 Kindle 安装包。**
+新版 **v9.8.1** 独立发布，当前提供 **9.8.1-5.20-vera Standard 普通版**，已确认环境为 **KPW6（Paperwhite 12 代）/ 固件 5.20.1 / Vera 越狱**。其他机型、固件和越狱组合尚未完成本版实机验证；KS（Kindle Scribe）不适用。其他环境请按下表选择已验证的 v9.7.6 安装包。**不要下载 GitHub 自动生成的 Source code ZIP，它不是 Kindle 安装包。**
 
-## 界面预览
+## v9.8.1 新功能
+
+- **自定义缺失封面**：支持通用替代图片，也可给每本书指定专属图片；已有可用原始封面继续优先使用。历史书籍以双列卡片显示，并标明当前封面来源。
+- **新增设置界面**：在插件内管理计时选项和自定义封面。
+- **自定义无操作计时上限**：可设置连续多少分钟无触摸后暂停计时（1～1440 分钟），再次触摸后恢复，减少忘记翻页时的误计时；可单独开关。
+- **累计时长与阅读书籍 UI 更新**：调整文字、图表和按钮布局；阅读书籍及历史书籍均可点击底部页码直接跳页，历史书籍每页显示 10 本。
+- **修复插件界面无法熄屏的问题**，改善停留在插件内时的休眠与恢复行为。
+
+安装完成后，USB 存储中的 `reading-time/custom-covers/` 图片目录即已存在，无需先启动插件或开启封面开关。把 JPG / PNG 图片复制到该目录，再到“设置 → 自定义缺失封面”启用并选择通用或专属图片。自定义封面与无操作暂停计时初始均关闭，已有设置在升级时保留。
+
+[完整发布说明与封面使用方法](docs/releases/v9.8.1.md)。v9.8.1 使用独立的 Release 和 `v9.8.1` Tag，后续适配并验证的其他固件包可作为同一页面的新附件加入。
+
+## 界面预览（旧版参考）
 
 | 每日时长 | 阅读书籍 | 当天详情 |
 |---|---|---|
@@ -14,15 +26,16 @@
 
 ## 安装包选择
 
-KS 表示 **Kindle Scribe**。本次三个包均为 Standard 普通版，禁止覆盖 KS；没有提供 9.7.6 KS 或 5.18 Vera 正式包。
+下列均为 **Standard 普通版**，不能用于 KS（Kindle Scribe）。新版只提供第一行环境的安装包；其他环境保留 v9.7.6，不包含 v9.8.1 的新功能。
 
 | 固件与越狱方式 | 适用范围与实机证据 | 安装 ZIP |
 |---|---|---|
-| 5.20.1（保留 5.17 / 5.18 / 5.19 及 GC16 兼容路径，未据此追加实机结论） / vera | 普通 Kindle（排除 Scribe / KS）；用户确认当前 test2 实机成功，具体机型未注明；此前原基线为 KPW6 / 5.20.1 / Vera | [Kindle-Reading-Records-v9.7.6-5.20-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.20-vera.zip) |
-| 5.19.x / vera | 普通 Kindle（已验收 KPW6；排除 Scribe / KS）；KPW6 / 5.19.6 / Vera | [Kindle-Reading-Records-v9.7.6-5.19-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.19-vera.zip) |
-| 仅 5.18.1.1.1 / springbreak | 仅 KPW4（Paperwhite 10 代）；一台 KPW4 / 5.18.1.1.1 / SpringBreak | [Kindle-Reading-Records-v9.7.6-5.18-springbreak.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.18-springbreak.zip) |
+| **v9.8.1：5.20.1 / Vera** | **已验收 KPW6 / 5.20.1 / Vera**；其他组合尚未验证，KS 不适用 | [Kindle-Reading-Records-v9.8.1-5.20-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera.zip) |
+| v9.7.6：5.20.1（保留 5.17 / 5.18 / 5.19 及 GC16 兼容路径，未据此追加实机结论） / vera | 普通 Kindle（排除 Scribe / KS）；用户确认当前 test2 实机成功，具体机型未注明；此前原基线为 KPW6 / 5.20.1 / Vera | [Kindle-Reading-Records-v9.7.6-5.20-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.20-vera.zip) |
+| v9.7.6：5.19.x / vera | 普通 Kindle（已验收 KPW6；排除 Scribe / KS）；KPW6 / 5.19.6 / Vera | [Kindle-Reading-Records-v9.7.6-5.19-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.19-vera.zip) |
+| v9.7.6：仅 5.18.1.1.1 / springbreak | 仅 KPW4（Paperwhite 10 代）；一台 KPW4 / 5.18.1.1.1 / SpringBreak | [Kindle-Reading-Records-v9.7.6-5.18-springbreak.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.18-springbreak.zip) |
 
-文件名中的 `5.20` 是选择标签，当前已确认的目标为 **5.20.1**。该包保留 5.17、5.18、5.19 与 GC16 兼容路径，但这不代表所有组合已完成实机测试。当前 5.20.1 附件内部身份为已验收的 `9.7.6-5.20.1-vera-test2`；具体证据及各包 SHA-256 见统一 Release。SpringBreak 包仅限 **KPW4 / 5.18.1.1.1**，不能扩大为所有 5.18 或其他机型。
+文件名中的 `5.20` 是环境选择标签，当前确认的目标固件为 **5.20.1**，不代表全部 5.20 小版本。v9.8.1 延续既有 5.17、5.18、5.19 与 GC16 兼容路径，但这些路径不等于本版已在相关环境实机验收或已提供对应安装包。v9.7.6 各包的独立来源、适用范围与校验值见其原 Release；KPW4 SpringBreak 包不能扩大为所有 5.18 或其他机型。
 
 ## 安装与原地升级
 
@@ -35,7 +48,7 @@ Kindle 须已越狱并具备可用的书库 Scriptlet 执行支持。Vera 包使
 
 | 安装包 | 解压后复制到 documents 的两个文件 | 清理入口 |
 |---|---|---|
-| 5.20 Vera（当前目标 5.20.1） | `reading-records-v4-install.sh` + `阅读记录安装数据.tar` | 确认无误之后，再点这个 |
+| v9.8.1 / v9.7.6 的 5.20 Vera（目标 5.20.1） | `reading-records-v4-install.sh` + `阅读记录安装数据.tar` | 确认无误之后，再点这个 |
 | 5.19 Vera / KPW4 SpringBreak | `reading-records-9.7.6-install.sh` + `reading-records-9.7.6-data.tar` | 安装好之后，确认无误了再点这个 |
 
 清理不是卸载。安装、升级与清理沿用已验证的事务和保护规则，保留阅读历史、用户配置、封面缓存、当前运行资源及必要回滚文件；归属不明的资源不会被当作普通残留随意删除。不要手动清空 `reading-time`。5.20.1 服务恢复无法补算停服期间未记录的时长；KPW4 SpringBreak 每次会话约 120 秒自动退出，也可主动退出。
@@ -46,9 +59,9 @@ Kindle 须已越狱并具备可用的书库 Scriptlet 执行支持。Vera 包使
 
 [全部历史 Releases](https://github.com/L-1116/kindle-reading-records-enhanced/releases) · [9.7.5 兼容版 V3](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-compat-v3) · [9.7.4](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.4) · [历史 KS 测试版](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.5-KS-1)
 
-三个旧 9.7.6 环境发布页、旧 Tag 和原附件继续保留。详细更新见 [CHANGELOG](CHANGELOG.md) 和 [v9.7.6 发布说明](docs/releases/v9.7.6.md)。
+v9.8.1 与 v9.7.6 分属独立 Release。既有 9.7.6 页面、Tag 与附件保持原样。详细更新见 [CHANGELOG](CHANGELOG.md)、[v9.8.1 发布说明](docs/releases/v9.8.1.md) 和 [v9.7.6 发布说明](docs/releases/v9.7.6.md)。
 
-各安装包来自独立的已验证分支，真实源提交记录在 Release 正文。统一发布工程可从 [v9.7.6 Tag](https://github.com/L-1116/kindle-reading-records-enhanced/tree/v9.7.6) 查看；main 的本次更新只同步用户文档，没有合并运行分支。维护者的构建与测试要求见 Tag 中的发布流程，普通用户只需下载 Assets。
+各环境安装包独立验证，源提交、内部版本与校验值记录在相应 Release。main 仅同步用户文档，运行源码以相应版本 Tag 和发布分支为准。普通用户只需下载 Assets 中匹配环境的安装 ZIP。
 
 ## 作者、上游授权与致谢
 
