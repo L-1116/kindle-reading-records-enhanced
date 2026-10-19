@@ -174,7 +174,7 @@
     }
   },
   "test_source_sha256": {
-    "tests/validate_standard_touch_compat.py": "d778d8918c755b940180309b2e59d9a2e7e9033fec8ae77224b528e58e13d542",
+    "tests/validate_standard_touch_compat.py": "166de2abd6427aeeaf1181de01d2425e78f08e1947e20eba4aebb7f5ff628ce7",
     "tests/validate_v4.py": "18fce78f97a0648dec623287d29ffee292eddea85da841eb77672b0b7016a833",
     "tests/fixtures/standard-goodix-5201.json": "3118ca5cda447884f581df7557936bcd5f39313f03d7fcd24966348e8ff39fed"
   },
