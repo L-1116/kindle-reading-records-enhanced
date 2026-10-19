@@ -4,7 +4,7 @@
   "tag": "v9.8.1",
   "product_version": "9.8.1-5.20-vera",
   "variant": "standard",
-  "status": "PREPUBLICATION_INSTALL_VALIDATION_PENDING",
+  "status": "VERIFIED_SAME_VERSION_REPLACEMENT",
   "source_commit": "964307487830a82778b5eec53a7c65cdc5646d93",
   "source_baseline_commit": "fd9a417d12539f0a9997ba57f60cdb9e7b1edbc8",
   "original_tag_object": "355f90894afc3088f123f4204e41f4b8d66b58a9",
@@ -179,7 +179,7 @@
     "tests/fixtures/standard-goodix-5201.json": "3118ca5cda447884f581df7557936bcd5f39313f03d7fcd24966348e8ff39fed"
   },
   "automation": {
-    "result": "PENDING_INSTALLATION",
+    "result": "PASS",
     "full_standard_suite_rerun": false,
     "touch": {
       "5.17.1.0.4": "PASS: A-H x ELF32/ELF64",
@@ -246,8 +246,122 @@
       "real_hardware_verified": false
     },
     "same_version_installation": {
-      "result": "RUNNING",
-      "hardware": "OFFLINE"
+      "result": "PASS",
+      "checks": [
+        {
+          "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+          "scenario": "fresh ",
+          "result": "PASS",
+          "scanner_index_completion": "UNVERIFIED",
+          "protected_files": 0,
+          "seconds": 85.85,
+          "case_index": 0
+        },
+        {
+          "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+          "scenario": "9.8.1 ",
+          "result": "PASS",
+          "scanner_index_completion": "UNVERIFIED",
+          "protected_files": 12,
+          "seconds": 201.96,
+          "case_index": 1
+        },
+        {
+          "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+          "scenario": "9.8.1-cleaned ",
+          "result": "PASS",
+          "scanner_index_completion": "UNVERIFIED",
+          "protected_files": 12,
+          "seconds": 205.28,
+          "case_index": 2
+        },
+        {
+          "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+          "scenario": "9.8.1 core_failure",
+          "result": "PASS",
+          "scanner_index_completion": "UNVERIFIED",
+          "protected_files": 12,
+          "seconds": 88.42,
+          "case_index": 3
+        },
+        {
+          "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+          "scenario": "9.8.1 activation_failure",
+          "result": "PASS",
+          "scanner_index_completion": "UNVERIFIED",
+          "protected_files": 12,
+          "seconds": 141.84,
+          "case_index": 4
+        },
+        {
+          "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+          "scenario": "9.8.1 interrupted",
+          "result": "PASS",
+          "scanner_index_completion": "UNVERIFIED",
+          "protected_files": 12,
+          "seconds": 133.67,
+          "case_index": 5
+        },
+        {
+          "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+          "scenario": "9.8.1 missing_payload",
+          "result": "PASS",
+          "scanner_index_completion": "UNVERIFIED",
+          "protected_files": 12,
+          "seconds": 73.91,
+          "case_index": 6
+        },
+        {
+          "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+          "scenario": "9.8.1 bad_checksum",
+          "result": "PASS",
+          "scanner_index_completion": "UNVERIFIED",
+          "protected_files": 12,
+          "seconds": 73.62,
+          "case_index": 7
+        },
+        {
+          "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+          "scenario": "9.8.1 ks_residue",
+          "result": "PASS",
+          "scanner_index_completion": "UNVERIFIED",
+          "protected_files": 12,
+          "seconds": 75.33,
+          "case_index": 8
+        },
+        {
+          "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+          "scenario": "9.8.1 wrong_device",
+          "result": "PASS",
+          "scanner_index_completion": "UNVERIFIED",
+          "protected_files": 12,
+          "seconds": 73.64,
+          "case_index": 9
+        },
+        {
+          "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+          "scenario": "9.8.1 busy_ui",
+          "result": "PASS",
+          "scanner_index_completion": "UNVERIFIED",
+          "protected_files": 12,
+          "seconds": 75.01,
+          "case_index": 10
+        },
+        {
+          "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+          "scenario": "9.8.1 ",
+          "result": "PASS",
+          "scanner_index_completion": "UNVERIFIED",
+          "protected_files": 12,
+          "seconds": 180.54,
+          "case_index": 11,
+          "scenario_context": "unknown_file_cleanup_protection"
+        }
+      ],
+      "fixture": "tests/validate_v4.py --touch-patch scenarios, existing run() implementation",
+      "workers": 2,
+      "hardware": "OFFLINE",
+      "package_sha256": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936"
     },
     "artifact_verification": {
       "variant": "standard",
@@ -423,6 +537,14 @@
       "native-reading-time-package/阅读记录-entry.sh": "78a8924d36b0924d1cc5dd84d2612687c7ee1554ac63ebc79ccd891aceaf8c18",
       "native-reading-time-package/阅读记录-optimized.sh": "7f97ca19c023f1210eb01520ce05c100b5fcf473f23d5208e63921c6d5244181",
       "native-reading-time-package/阅读记录.sh": "932e726618517931565a342c35debe923257567906874faabb725a3565bed8af"
+    },
+    "linux_ci": {
+      "result": "PASS",
+      "commit": "0b1cbd2d3f5d49e5199955e7766cc23ad3ee2d73",
+      "url": "https://github.com/L-1116/kindle-reading-records-enhanced/actions/runs/39208907017",
+      "run_id": 39208907017,
+      "job_id": 117917683371,
+      "scope": "Linux frozen source, release-asset rules, complete touch matrix including shell recovery"
     },
     "fixture_limitations": "Goodix capability words are verbatim. Companion power/pen words are synthetic; their names/classifications were reported. Differential combinations and shell tests do not constitute physical-device coverage."
   },
