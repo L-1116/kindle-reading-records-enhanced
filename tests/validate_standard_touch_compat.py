@@ -21,7 +21,7 @@ PROBE = (PKG/'reading-insights-touch-probe.lua').read_text(encoding='utf-8')
 READER = (PKG/'reading-insights-touch-ui.lua').read_text(encoding='utf-8')
 FIRMWARES = ['5.17.1.0.4','5.18','5.18.0','5.18.1','5.18.1.1.1','5.18.1.2',
              '5.18.2','5.18.4','5.18.5','5.18.5.0.1','5.18.6','5.18.10',
-             '5.19.1','5.19.2','5.19.5','5.19.6']
+             '5.19.1','5.19.2','5.19.5','5.19.6','5.20.1']
 COUNTS = {'probe':0,'reader':0,'shell':0}
 RESULTS = {}
 
@@ -44,7 +44,7 @@ def bitmap(codes, bits=32):
         number >>= bits
     return ' '.join(reversed(chunks)) or '0'
 
-def candidate(root, num, name, *, xy=False, mt=False, direct=True, keys=(), props=(), readable=True, bits=32):
+def candidate(root, num, name, *, xy=False, mt=False, direct=True, keys=(), props=(), readable=True, bits=32, raw_caps=None):
     node = root/'sys'/f'event{num}'/'device'
     (node/'capabilities').mkdir(parents=True)
     (node/'name').write_text(name)
@@ -52,10 +52,75 @@ def candidate(root, num, name, *, xy=False, mt=False, direct=True, keys=(), prop
     (node/'capabilities/abs').write_text(bitmap(([0,1] if xy else [])+([53,54,57] if mt else []),bits))
     (node/'capabilities/key').write_text(bitmap(keys,bits))
     (node/'properties').write_text(bitmap(([1] if direct else [])+list(props),bits))
+    if raw_caps is not None:
+        for cap in ('ev','abs','key','prop'):
+            (node/('properties' if cap=='prop' else 'capabilities/'+cap)).write_text(raw_caps[cap])
     dev = root/'dev'/f'event{num}'
     dev.parent.mkdir(exist_ok=True)
     if readable: dev.write_bytes(b'')
     return dev
+
+GOODIX_FIXTURE = json.loads((ROOT/'tests/fixtures/standard-goodix-5201.json').read_text(encoding='utf-8'))
+
+def goodix_topology(root, touch_num=1):
+    for device in GOODIX_FIXTURE['devices']:
+        path=candidate(root, touch_num if device['event']==1 else device['event'],
+                       device['name'], raw_caps=device)
+        if device['event']==1: touch=path
+    return touch
+
+def goodix_cases(work):
+    # Exact reported Goodix words, with the two named companion devices.
+    # Relocation proves selection depends on capabilities, not event1.
+    for touch_num in (1,7):
+        root=work/f'goodix-{touch_num}'; root.mkdir(); (root/'sys').mkdir()
+        touch=goodix_topology(root,touch_num)
+        for klass in (1,2):
+            code,fields=probe(root,klass)
+            assert code==0 and fields['selected_touch']==touch.as_posix(), fields
+            assert fields['reader_state']=='probe_ok' and fields['reader_error']=='none', fields
+            assert fields['event_struct_size']==str(16 if klass==1 else 24), fields
+            for i in range(3):
+                name=fields[f'candidate_{i}_name']
+                expected=next(d['classification'] for d in GOODIX_FIXTURE['devices'] if d['name']==name)
+                assert fields[f'candidate_{i}_classification']==expected, fields
+    # KEY_POWER alone is weak evidence only for a direct XY/MT device.
+    # Explicit sensor, pen and pointer evidence still wins, even with DIRECT.
+    cases=[
+        ('power',dict(xy=True,keys=[116]),'sensor_or_button'),
+        ('bd71828-pwrkey',dict(mt=True,keys=[116]),'sensor_or_button'),
+        ('orientation sensor',dict(xy=True,keys=[116]),'sensor_or_button'),
+        ('unknown',dict(mt=True,keys=[116],props=[6]),'sensor_or_button'),
+        ('keyboard',dict(xy=True,keys=[116]),'sensor_or_button'),
+        ('unknown',dict(mt=True,keys=[116,30,44]),'sensor_or_button'),
+        ('kindle-input-pt',dict(xy=True,keys=[116,320]),'pen_digitizer'),
+        ('stylus',dict(mt=True,keys=[116]),'pen_digitizer'),
+        ('touchpad',dict(mt=True,keys=[116],props=[0]),'pointer_or_touchpad'),
+        ('touchpad',dict(mt=True,keys=[116],props=[2]),'pointer_or_touchpad'),
+        ('goodix-ts',dict(keys=[116]),'sensor_or_button'),
+        ('goodix-ts',dict(xy=True,keys=[116],direct=False),'sensor_or_button'),
+        ('goodix-ts',dict(mt=True,keys=[116],direct=False),'sensor_or_button'),
+        ('goodix-ts',dict(xy=True,keys=[116]),'finger_xy'),
+        ('goodix-ts',dict(mt=True,keys=[116]),'finger_mt'),
+    ]
+    for bits in (32,64):
+        os.environ['READING_TOUCH_MACHINE']='aarch64' if bits==64 else 'armv7l'
+        for i,(name,kwargs,expected) in enumerate(cases):
+            root=work/f'power-safety-{bits}-{i}'; root.mkdir(); (root/'sys').mkdir()
+            touch=candidate(root,5,name,bits=bits,**kwargs)
+            for klass in (1,2):
+                code,fields=probe(root,klass)
+                assert fields['candidate_0_classification']==expected, fields
+                assert code==(0 if expected.startswith('finger_') else 2), fields
+                assert fields['selected_touch']==(touch.as_posix() if code==0 else 'none'), fields
+    os.environ['READING_TOUCH_MACHINE']='armv7l'
+    for kind,caps in [('no_ev_abs',dict(ev='3',abs='2618000 3',key='100000 0 0 0',prop='2')),
+                      ('only_x',dict(ev='b',abs='1',key='100000 0 0 0',prop='2'))]:
+        root=work/kind; root.mkdir(); (root/'sys').mkdir()
+        candidate(root,4,'goodix-ts',raw_caps=caps)
+        code,fields=probe(root)
+        assert code==2 and fields['candidate_0_classification']=='sensor_or_button', fields
+    RESULTS['goodix_5201']='PASS: verbatim Goodix caps, companion exclusions, relocated event, ELF32/ELF64, kernel32/kernel64 safety cases'
 
 def probe(root, klass=1):
     elf = root/'lua.elf'; elf.write_bytes(b'\x7fELF'+bytes([klass,1]))
@@ -112,12 +177,14 @@ def shell_case(root, kind, legacy=False):
     (base/'bin').mkdir(); (base/'bin/native-reading-time-daemon.sh').write_bytes(b'daemon')
     (release/'bin/reading-records-v9.6.3.sh').write_text('exit 0\n')
     (root/'sys').mkdir()
-    dev=candidate(root,2,'unknown_vendor_input',mt=True) if kind!='no_candidate' else candidate(root,1,'power',keys=[116],direct=False)
+    dev=(goodix_topology(root) if kind=='goodix_exit' else
+         candidate(root,2,'unknown_vendor_input',mt=True) if kind!='no_candidate' else
+         candidate(root,1,'power',keys=[116],direct=False))
     streams={'exit':[(3,53,120),(3,54,85),(0,0,0)],
              'books':[(3,53,600),(3,54,210),(0,0,0)],
              'short':[], 'corrupt':[(255,0,0)]*8,
              'dropped':[(0,3,0)], 'no_candidate':[]}
-    dev.write_bytes(b''.join(event(16,*e) for e in streams[kind]))
+    dev.write_bytes(b''.join(event(16,*e) for e in streams['exit' if kind=='goodix_exit' else kind]))
     elf=root/'lua.elf'; elf.write_bytes(b'\x7fELF\x01\x01')
     trace=root/'trace'; session=root/'native-reading-dashboard.123'
     runner=root/'lua_runner.py'
@@ -165,12 +232,17 @@ uname() {{ if [ "$1" = -m ]; then echo armv7l; else /usr/bin/uname "$@"; fi; }}
     assert not session.exists(),(kind,legacy,text,result.stderr)
     assert all(hashlib.sha256(p.read_bytes()).hexdigest()==h for p,h in before.items())
     if kind=='no_candidate': assert 'DRAW' not in log and result.returncode!=0,(text,log)
-    elif kind=='exit': assert 'DRAW' in log and result.returncode==0,(text,result.stderr,log)
+    elif kind in ('exit','goodix_exit'): assert 'DRAW' in log and result.returncode==0,(text,result.stderr,log)
     else: assert 'DRAW' in log and result.returncode!=0,(text,result.stderr,log)
     if kind in ('short','corrupt','dropped'):
         fields=(base/'touch-last.log').read_text()
         assert 'reader_state=reader_failed' in fields
         assert {'short':'short_read','corrupt':'corrupt_event_stream','dropped':'syn_dropped'}[kind] in fields
+    if kind=='goodix_exit':
+        fields=(base/'touch-last.log').read_text()
+        assert 'candidate_1_classification=finger_mt\n' in fields, fields
+        assert 'selection_reason=finger_mt\n' in fields and 'reader_error=none\n' in fields, fields
+        assert 'preflight_failed' not in fields and 'error_stage=touch' not in text, (text,fields)
     COUNTS['shell']+=1
 
 def main():
@@ -202,6 +274,7 @@ def main():
                         assert fields['selected_touch']==(expected.as_posix() if expected else 'none')
                         assert fields['event_struct_size']==str(16 if klass==1 else 24)
                 RESULTS[firmware]='PASS: A-H x ELF32/ELF64'
+            goodix_cases(work)
             idle_root=work/'idle-contact'; idle_root.mkdir(); (idle_root/'sys').mkdir()
             legacy_touch=candidate(idle_root,0,'zforce',xy=True,direct=False)
             os.environ['READING_TOUCH_REQUIRE_CONTACT']='1'
@@ -292,7 +365,7 @@ def main():
                 code,fields=reader(root,size=size,legacy=True,point=(200,210))
                 assert code==0 and fields['last_action']=='tab_total'
             for legacy in (False,True):
-                for kind in ['exit','short','corrupt','dropped','no_candidate','books']:
+                for kind in ['exit','goodix_exit','short','corrupt','dropped','no_candidate','books']:
                     shell_case(work/f'shell-{legacy}-{kind}',kind,legacy)
             assert 'f:read(16)' not in READER and '/dev/input/event1' not in PROBE
             assert 'timeout' not in READER and 'sleep(' not in READER

@@ -194,5 +194,14 @@
     "sha256": "0c27c599dc4831ef6bd3995002f80d22feabe3ebb4873219b6221c7f7112c6c4",
     "official": false,
     "provenance": "Original Standard test8 from c1cccc4; device acceptance confirmed by the user; retained unchanged before the install-time custom-cover-directory fix."
+  },
+  {
+    "id": "9.8.1",
+    "tag": "v9.8.1",
+    "path": "build/historical-artifacts/Kindle-Reading-Records-v9.8.1-5.20-vera.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera.zip",
+    "sha256": "4d7ea4285f7525e559bc2f688b5191eb901e68636ec89e7eb490c816be1ca939",
+    "official": true,
+    "provenance": "Unchanged v9.8.1 Standard release asset; tag commit fd9a417d12539f0a9997ba57f60cdb9e7b1edbc8."
   }
 ]

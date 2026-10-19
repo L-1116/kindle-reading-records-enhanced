@@ -1,0 +1,36 @@
+{
+  "environment": "Kindle 青春版 2024 / 5.20.1 / Standard v9.8.1",
+  "source": "User-provided touch-last.log excerpt; goodix capability strings are verbatim. Companion capability strings are synthetic safety fixtures because their bitmaps were not included in the excerpt.",
+  "devices": [
+    {
+      "event": 0,
+      "name": "bd71828-pwrkey",
+      "capability_source": "synthetic KEY_POWER-only companion; reported name and classification",
+      "ev": "3",
+      "abs": "0",
+      "key": "100000 0 0 0",
+      "prop": "0",
+      "classification": "sensor_or_button"
+    },
+    {
+      "event": 1,
+      "name": "goodix-ts",
+      "capability_source": "verbatim reported bitmaps (32-bit kernel words)",
+      "ev": "b",
+      "abs": "2618000 3",
+      "key": "420 0 0 0 0 0 100000 0 0 0",
+      "prop": "2",
+      "classification": "finger_mt"
+    },
+    {
+      "event": 2,
+      "name": "kindle-input-pt",
+      "capability_source": "synthetic XY + BTN_TOOL_PEN companion; reported name and classification",
+      "ev": "b",
+      "abs": "3",
+      "key": "1 0 0 0 0 0 0 0 0 0 0",
+      "prop": "2",
+      "classification": "pen_digitizer"
+    }
+  ]
+}

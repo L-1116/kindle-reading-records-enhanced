@@ -64,6 +64,9 @@ for entry in listing:lines() do
         local keys = read(root .. "capabilities/key") or ""
         local prop = read(root .. "properties") or read(root .. "capabilities/prop") or ""
         local xy, mt = has(abs, 0) and has(abs, 1), has(abs, 53) and has(abs, 54)
+        -- Some direct touchscreens also advertise KEY_POWER (e.g. goodix-ts).
+        -- That key alone must not override valid direct touch capabilities.
+        local direct_touch = has(ev, 3) and (xy or mt) and has(prop, 1)
         local lower = name:lower()
         local pen = lower:find("stylus", 1, true) or lower:find("wacom", 1, true) or
             lower:find("digitizer", 1, true) or lower:match("%f[%a]pen%f[%A]") or
@@ -72,7 +75,7 @@ for entry in listing:lines() do
         local sensor = lower:find("accel", 1, true) or lower:find("gyro", 1, true) or
             lower:find("sensor", 1, true) or lower:find("_acc", 1, true) or
             lower:find("power", 1, true) or lower:find("pwrkey", 1, true) or
-            lower:find("keyboard", 1, true) or has(prop, 6) or has(keys, 116) or
+            lower:find("keyboard", 1, true) or has(prop, 6) or (has(keys, 116) and not direct_touch) or
             (has(keys, 30) and has(keys, 44))
         local named = lower:find("touch", 1, true) or lower:find("zforce", 1, true) or
             lower:find("cyttsp", 1, true) or lower:find("fts", 1, true) or
