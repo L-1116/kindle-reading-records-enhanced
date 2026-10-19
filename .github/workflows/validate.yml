@@ -2,18 +2,19 @@ name: Validate
 
 on:
   push:
-    branches: [main, codex/v4-install-system, codex/release-9.7.6-5.20.1-vera, codex/release-9.8.1-5.20-vera]
+    branches: [main, codex/v4-install-system, codex/release-9.7.6-5.20.1-vera, codex/release-9.8.1-5.20-vera, codex/release-9.8.1-goodix-fix]
     tags: ["v*"]
   pull_request:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   offline-validation:
-    if: github.event_name != 'release' && github.ref != 'refs/tags/v9.7.6-5.20.1-vera' && github.ref != 'refs/heads/codex/release-9.7.6-5.20.1-vera' && github.ref != 'refs/tags/v9.8.1' && github.ref != 'refs/heads/codex/release-9.8.1-5.20-vera' && github.head_ref != 'codex/release-9.8.1-5.20-vera'
+    if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main' && github.ref != 'refs/heads/codex/release-9.8.1-goodix-fix' && github.head_ref != 'codex/release-9.8.1-goodix-fix' && github.ref != 'refs/tags/v9.7.6-5.20.1-vera' && github.ref != 'refs/heads/codex/release-9.7.6-5.20.1-vera' && github.ref != 'refs/tags/v9.8.1' && github.ref != 'refs/heads/codex/release-9.8.1-5.20-vera' && github.head_ref != 'codex/release-9.8.1-5.20-vera'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +26,7 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: python -m pip install -r requirements-dev.txt
+      - run: python scripts/package_cover_v3_test.py
       - run: python scripts/validate_all.py
 
   verified-standard-release:
@@ -42,14 +44,20 @@ jobs:
         run: python scripts/verify_published_release.py --github
 
   verified-standard-9-8-1:
-    if: github.ref == 'refs/tags/v9.8.1' || github.ref == 'refs/heads/codex/release-9.8.1-5.20-vera' || github.head_ref == 'codex/release-9.8.1-5.20-vera'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/release-9.8.1-goodix-fix' || github.head_ref == 'codex/release-9.8.1-goodix-fix' || github.ref == 'refs/tags/v9.8.1' || github.ref == 'refs/heads/codex/release-9.8.1-5.20-vera' || github.head_ref == 'codex/release-9.8.1-5.20-vera'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: python -m pip install -r requirements-dev.txt
       - run: python scripts/verify_published_release.py --source-only --report docs/releases/v9.8.1-verification.json
       - run: python tests/validate_release_assets.py
-      - if: github.event_name == 'release'
+      - run: python tests/validate_standard_touch_compat.py
+      - if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         run: python scripts/verify_published_release.py --github --report docs/releases/v9.8.1-verification.json

@@ -197,11 +197,12 @@
   },
   {
     "id": "9.8.1",
-    "tag": "v9.8.1",
+    "tag": "archive/v9.8.1-before-goodix-fix",
     "path": "build/historical-artifacts/Kindle-Reading-Records-v9.8.1-5.20-vera.zip",
-    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera-before-goodix-fix.zip",
     "sha256": "4d7ea4285f7525e559bc2f688b5191eb901e68636ec89e7eb490c816be1ca939",
     "official": true,
-    "provenance": "Unchanged v9.8.1 Standard release asset; tag commit fd9a417d12539f0a9997ba57f60cdb9e7b1edbc8."
+    "provenance": "Unchanged v9.8.1 Standard release asset; tag commit fd9a417d12539f0a9997ba57f60cdb9e7b1edbc8.",
+    "source_commit": "fd9a417d12539f0a9997ba57f60cdb9e7b1edbc8"
   }
 ]

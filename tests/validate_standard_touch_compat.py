@@ -130,6 +130,63 @@ def probe(root, klass=1):
     COUNTS['probe'] += 1
     return code, dict(line.split('=',1) for line in (root/'touch-last.log').read_text().splitlines())
 
+def classifier_differential(work):
+    """Keep the original accepted classes/scores and deliberate safety exits."""
+    from itertools import product
+    global PROBE
+    current=PROBE
+    baseline=subprocess.check_output(['git','show',
+        'fd9a417d12539f0a9997ba57f60cdb9e7b1edbc8:native-reading-time-package/reading-insights-touch-probe.lua'],cwd=ROOT).decode('utf-8')
+    counts=dict(cases=0,previously_accepted_preserved=0,newly_accepted=0,
+                rejected_with_clearer_pointer_label=0,unchanged_classifications=0)
+    root=work/'classifier-differential'; root.mkdir(); (root/'sys').mkdir()
+    candidate(root,5,'unknown'); node=root/'sys/event5/device'
+    names=['unknown','zforce','goodix-ts','bd71828-pwrkey','orientation sensor','kindle-input-pt']
+    axes=[[],[0,1],[53,54,57],[0,1,53,54,57]]
+    propsets=[[],[1],[0],[2],[6],[1,0],[1,2],[1,6]]
+    keysets=[[],[116],[330],[116,330],[320],[116,320],[30,44],[116,30,44]]
+    try:
+        for name,coords,props,keys,evabs in product(names,axes,propsets,keysets,[False,True]):
+            for path,raw in [('name',name),('capabilities/ev',bitmap([0,1]+([3] if evabs else []))),
+                             ('capabilities/abs',bitmap(coords)),('capabilities/key',bitmap(keys)),
+                             ('properties',bitmap(props))]: (node/path).write_text(raw)
+            PROBE=baseline; before,old=probe(root)
+            PROBE=current; after,new=probe(root)
+            counts['cases']+=1
+            if before==0:
+                assert after==0 and old['candidate_0_classification']==new['candidate_0_classification']
+                assert old['candidate_0_score']==new['candidate_0_score'], (old,new)
+                counts['previously_accepted_preserved']+=1
+            if old['candidate_0_classification']==new['candidate_0_classification']:
+                counts['unchanged_classifications']+=1
+            else:
+                assert before!=0 and 116 in keys and evabs and 1 in props and len(coords)>=2
+                if after==0: counts['newly_accepted']+=1
+                else:
+                    assert new['candidate_0_classification']=='pointer_or_touchpad' and (0 in props or 2 in props)
+                    counts['rejected_with_clearer_pointer_label']+=1
+        assert counts==dict(cases=3072,previously_accepted_preserved=46,newly_accepted=24,
+                            rejected_with_clearer_pointer_label=48,unchanged_classifications=3000), counts
+        for kind in ('pen','finger'):
+            multi=work/('multi-'+kind); multi.mkdir(); (multi/'sys').mkdir()
+            touch=candidate(multi,1,'goodix-ts',mt=True,keys=[116])
+            candidate(multi,2,'kindle-input-pt' if kind=='pen' else 'second-touch',
+                      mt=True,keys=[320] if kind=='pen' else [])
+            for klass in (1,2):
+                PROBE=baseline; before,old=probe(multi,klass)
+                PROBE=current; after,new=probe(multi,klass)
+                if kind=='pen':
+                    assert before==2 and after==0 and new['selected_touch']==touch.as_posix(),new
+                    assert new['candidate_1_classification']=='pen_digitizer',new
+                else:
+                    assert before==0 and after==2 and new['selected_touch']=='none',new
+                    assert new['selection_reason']=='ambiguous_finger_touch_candidates',new
+        RESULTS['classifier_differential']=dict(result='PASS',**counts,
+            touch_plus_pen='finger selected',two_equal_finger_candidates='safely rejected',
+            hardware_coverage=False)
+    finally:
+        PROBE=current
+
 def event(size, typ, code, value):
     return bytes(size-8)+struct.pack('<HHi',typ,code,value)
 
@@ -275,6 +332,7 @@ def main():
                         assert fields['event_struct_size']==str(16 if klass==1 else 24)
                 RESULTS[firmware]='PASS: A-H x ELF32/ELF64'
             goodix_cases(work)
+            classifier_differential(work)
             idle_root=work/'idle-contact'; idle_root.mkdir(); (idle_root/'sys').mkdir()
             legacy_touch=candidate(idle_root,0,'zforce',xy=True,direct=False)
             os.environ['READING_TOUCH_REQUIRE_CONTACT']='1'
