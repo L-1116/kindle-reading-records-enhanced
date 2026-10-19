@@ -4,7 +4,9 @@
 
 **[下载最新正式版本](https://github.com/L-1116/kindle-reading-records-enhanced/releases/latest)** · [v9.8.1 发布页](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.8.1) · [v9.7.6 其他环境](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6) · [安装与原地升级](docs/安装与回滚.md)
 
-新版 **v9.8.1** 独立发布，当前提供 **9.8.1-5.20-vera Standard 普通版**，已确认环境为 **KPW6（Paperwhite 12 代）/ 固件 5.20.1 / Vera 越狱**。其他机型、固件和越狱组合尚未完成本版实机验证；KS（Kindle Scribe）不适用。其他环境请按下表选择已验证的 v9.7.6 安装包。**不要下载 GitHub 自动生成的 Source code ZIP，它不是 Kindle 安装包。**
+新版 **v9.8.1** 独立发布，当前提供 **9.8.1-5.20-vera Standard 普通版**，已确认环境为 **KPW6（Paperwhite 12 代）/ 固件 5.20.1 / Vera 越狱**。下文另列青春版 test9 启动确认；除此之外的机型、固件和越狱组合尚未完成本版实机验证；KS（Kindle Scribe）不适用。其他环境请按下表选择已验证的 v9.7.6 安装包。**不要下载 GitHub 自动生成的 Source code ZIP，它不是 Kindle 安装包。**
+
+2026-10-19 同版本修复触摸预检查误判：**青春版 2024 / 5.20.1 的 test9 启动已获用户实测确认**，正式包保留该修复。其他非 KS 设备按能力检测，不宣称全部机型均已实测。旧包和旧 Tag 目标在原发布页归档，推荐下载仍为下方同名正式 ZIP。
 
 ## v9.8.1 新功能
 
@@ -30,7 +32,7 @@
 
 | 固件与越狱方式 | 适用范围与实机证据 | 安装 ZIP |
 |---|---|---|
-| **v9.8.1：5.20.1 / Vera** | **已验收 KPW6 / 5.20.1 / Vera**；其他组合尚未验证，KS 不适用 | [Kindle-Reading-Records-v9.8.1-5.20-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera.zip) |
+| **v9.8.1：5.20.1 / Vera** | **KPW6 / 5.20.1 / Vera 既有基线；青春版 2024 / 5.20.1 test9 启动实测成功**；其他组合尚未验证，KS 不适用 | [Kindle-Reading-Records-v9.8.1-5.20-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera.zip) |
 | v9.7.6：5.20.1（保留 5.17 / 5.18 / 5.19 及 GC16 兼容路径，未据此追加实机结论） / vera | 普通 Kindle（排除 Scribe / KS）；用户确认当前 test2 实机成功，具体机型未注明；此前原基线为 KPW6 / 5.20.1 / Vera | [Kindle-Reading-Records-v9.7.6-5.20-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.20-vera.zip) |
 | v9.7.6：5.19.x / vera | 普通 Kindle（已验收 KPW6；排除 Scribe / KS）；KPW6 / 5.19.6 / Vera | [Kindle-Reading-Records-v9.7.6-5.19-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.19-vera.zip) |
 | v9.7.6：仅 5.18.1.1.1 / springbreak | 仅 KPW4（Paperwhite 10 代）；一台 KPW4 / 5.18.1.1.1 / SpringBreak | [Kindle-Reading-Records-v9.7.6-5.18-springbreak.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.18-springbreak.zip) |
