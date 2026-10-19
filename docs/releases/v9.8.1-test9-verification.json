@@ -1,11 +1,11 @@
 {
-  "release_version": "9.8.2",
-  "release_title": "Kindle 阅读记录 v9.8.2｜Goodix 触摸兼容修复",
-  "tag": "v9.8.2",
-  "status": "LOCAL_CANDIDATE_NOT_PUBLISHED",
-  "product_version": "9.8.2-5.20-vera",
+  "release_version": "9.8.1",
+  "release_title": "Kindle 阅读记录 9.8.1-5.20-vera-test9｜Goodix Bug 修复测试包",
+  "tag": "v9.8.1",
+  "status": "LOCAL_TEST_CANDIDATE_NOT_PUBLISHED",
+  "product_version": "9.8.1-5.20-vera-test9",
   "variant": "standard",
-  "source_commit": "7a37006c02fce569fffa1f790acdc7c2d8e52201",
+  "source_commit": "2a7bdd6c4f93b37e1c148e927d22f82b4f525f18",
   "baseline_tag": "v9.8.1",
   "baseline_tag_object": "355f90894afc3088f123f4204e41f4b8d66b58a9",
   "baseline_commit": "fd9a417d12539f0a9997ba57f60cdb9e7b1edbc8",
@@ -14,16 +14,16 @@
   "hardware_verified": false,
   "hardware_evidence": "No Kindle hardware was used for this patch. Reported Goodix capability strings were reproduced offline; inherited KPW6 evidence is documented in v9.8.1, not new v9.8.2 acceptance.",
   "target_environment": "Standard / reported Kindle 青春版 2024 / 5.20.1; 5.20 in filename is an environment label, not a hardware coverage claim.",
-  "build_id": "d2bb3f3ed720ea02d0eb",
-  "zip_file": "Kindle-Reading-Records-v9.8.2-5.20-vera.zip",
-  "zip_size": 15592175,
-  "zip_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+  "build_id": "205bf1e831d61453a5be",
+  "zip_file": "9.8.1-5.20-vera-test9.zip",
+  "zip_size": 15592131,
+  "zip_sha256": "31ad628cc2e9189b83fe2851f613ac825a3a1ec360a843a1770fcb90fd90a641",
   "zip_top_level": [
     "reading-records-v4-install.sh",
     "阅读记录安装数据.tar"
   ],
   "payload_files": 119,
-  "payload_sha256": "7b2cbc350af7cae62228c896b32f10e0939253acf80c7adf7b3e9c85dc8ab5b7",
+  "payload_sha256": "ed9776aaa0307eb5679bb10f7417132ae2f3061049869c0119eb203d9abfbe89",
   "changes_from_v9_8_1": [
     "BUILD-INFO",
     "PACKAGE-MANIFEST.json",
@@ -37,7 +37,7 @@
   "unchanged_payload_files": 111,
   "production_source_sha256": {
     "native-reading-time-package/FONT-LICENSE.txt": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2",
-    "native-reading-time-package/Install-Native-Reading-Time-Optimized.sh": "74bb12dcf7227b87a51ce57509fc467e29413294d985fa61584267f5375f6591",
+    "native-reading-time-package/Install-Native-Reading-Time-Optimized.sh": "49840dc28d8af2dcaee6539f7f75e2f05b3b84d1efe7eddc26a7673d6650e9aa",
     "native-reading-time-package/Install-Native-Reading-Time.sh": "3e47a2b9702754be06b558938fa6f7552ecead508075bbb5faf891b446cf4c40",
     "native-reading-time-package/NotoSansCJKsc-Regular.otf": "2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b",
     "native-reading-time-package/cleanup-manifest.txt": "5a805bb3dd9cf3e0be802e1bbb91254184f0688d028ea0e4a4e00fc821992d79",
@@ -143,12 +143,12 @@
     "native-reading-time-package/阅读记录-entry.sh": "78a8924d36b0924d1cc5dd84d2612687c7ee1554ac63ebc79ccd891aceaf8c18",
     "native-reading-time-package/阅读记录-optimized.sh": "7f97ca19c023f1210eb01520ce05c100b5fcf473f23d5208e63921c6d5244181",
     "native-reading-time-package/阅读记录.sh": "932e726618517931565a342c35debe923257567906874faabb725a3565bed8af",
-    "scripts/build_v4.py": "ec82b9a3a752feb017dc50981e8ee711de4b4a45c3b154379c2471ef7de19e4d",
+    "scripts/build_v4.py": "e8a4ebe861b1f191402824d02b4ff6aa4ebbe9af5f9882befab3020184ac4f41",
     "scripts/historical-packages.json": "63bac6f0e021e4b31a82ecae5acd75761b738b2388a2474152ecbcdda67a908f",
     "scripts/migration_inventory.py": "10d47f465ed43c66b10e046c231b48fb20f6c2877d61406de2965b406f709689",
     "scripts/package_release.py": "93ad765ea7ff1f9629dcc7d8671cd67d02bf3babd8a697b27278d805af5b529e",
     "v4/bootstrap.template.sh": "17e159fdabf8d0471b68491106048cfdd289345034ff380d175297867290c957",
-    "v4/cleanup.sh": "38c131cc9c7467330aef41c1362929286159676b07289ec203eb450082909cdc"
+    "v4/cleanup.sh": "87cb9ba6b64ab7b9a87b3b1a25c4463406401969adc6846f70b98c0bcd74337f"
   },
   "source_checkout_line_endings": {
     "native-reading-time-package/resources/kual/reading-records-installer/config.xml": {
@@ -161,190 +161,6 @@
     "tests/fixtures/standard-goodix-5201.json": "3118ca5cda447884f581df7557936bcd5f39313f03d7fcd24966348e8ff39fed",
     "tests/validate_v4.py": "18fce78f97a0648dec623287d29ffee292eddea85da841eb77672b0b7016a833"
   },
-  "automation": {
-    "result": "PASS",
-    "full_standard_suite_run": false,
-    "scope": "Targeted touch compatibility, launcher, runtime, power, daemon, installation/upgrade/rollback/cleanup/uninstall regressions; real hardware unverified.",
-    "checks": [
-      {
-        "check": "tests/validate_standard_touch_compat.py",
-        "exit_code": 0,
-        "counts": {
-          "probe": 345,
-          "reader": 1000,
-          "shell": 14
-        }
-      },
-      {
-        "check": "tests/validate_power_exit.py",
-        "exit_code": 0,
-        "seconds": 252.45
-      },
-      {
-        "check": "tests/validate_idle_guard.py",
-        "exit_code": 0,
-        "seconds": 3.27
-      },
-      {
-        "check": "tests/validate_runtime_probe.py",
-        "exit_code": 0,
-        "seconds": 246.99
-      },
-      {
-        "check": "tests/validate_fbink_actual_use.py",
-        "exit_code": 0,
-        "seconds": 441.07
-      },
-      {
-        "check": "tests/validate_service_recovery.py",
-        "exit_code": 0,
-        "seconds": 190.3
-      },
-      {
-        "check": "tests/validate_install.py",
-        "exit_code": 0,
-        "seconds": 219.1
-      },
-      {
-        "check": "tests/validate_uninstall.py",
-        "exit_code": 0,
-        "seconds": 0.11
-      },
-      {
-        "check": "tests/validate_launcher_state.py",
-        "exit_code": 0,
-        "seconds": 23.79
-      },
-      {
-        "check": "tests/validate_device_variant.py --library-only",
-        "exit_code": 0,
-        "seconds": 74.45
-      },
-      {
-        "check": "tests/validate_idle_pause.py",
-        "exit_code": 0,
-        "seconds": 444.94
-      },
-      {
-        "check": "tests/validate_v4.py --touch-patch",
-        "exit_code": 0,
-        "scenarios": [
-          {
-            "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
-            "scenario": "fresh ",
-            "result": "PASS",
-            "scanner_index_completion": "UNVERIFIED",
-            "protected_files": 0
-          },
-          {
-            "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
-            "scenario": "9.8.1 ",
-            "result": "PASS",
-            "scanner_index_completion": "UNVERIFIED",
-            "protected_files": 12
-          },
-          {
-            "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
-            "scenario": "9.8.1-cleaned ",
-            "result": "PASS",
-            "scanner_index_completion": "UNVERIFIED",
-            "protected_files": 12
-          },
-          {
-            "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
-            "scenario": "9.8.1 core_failure",
-            "result": "PASS",
-            "scanner_index_completion": "UNVERIFIED",
-            "protected_files": 12
-          },
-          {
-            "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
-            "scenario": "9.8.1 activation_failure",
-            "result": "PASS",
-            "scanner_index_completion": "UNVERIFIED",
-            "protected_files": 12
-          },
-          {
-            "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
-            "scenario": "9.8.1 interrupted",
-            "result": "PASS",
-            "scanner_index_completion": "UNVERIFIED",
-            "protected_files": 12
-          },
-          {
-            "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
-            "scenario": "9.8.1 missing_payload",
-            "result": "PASS",
-            "scanner_index_completion": "UNVERIFIED",
-            "protected_files": 12
-          },
-          {
-            "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
-            "scenario": "9.8.1 bad_checksum",
-            "result": "PASS",
-            "scanner_index_completion": "UNVERIFIED",
-            "protected_files": 12
-          },
-          {
-            "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
-            "scenario": "9.8.1 ks_residue",
-            "result": "PASS",
-            "scanner_index_completion": "UNVERIFIED",
-            "protected_files": 12
-          },
-          {
-            "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
-            "scenario": "9.8.1 wrong_device",
-            "result": "PASS",
-            "scanner_index_completion": "UNVERIFIED",
-            "protected_files": 12
-          },
-          {
-            "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
-            "scenario": "9.8.1 busy_ui",
-            "result": "PASS",
-            "scanner_index_completion": "UNVERIFIED",
-            "protected_files": 12
-          },
-          {
-            "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
-            "scenario": "9.8.1 ",
-            "result": "PASS",
-            "scanner_index_completion": "UNVERIFIED",
-            "protected_files": 12,
-            "scenario_context": "unknown_file_cleanup_protection"
-          }
-        ]
-      },
-      {
-        "check": "scripts/verify_v4_artifacts.py",
-        "exit_code": 0
-      }
-    ],
-    "original_bug_reproduced_before_fix": true,
-    "extracted_candidate_probe_goodix_preflight": "probe_ok",
-    "goodix_before_after": {
-      "v9.8.1": {
-        "candidate_0_classification": "sensor_or_button",
-        "candidate_1_classification": "sensor_or_button",
-        "candidate_2_classification": "pen_digitizer",
-        "selection_reason": "no_finger_touch_candidate",
-        "event_struct_size": "16",
-        "reader_state": "preflight_failed",
-        "reader_error": "no_finger_touch_candidate"
-      },
-      "v9.8.2_packaged_probe": {
-        "candidate_0_classification": "sensor_or_button",
-        "candidate_1_classification": "finger_mt",
-        "candidate_2_classification": "pen_digitizer",
-        "selection_reason": "finger_mt",
-        "event_struct_size": "16",
-        "reader_state": "probe_ok",
-        "reader_error": "none"
-      }
-    },
-    "fixture_limitations": "Only goodix-ts capability words were provided verbatim. bd71828-pwrkey and kindle-input-pt companion bitmaps are synthetic safety fixtures, with reported names/classifications."
-  },
   "old_release_preserved": {
     "result": "PASS",
     "tag_object": "355f90894afc3088f123f4204e41f4b8d66b58a9",
@@ -354,13 +170,238 @@
     "release_body_unchanged": true
   },
   "remote_writes_performed": false,
-  "independent_risks": [
-    {
-      "file": ".github/workflows/validate.yml",
-      "risk": "Formal release asset verification jobs are pinned to older versions, including v9.8.1. There is no v9.8.2 release-event verification job; a v9.8.2 tag push selects generic offline validation instead.",
-      "action_before_formal_release": "Add an explicit v9.8.2 verification entry using docs/releases/v9.8.2-verification.json before publishing.",
-      "changed_in_this_patch": false,
-      "github_ci_run_in_this_task": false
+  "tag_usage": "Existing formal baseline only; no test tag proposed or created",
+  "test_iteration": 9,
+  "prior_candidate_regression": {
+    "product_identity": "9.8.2-5.20-vera",
+    "source_commit": "7a37006c02fce569fffa1f790acdc7c2d8e52201",
+    "zip_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+    "status": "Superseded identity; historical results only, not rerun on test9",
+    "automation": {
+      "result": "PASS",
+      "full_standard_suite_run": false,
+      "scope": "Targeted touch compatibility, launcher, runtime, power, daemon, installation/upgrade/rollback/cleanup/uninstall regressions; real hardware unverified.",
+      "checks": [
+        {
+          "check": "tests/validate_standard_touch_compat.py",
+          "exit_code": 0,
+          "counts": {
+            "probe": 345,
+            "reader": 1000,
+            "shell": 14
+          }
+        },
+        {
+          "check": "tests/validate_power_exit.py",
+          "exit_code": 0,
+          "seconds": 252.45
+        },
+        {
+          "check": "tests/validate_idle_guard.py",
+          "exit_code": 0,
+          "seconds": 3.27
+        },
+        {
+          "check": "tests/validate_runtime_probe.py",
+          "exit_code": 0,
+          "seconds": 246.99
+        },
+        {
+          "check": "tests/validate_fbink_actual_use.py",
+          "exit_code": 0,
+          "seconds": 441.07
+        },
+        {
+          "check": "tests/validate_service_recovery.py",
+          "exit_code": 0,
+          "seconds": 190.3
+        },
+        {
+          "check": "tests/validate_install.py",
+          "exit_code": 0,
+          "seconds": 219.1
+        },
+        {
+          "check": "tests/validate_uninstall.py",
+          "exit_code": 0,
+          "seconds": 0.11
+        },
+        {
+          "check": "tests/validate_launcher_state.py",
+          "exit_code": 0,
+          "seconds": 23.79
+        },
+        {
+          "check": "tests/validate_device_variant.py --library-only",
+          "exit_code": 0,
+          "seconds": 74.45
+        },
+        {
+          "check": "tests/validate_idle_pause.py",
+          "exit_code": 0,
+          "seconds": 444.94
+        },
+        {
+          "check": "tests/validate_v4.py --touch-patch",
+          "exit_code": 0,
+          "scenarios": [
+            {
+              "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+              "scenario": "fresh ",
+              "result": "PASS",
+              "scanner_index_completion": "UNVERIFIED",
+              "protected_files": 0
+            },
+            {
+              "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+              "scenario": "9.8.1 ",
+              "result": "PASS",
+              "scanner_index_completion": "UNVERIFIED",
+              "protected_files": 12
+            },
+            {
+              "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+              "scenario": "9.8.1-cleaned ",
+              "result": "PASS",
+              "scanner_index_completion": "UNVERIFIED",
+              "protected_files": 12
+            },
+            {
+              "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+              "scenario": "9.8.1 core_failure",
+              "result": "PASS",
+              "scanner_index_completion": "UNVERIFIED",
+              "protected_files": 12
+            },
+            {
+              "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+              "scenario": "9.8.1 activation_failure",
+              "result": "PASS",
+              "scanner_index_completion": "UNVERIFIED",
+              "protected_files": 12
+            },
+            {
+              "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+              "scenario": "9.8.1 interrupted",
+              "result": "PASS",
+              "scanner_index_completion": "UNVERIFIED",
+              "protected_files": 12
+            },
+            {
+              "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+              "scenario": "9.8.1 missing_payload",
+              "result": "PASS",
+              "scanner_index_completion": "UNVERIFIED",
+              "protected_files": 12
+            },
+            {
+              "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+              "scenario": "9.8.1 bad_checksum",
+              "result": "PASS",
+              "scanner_index_completion": "UNVERIFIED",
+              "protected_files": 12
+            },
+            {
+              "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+              "scenario": "9.8.1 ks_residue",
+              "result": "PASS",
+              "scanner_index_completion": "UNVERIFIED",
+              "protected_files": 12
+            },
+            {
+              "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+              "scenario": "9.8.1 wrong_device",
+              "result": "PASS",
+              "scanner_index_completion": "UNVERIFIED",
+              "protected_files": 12
+            },
+            {
+              "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+              "scenario": "9.8.1 busy_ui",
+              "result": "PASS",
+              "scanner_index_completion": "UNVERIFIED",
+              "protected_files": 12
+            },
+            {
+              "package_sha256": "a6673eefef460d7852d88e62393fe7c6af4859f6e55ff35f65a2eab5dbc51b6b",
+              "scenario": "9.8.1 ",
+              "result": "PASS",
+              "scanner_index_completion": "UNVERIFIED",
+              "protected_files": 12,
+              "scenario_context": "unknown_file_cleanup_protection"
+            }
+          ]
+        },
+        {
+          "check": "scripts/verify_v4_artifacts.py",
+          "exit_code": 0
+        }
+      ],
+      "original_bug_reproduced_before_fix": true,
+      "extracted_candidate_probe_goodix_preflight": "probe_ok",
+      "goodix_before_after": {
+        "v9.8.1": {
+          "candidate_0_classification": "sensor_or_button",
+          "candidate_1_classification": "sensor_or_button",
+          "candidate_2_classification": "pen_digitizer",
+          "selection_reason": "no_finger_touch_candidate",
+          "event_struct_size": "16",
+          "reader_state": "preflight_failed",
+          "reader_error": "no_finger_touch_candidate"
+        },
+        "v9.8.2_packaged_probe": {
+          "candidate_0_classification": "sensor_or_button",
+          "candidate_1_classification": "finger_mt",
+          "candidate_2_classification": "pen_digitizer",
+          "selection_reason": "finger_mt",
+          "event_struct_size": "16",
+          "reader_state": "probe_ok",
+          "reader_error": "none"
+        }
+      },
+      "fixture_limitations": "Only goodix-ts capability words were provided verbatim. bd71828-pwrkey and kindle-input-pt companion bitmaps are synthetic safety fixtures, with reported names/classifications."
     }
-  ]
+  },
+  "automation": {
+    "result": "PASS",
+    "scope": "Version-only correction; newly rebuilt test9 payload, source equality, manifests and identity verified. Prior full regression kept separately; no claim of rerunning that suite on test9.",
+    "checks": [
+      {
+        "check": "source/payload/identity comparison",
+        "exit_code": 0
+      },
+      {
+        "check": "scripts/verify_v4_artifacts.py",
+        "exit_code": 0,
+        "artifact": {
+          "variant": "standard",
+          "archive": "9.8.1-5.20-vera-test9.zip",
+          "size": 15592131,
+          "sha256": "31ad628cc2e9189b83fe2851f613ac825a3a1ec360a843a1770fcb90fd90a641",
+          "top_level": [
+            "reading-records-v4-install.sh",
+            "阅读记录安装数据.tar"
+          ],
+          "payload_files": 119,
+          "payload_sha256": "ed9776aaa0307eb5679bb10f7417132ae2f3061049869c0119eb203d9abfbe89",
+          "source_equals_package": true,
+          "bundled_elf_count": 1,
+          "result": "PASS"
+        }
+      }
+    ],
+    "unchanged_payload_files_vs_superseded_candidate": 112,
+    "identity_only_changed_payload_files": [
+      "BUILD-INFO",
+      "PACKAGE-MANIFEST.json",
+      "README.txt",
+      "V4-PAYLOAD",
+      "native-reading-time-package/Install-Native-Reading-Time-Optimized.sh",
+      "native-reading-time-package/migration-manifest.tsv",
+      "v4/cleanup.sh"
+    ],
+    "hardware_verified": false
+  },
+  "independent_risks": [],
+  "naming_correction": "Withdraw 9.8.2 candidate; retain 9.8.1 and increment prior test8 to test9. Prior new-formal-version CI observation is inapplicable to this test-only delivery."
 }
