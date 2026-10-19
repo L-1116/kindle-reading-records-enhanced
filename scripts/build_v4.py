@@ -14,11 +14,11 @@ from package_release import FILES as STANDARD_FILES
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCT_VERSION = "9.8.2-5.20-vera"
+PRODUCT_VERSION = "9.8.1-5.20-vera-test9"
 # Product/UI revision only: keep the verified daemon/helper runtime paths.
 RUNTIME_VERSION = "9.8.1-5.20-vera-test1"
-DIST = ROOT / "dist/v9.8.2"
-SIMPLE_ARCHIVE = DIST / "Kindle-Reading-Records-v9.8.2-5.20-vera.zip"
+DIST = ROOT / "dist/standard-test9"
+SIMPLE_ARCHIVE = DIST / "9.8.1-5.20-vera-test9.zip"
 BOOT_NAME = "reading-records-v4-install.sh"
 TAR_NAME = "阅读记录安装数据.tar"
 
