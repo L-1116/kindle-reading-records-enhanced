@@ -1,0 +1,29 @@
+{
+  "tag": "v9.8.1",
+  "release_version": "9.8.1",
+  "variant": "standard",
+  "zip_file": "Kindle-Reading-Records-v9.8.1-5.19-vera.zip",
+  "zip_size": 15590397,
+  "zip_sha256": "2a3aa351b40b2a604bdc3d4a3338b37b6a088a11600a99ba138050c774459aeb",
+  "product_version": "9.8.1-5.19-vera-test1",
+  "runtime_version": "9.8.1-5.19-vera-test1",
+  "source_commit": "951cfce45f3fbe2e37307b00054274aa38f90caa",
+  "source_baseline": "fd9a417d12539f0a9997ba57f60cdb9e7b1edbc8",
+  "reference_519_commit": "341ee3d14f9adb289334f99d4374fe2c6cd54fd2",
+  "zip_top_level": [
+    "reading-records-v4-install.sh",
+    "阅读记录安装数据.tar"
+  ],
+  "payload_files": 119,
+  "hardware_acceptance": {
+    "date": "2026-10-22",
+    "device": "KPW6",
+    "firmware": "5.19.6",
+    "jailbreak": "Vera",
+    "source": "User confirmation in this chat",
+    "statement": "测试之后没问题了，可以推送发布"
+  },
+  "immutable_candidate_sha256": "2a3aa351b40b2a604bdc3d4a3338b37b6a088a11600a99ba138050c774459aeb",
+  "build_time_hardware_validation": "pending",
+  "publication": "Rename outer ZIP only; preserve all accepted bytes and internal test1 identity"
+}
