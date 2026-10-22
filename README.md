@@ -4,7 +4,9 @@
 
 **[下载最新正式版本](https://github.com/L-1116/kindle-reading-records-enhanced/releases/latest)** · [v9.8.1 发布页](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.8.1) · [v9.7.6 其他环境](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6) · [安装与原地升级](docs/安装与回滚.md)
 
-新版 **v9.8.1** 提供 **5.20 Vera 与 5.19 Vera Standard 普通版**。5.20 保留 KPW6 / 5.20.1 / Vera 既有基线及青春版 test9 启动确认；**5.19 已确认 KPW6 / 固件 5.19.6 / Vera 实机测试正常**。其他机型、固件与越狱组合尚未完成本版实机验证；KS（Kindle Scribe）不适用。其他环境按下表选择已验证的 v9.7.6 安装包。**不要下载 GitHub 自动生成的 Source code ZIP，它不是 Kindle 安装包。**
+新版 **v9.8.1** 提供 **5.20 Vera 与 5.19 Vera Standard 普通版**。5.20 已获 KPW6 / 5.20.1 / Vera test10 蓝牙计时、暂停及启动验收；青春版 test9 启动确认为历史基线；**5.19 已确认 KPW6 / 固件 5.19.6 / Vera 实机测试正常**。其他机型、固件与越狱组合尚未完成本版实机验证；KS（Kindle Scribe）不适用。其他环境按下表选择已验证的 v9.7.6 安装包。**不要下载 GitHub 自动生成的 Source code ZIP，它不是 Kindle 安装包。**
+
+2026-10-22 更新 5.20 Vera 附件：采用已验收 test10 原包，修复蓝牙翻页阅读时长漏记；KPW6 / 5.20.1 / Vera 已确认持续翻页、无操作暂停正常，启动等待约 5 秒降至 4 秒。5.19 附件保持原样，其他机型不据此增加实测声明。
 
 2026-10-22 新增 5.19 Vera 资产：采用 KPW6 / 5.19.6 / Vera 实机验收的 test1 原包，仅更改外层名称，内部 test1 身份保留。
 
@@ -14,7 +16,7 @@
 
 - **自定义缺失封面**：支持通用替代图片，也可给每本书指定专属图片；已有可用原始封面继续优先使用。历史书籍以双列卡片显示，并标明当前封面来源。
 - **新增设置界面**：在插件内管理计时选项和自定义封面。
-- **自定义无操作计时上限**：可设置连续多少分钟无触摸后暂停计时（1～1440 分钟），再次触摸后恢复，减少忘记翻页时的误计时；可单独开关。
+- **自定义无操作计时上限**：可设置连续多少分钟无操作后暂停计时（1～1440 分钟）；5.20/Vera 当前包支持触摸与蓝牙翻页恢复，5.19/Vera 原包保持原有触摸行为，减少忘记翻页时的误计时；可单独开关。
 - **累计时长与阅读书籍 UI 更新**：调整文字、图表和按钮布局；阅读书籍及历史书籍均可点击底部页码直接跳页，历史书籍每页显示 10 本。
 - **修复插件界面无法熄屏的问题**，改善停留在插件内时的休眠与恢复行为。
 
@@ -34,7 +36,7 @@
 
 | 固件与越狱方式 | 适用范围与实机证据 | 安装 ZIP |
 |---|---|---|
-| **v9.8.1：5.20.1 / Vera** | **KPW6 / 5.20.1 / Vera 既有基线；青春版 2024 / 5.20.1 test9 启动实测成功**；其他组合尚未验证，KS 不适用 | [Kindle-Reading-Records-v9.8.1-5.20-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera.zip) |
+| **v9.8.1：5.20.1 / Vera** | **KPW6 / 5.20.1 / Vera test10 蓝牙计时、暂停和启动实测通过；青春版 test9 为历史启动证据**；其他组合尚未验证，KS 不适用 | [Kindle-Reading-Records-v9.8.1-5.20-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera.zip) |
 | **v9.8.1：5.19.6 / Vera** | **KPW6 / 5.19.6 / Vera，2026-10-22 用户实机验收**；内部身份为 `9.8.1-5.19-vera-test1`，其他组合未验证 | [Kindle-Reading-Records-v9.8.1-5.19-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.19-vera.zip) |
 | v9.7.6：5.20.1（保留 5.17 / 5.18 / 5.19 及 GC16 兼容路径，未据此追加实机结论） / vera | 普通 Kindle（排除 Scribe / KS）；用户确认当前 test2 实机成功，具体机型未注明；此前原基线为 KPW6 / 5.20.1 / Vera | [Kindle-Reading-Records-v9.7.6-5.20-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.20-vera.zip) |
 | v9.7.6：5.19.x / vera | 普通 Kindle（已验收 KPW6；排除 Scribe / KS）；KPW6 / 5.19.6 / Vera | [Kindle-Reading-Records-v9.7.6-5.19-vera.zip](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.7.6/Kindle-Reading-Records-v9.7.6-5.19-vera.zip) |

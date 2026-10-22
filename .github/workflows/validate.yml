@@ -59,6 +59,8 @@ jobs:
       - run: python scripts/verify_published_release.py --source-only --report docs/releases/v9.8.1-verification.json
       - run: python scripts/verify_519_release.py --source-only
       - run: python tests/validate_release_assets.py
+      - run: python tests/validate_idle_input.py
+      - run: python tests/validate_idle_pause.py --unit-only
       - run: python tests/validate_standard_touch_compat.py
       - if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         run: python scripts/verify_published_release.py --github --report docs/releases/v9.8.1-verification.json
