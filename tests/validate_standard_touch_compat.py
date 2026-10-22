@@ -336,6 +336,18 @@ def main():
                         assert fields['event_struct_size']==str(16 if klass==1 else 24)
                 RESULTS[firmware]='PASS: A-H x ELF32/ELF64'
             goodix_cases(work)
+            for bits in (32,64):
+                page_root=work/f'page-input-{bits}';page_root.mkdir();(page_root/'sys').mkdir()
+                finger=candidate(page_root,0,'goodix-ts',mt=True,keys=[330],bits=bits)
+                candidate(page_root,3,'Bluetooth Remote',keys=[104,109,115],bits=bits)
+                candidate(page_root,7,'kindle-input-pt',keys=[104,109,116,225],bits=bits)
+                candidate(page_root,9,'volume and brightness',keys=[114,115,224,225],bits=bits)
+                os.environ['READING_TOUCH_REQUIRE_CONTACT']='1'
+                os.environ['READING_INPUT_WORD_BITS']=str(bits)
+                code,fields=probe(page_root)
+                assert code==0 and fields['selected_touch']==finger.as_posix(),fields
+                assert [fields[f'candidate_{i}_has_page_keys_104_109'] for i in range(4)]==['false','true','true','false'],fields
+                os.environ.pop('READING_TOUCH_REQUIRE_CONTACT');os.environ.pop('READING_INPUT_WORD_BITS')
             classifier_differential(work)
             idle_root=work/'idle-contact'; idle_root.mkdir(); (idle_root/'sys').mkdir()
             legacy_touch=candidate(idle_root,0,'zforce',xy=True,direct=False)

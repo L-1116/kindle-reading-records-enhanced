@@ -94,7 +94,7 @@ def make_tar(files: dict[str, bytes]) -> bytes:
         for name, raw in sorted(files.items()):
             info = tarfile.TarInfo(name)
             info.size = len(raw)
-            info.mode = 0o755 if (name.endswith(".sh") or name.endswith("/cover-image")) else 0o644
+            info.mode = 0o755 if (name.endswith(".sh") or name.endswith(("/cover-image", "/idle-input"))) else 0o644
             info.mtime = 0
             archive.addfile(info, io.BytesIO(raw))
     return stream.getvalue()
@@ -105,7 +105,7 @@ def make_zip(path: Path, files: dict[str, bytes]) -> None:
         for name, raw in sorted(files.items()):
             info = zipfile.ZipInfo(name, date_time=(2026, 10, 3, 0, 0, 0))
             info.create_system = 3
-            info.external_attr = ((0o100755 if (name.endswith(".sh") or name.endswith("/cover-image")) else 0o100644) << 16)
+            info.external_attr = ((0o100755 if (name.endswith(".sh") or name.endswith(("/cover-image", "/idle-input"))) else 0o100644) << 16)
             archive.writestr(info, raw, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
     with zipfile.ZipFile(path) as archive:
         assert archive.testzip() is None

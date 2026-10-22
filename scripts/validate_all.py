@@ -14,6 +14,7 @@ CHECKS = [
     ROOT / "tests/validate_custom_covers.py",
     ROOT / "tests/validate_power_exit.py",
     ROOT / "tests/validate_idle_pause.py",
+    ROOT / "tests/validate_idle_input.py",
     ROOT / "tests/validate_settings_ui.py",
     ROOT / "tests/validate_idle_guard.py",
     ROOT / "tests/validate_ui.py",

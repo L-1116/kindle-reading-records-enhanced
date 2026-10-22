@@ -16,7 +16,7 @@ end
 local function activity(t)
     -- Kernel timeval (realtime by default), rather than delayed daemon sampling.
     -- Never replay events queued before this session or accept future clocks.
-    if t < last or t > os.time()+1 then return end
+    if t <= last or t > os.time()+1 then return end
     local finish = math.min(t, last+timeout)
     closed = closed + finish-last
     local new_day = os.date('%Y-%m-%d', t)
@@ -27,7 +27,23 @@ end
 local function u16(s,p) return s:byte(p)+s:byte(p+1)*256 end
 local function u32(s,p) return u16(s,p)+u16(s,p+2)*65536 end
 publish()
-local f = assert(io.open(device, 'rb')); f:setvbuf('no')
+local multiplex = arg[6] == '--multiplex'
+local f = multiplex and io.stdin or assert(io.open(device, 'rb')); f:setvbuf('no')
+local keys, page_pending = {}, {}
+local function page_event(source, typ, code, value, stamp)
+    local down = keys[source]
+    if not down then down={}; keys[source]=down end
+    if typ==1 and (code==104 or code==109) then
+        if value==0 then down[code]=nil
+        elseif value==1 and not down[code] then
+            down[code]=true; page_pending[source]=stamp
+        end -- value=2 is autorepeat, never a new activity.
+    elseif typ==0 and code==0 and page_pending[source] then
+        local t=page_pending[source]; page_pending[source]=nil
+        assert(math.abs(os.time()-t)<30, 'unsupported evdev clock')
+        activity(t)
+    end
+end
 local pending, slot, contacts, button = nil, 0, {}, false
 local slots_seen, type_a, frame_contact = false, false, false
 local invalid = 0
@@ -40,6 +56,16 @@ local function contact(value, t)
     if not before and (button or next(contacts) ~= nil) then pending=t end
 end
 while true do
+    local source = 0
+    if multiplex then
+        local header = f:read(1)
+        assert(header, 'evdev EOF/short read')
+        source=header:byte()
+    end
+    if source>=128 then
+        -- A hotplug slot was reused: discard the previous device's held keys.
+        keys[source-128]=nil; page_pending[source-128]=nil
+    else
     local s = f:read(size)
     assert(s and #s==size, 'evdev EOF/short read')
     local p=size-7; local typ,code,value=u16(s,p),u16(s,p+2),u32(s,p+4)
@@ -50,6 +76,9 @@ while true do
     else
     invalid=0
     if typ==0 and code==3 then error('evdev SYN_DROPPED') end
+    page_event(source,typ,code,value,stamp)
+    -- Page-only devices must never inject touch contacts or coordinates.
+    if source==0 then
     if typ==3 then
         if code==47 then assert(value<=255, 'invalid evdev slot'); slot=value; slots_seen=true
         elseif code==57 then
@@ -68,6 +97,8 @@ while true do
             assert(math.abs(os.time()-pending)<30, 'unsupported evdev clock')
             activity(pending); pending=nil
         end
+    end
+    end
     end
     end
 end

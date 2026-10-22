@@ -98,7 +98,8 @@ for entry in listing:lines() do
         local path = devroot .. "/" .. entry
         local readable = io.open(path, "rb") -- open/close only: no event read
         if readable then readable:close() else class, score = class .. "_unreadable", -1 end
-        candidates[#candidates+1] = {path=path, name=name, ev=ev, abs=abs, key=keys,
+        local page_keys = has(ev,1) and (has(keys,104) or has(keys,109))
+        candidates[#candidates+1] = {path=path, name=name, ev=ev, abs=abs, key=keys, page_keys=page_keys,
             prop=prop, class=class, score=score, xy=xy, mt=mt}
     end
 end
@@ -114,6 +115,8 @@ for i,c in ipairs(candidates) do
     end
     put(output, prefix .. "has_xy", c.xy)
     put(output, prefix .. "has_mt_position_xy", c.mt)
+    -- Page-only input_manager/HID devices are separate from finger selection.
+    put(output, prefix .. "has_page_keys_104_109", c.page_keys)
     if c.score > 0 then
         if not selected or c.score > selected.score then selected, tied = c, false
         elseif c.score == selected.score then tied = true end

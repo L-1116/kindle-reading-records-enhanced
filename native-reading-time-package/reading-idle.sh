@@ -37,7 +37,7 @@ idle_stop() {
 }
 idle_diagnostic() {
     idle_error=''
-    [ -z "$idle_dir" ] || idle_error="$(awk 'NR==1{print substr($0,1,160);exit}' "$idle_dir/error" 2>/dev/null)"
+    [ -z "$idle_dir" ] || idle_error="$(awk 'NF{last=substr($0,1,160)}END{print last}' "$idle_dir/error" 2>/dev/null)"
     printf '%s: idle pause unavailable (%s); foreground timing retained; %s\n' "$(date)" "$1" "$idle_error" >> "$LOG"
     idle_failed=1; idle_stop
 }
@@ -151,6 +151,11 @@ if [ "${1:-}" = --guard ]; then
     # launch cannot leave a reader behind before a sibling guard exists.
     trap - INT TERM HUP EXIT CHLD
     exec 9>&-
+    # Same guard + Lua process count. poll()/inotify sleep until real input,
+    # hotplug or owner death; old installs retain their blocking touch reader.
+    if [ -x "$IDLE_HELPERS/idle-input" ]; then
+        exec "$IDLE_HELPERS/idle-input" "$idle_dir" "$idle_lua" "$IDLE_HELPERS/reading-idle-touch.lua" "$idle_device" "$now" "$idle_guard_timeout" 2> "$idle_dir/error"
+    fi
     idle_child=''; idle_owner_gone=0
     idle_guard_cleanup() {
         trap - CHLD; trap '' INT TERM HUP

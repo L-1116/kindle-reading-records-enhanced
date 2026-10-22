@@ -6,6 +6,11 @@ ROOT=Path(__file__).resolve().parents[1]; PKG=ROOT/'native-reading-time-package'
 SH=shutil.which('sh') or 'C:/Program Files/Git/usr/bin/sh.exe'
 with tempfile.TemporaryDirectory(prefix='idle-guard-') as tmp:
     root=Path(tmp); mock=root/'bin'; mock.mkdir(); sysfs=root/'sys'; sysfs.mkdir()
+    # This test executes blocked host processes, so select the legacy shell
+    # guard explicitly. The ARM multiplexer has its C lifecycle fixture.
+    helpers=root/'helpers'; helpers.mkdir()
+    for name in ('reading-idle.sh','reading-idle-touch.lua','reading-insights-touch-probe.lua'):
+        shutil.copy2(PKG/name,helpers/name)
     blocked=root/'blocked-reader'
     subprocess.run([SH,'-c','/usr/bin/mkfifo "$1"','test',blocked.as_posix()],check=True)
     fake=mock/'lua'
@@ -19,7 +24,7 @@ with tempfile.TemporaryDirectory(prefix='idle-guard-') as tmp:
     for signal in ('TERM','KILL','GUARD_KILL'):
         ready=root/f'ready-{signal}'
         script=f'''
-BASE="{root.as_posix()}"; IDLE_HELPERS="{PKG.as_posix()}"; LOG="$BASE/log"
+BASE="{root.as_posix()}"; IDLE_HELPERS="{helpers.as_posix()}"; LOG="$BASE/log"
 . "$IDLE_HELPERS/reading-idle.sh"
 trap 'idle_stop; exit 0' TERM
 now=$(date +%s); today=$(date +%Y-%m-%d); idle_minutes=3; book_id=AAAA; book_title=Book

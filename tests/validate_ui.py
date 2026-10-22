@@ -52,6 +52,7 @@ assert stable_payload_changes==[
     'native-reading-time-package/compat/scanner.sh',
     'native-reading-time-package/cover-image',
     'native-reading-time-package/diagnostics.sh',
+    'native-reading-time-package/idle-input',
     'native-reading-time-package/install-manifest.txt',
     'native-reading-time-package/Install-Native-Reading-Time-Optimized.sh',
     'native-reading-time-package/Install-Native-Reading-Time.sh',
@@ -67,6 +68,7 @@ assert stable_payload_changes==[
     'native-reading-time-package/reading-insights-cache.awk',
     'native-reading-time-package/reading-insights-cover.lua',
     'native-reading-time-package/reading-insights-render.lua',
+    'native-reading-time-package/reading-insights-title-widths.lua',
     'native-reading-time-package/reading-insights-touch-preflight.sh',
     'native-reading-time-package/reading-insights-touch-probe.lua',
     'native-reading-time-package/reading-insights-touch-ui.lua',
@@ -99,6 +101,7 @@ assert stable_payload_changes==[
     'native-reading-time-package/ui-calendar/settings_cover_images.png',
     'native-reading-time-package/ui-calendar/settings_cover_info.png',
     'native-reading-time-package/ui-calendar/settings_cover_manage.png',
+    'native-reading-time-package/ui-calendar/settings_cover_picker.png',
     'native-reading-time-package/ui-calendar/settings_custom.png',
     'native-reading-time-package/ui-calendar/settings_idle.png',
     'native-reading-time-package/ui-calendar/total.png',
@@ -128,7 +131,7 @@ viewer=(PKG/'阅读记录-optimized.sh').read_text(encoding='utf-8')
 old=STABLE_VIEWER.read_text(encoding='utf-8')
 # Preserve device selection/scaling and actual drawing argv. The FBInk wrapper
 # intentionally changes from unchecked execution to actual-use fallback.
-for start,end in [('scale_len()', 'fbink_calls=0'), ('ot() {', 'time_text()')]:
+for start,end in [('scale_len()', 'fbink_calls=0'), ('ot() {', 'rect() {')]:
     assert viewer[viewer.index(start):viewer.index(end)] == old[old.index(start):old.index(end)]
 # Orientation recovery may precede screen validation; the viewport transform
 # that controls layout and hitboxes must remain exactly the original code.
@@ -146,10 +149,26 @@ assert 'refresh_exit_status=$?; refresh_kind=GC16' in refresh
 assert 'refresh_exit_status=$?; refresh_kind=GC16_FAST' in refresh
 assert 'return "$refresh_exit_status"' in refresh
 assert 'fb -q -f -W GC16 -s' in refresh and 'fb -q -W GC16 -s' in refresh
+# The v9.8.1 pager predates this optimization; preserve its current actions.
+current_baseline=subprocess.check_output(['git','show','5f74d51:native-reading-time-package/阅读记录-optimized.sh'],cwd=ROOT).decode('utf-8')
 for name in ('page_prev)','page_next)'):
-    assert next(x for x in viewer.splitlines() if x.strip().startswith(name))==next(x for x in old.splitlines() if x.strip().startswith(name))
+    assert next(x for x in viewer.splitlines() if x.strip().startswith(name))==next(x for x in current_baseline.splitlines() if x.strip().startswith(name))
 assert 'mode=daily; view_year=' in viewer
 record('interaction invariants','Default daily, scaling and page navigation remain stable; capability touch discovery is covered by validate_standard_touch_compat; 5.18.x refresh remains nonflashing.')
+
+# Compare emitted framebuffer arguments after replacing geometry subshells
+# with arithmetic. This protects scaling, offsets and the one-pixel minimum.
+geometry_runs=[]
+for source in (old,viewer):
+    functions=source[source.index('scale_len()'):source.index('fbink_calls=0')]
+    functions+=source[source.index('rect() {'):source.index('time_text()')]
+    calls=''
+    for num,den,ox,oy in ((1272,1272,0,0),(1072,1272,0,9),(600,1272,12,20)):
+        calls+=f'SCALE_NUM={num}; SCALE_DEN={den}; ORIGIN_X={ox}; ORIGIN_Y={oy}\n'
+        calls+='rect 0 0 1272 1696 WHITE\nrect -1 12 0 1 BLACK\nimage fixture.png 75 460 1122 722\n'
+    geometry_runs.append(run_shell(functions+'\nfb() { printf "%s\\n" "$*"; }\n'+calls))
+assert geometry_runs[0]==geometry_runs[1]
+record('drawing argument equivalence','Direct shell arithmetic emits the same image/rectangle FBInk argv at native, KPW and small-screen scales, including offsets and minimum sizes.')
 
 # Extract definitions only: never run startup, hardware access, or EXIT cleanup.
 defs=viewer[:viewer.index('\ndetect_screen; find_touch_device')]
@@ -360,7 +379,7 @@ expected_levels=[0,1,1,2,2,3,3,4,4,5,5,6,6,6]
 expected_grays=[255,235,235,210,210,180,180,145,145,105,105,70,70,70]
 expected_inks=[0,0,0,0,0,0,0,0,0,255,255,255,255,255]
 boundary_output=run_shell(setup+'\n'.join(
-    f'l=$(calendar_heat_level {seconds}); printf "%s\\t%s\\t%s\\t%s\\n" {seconds} "$l" "$(calendar_heat_gray "$l")" "$(calendar_heat_ink "$l")"'
+    f'calendar_style {seconds}; printf "%s\\t%s\\t%s\\t%s\\n" {seconds} "$heat_level" "$heat_gray" "$ink"'
     for seconds in boundary_seconds
 ))
 actual_boundary=[tuple(map(int,line.split('\t'))) for line in boundary_output.splitlines()]
@@ -506,7 +525,7 @@ for case,monday_minutes in week_cases:
     y_ticks=[p for p in parts if p[:4]==['text','chart','R','20']]
     assert y_ticks and all(p[6]=='right' for p in y_ticks)
     axis_text_right=int(y_ticks[0][4]); assert plot_left-axis_text_right==28
-    day_labels=[p for p in parts if p[:4]==['text','chart','B','24']]
+    day_labels=[p for p in parts if p[:4]==['text','chart','R','28']]
     assert [p[8] for p in day_labels]==[f'周{x}' for x in '一二三四五六日']
     centers=[int(p[4]) for p in day_labels]
     gaps=[b-a for a,b in zip(centers,centers[1:])]

@@ -63,11 +63,12 @@ result = {
 }
 (OUT / "native-audit.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
 print(json.dumps(result, ensure_ascii=False, indent=2))
-if elf_entries==['native-reading-time-package/cover-image']:
-    raw=(ROOT/elf_entries[0]).read_bytes()
-    assert raw[4:6]==b'\x01\x01' and int.from_bytes(raw[18:20],'little')==40
-    phoff=int.from_bytes(raw[28:32],'little'); size=int.from_bytes(raw[42:44],'little'); n=int.from_bytes(raw[44:46],'little')
-    assert all(int.from_bytes(raw[phoff+i*size:phoff+i*size+4],'little')!=3 for i in range(n))
-    print('Bounded cover helper: static ARM32 ELF; no dynamic loader dependency. Hardware execution pending.')
+if elf_entries and set(elf_entries) <= {'native-reading-time-package/cover-image', 'native-reading-time-package/idle-input'}:
+    for entry in elf_entries:
+        raw=(ROOT/entry).read_bytes()
+        assert raw[4:6]==b'\x01\x01' and int.from_bytes(raw[18:20],'little')==40
+        phoff=int.from_bytes(raw[28:32],'little'); size=int.from_bytes(raw[42:44],'little'); n=int.from_bytes(raw[44:46],'little')
+        assert all(int.from_bytes(raw[phoff+i*size:phoff+i*size+4],'little')!=3 for i in range(n))
+        print(entry + ': static ARM32 ELF; no dynamic loader dependency. Hardware execution pending.')
 elif elf_entries and not (tooling["file"] and tooling["readelf"]):
     raise SystemExit("ELF found but host file/readelf tooling is incomplete")

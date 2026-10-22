@@ -239,11 +239,15 @@ ot() {
     fb -q -b -t "regular=$RFONT,bold=$RFONT,px=$s,top=$t,left=$l,right=$r,style=$st" "$msg"
 }
 rect() {
-    t="$(scale_y "$1")"; l="$(scale_x "$2")"; w="$(scale_len "$3")"; h="$(scale_len "$4")"
+    t=$((ORIGIN_Y+$1*SCALE_NUM/SCALE_DEN)); l=$((ORIGIN_X+$2*SCALE_NUM/SCALE_DEN))
+    w=$(($3*SCALE_NUM/SCALE_DEN)); [ "$w" -gt 0 ] || w=1
+    h=$(($4*SCALE_NUM/SCALE_DEN)); [ "$h" -gt 0 ] || h=1
     fb -q -b -B "$5" -k "top=$t,left=$l,width=$w,height=$h"
 }
 image() {
-    p="$1"; x="$(scale_x "$2")"; y="$(scale_y "$3")"; w="$(scale_len "$4")"; h="$(scale_len "$5")"
+    p="$1"; x=$((ORIGIN_X+$2*SCALE_NUM/SCALE_DEN)); y=$((ORIGIN_Y+$3*SCALE_NUM/SCALE_DEN))
+    w=$(($4*SCALE_NUM/SCALE_DEN)); [ "$w" -gt 0 ] || w=1
+    h=$(($5*SCALE_NUM/SCALE_DEN)); [ "$h" -gt 0 ] || h=1
     fb -q -b -g "file=$p,x=$x,y=$y,w=$w,h=$h"
 }
 
@@ -270,6 +274,24 @@ calendar_heat_gray() {
 }
 calendar_heat_ink() {
     case "$1" in 0|1|2|3|4) echo 0;; 5|6) echo 255;; *) return 1;; esac
+}
+calendar_style() {
+    # Return in the current shell: four forked substitutions per date used to
+    # dominate the month grid on slow launchers. Thresholds/pixels stay equal.
+    if [ "$1" -le 0 ]; then heat_level=0; heat_gray=255; ink=0
+    elif [ "$1" -lt 1800 ]; then heat_level=1; heat_gray=235; ink=0
+    elif [ "$1" -lt 3600 ]; then heat_level=2; heat_gray=210; ink=0
+    elif [ "$1" -lt 7200 ]; then heat_level=3; heat_gray=180; ink=0
+    elif [ "$1" -lt 10800 ]; then heat_level=4; heat_gray=145; ink=0
+    elif [ "$1" -lt 14400 ]; then heat_level=5; heat_gray=105; ink=255
+    else heat_level=6; heat_gray=70; ink=255; fi
+}
+calendar_label() {
+    cl_m=$(($1/60)); calendar_text=''
+    if [ "$1" -le 0 ]; then :
+    elif [ "$cl_m" -eq 0 ]; then calendar_text="${1}秒"
+    elif [ "$cl_m" -lt 60 ]; then calendar_text="${cl_m}分"
+    else calendar_text="$((cl_m/60))时$((cl_m%60))分"; fi
 }
 days_in_month() { case "$2" in 1|3|5|7|8|10|12) echo 31;;4|6|9|11) echo 30;;2) if { [ $(($1%400)) -eq 0 ] || { [ $(($1%4)) -eq 0 ] && [ $(($1%100)) -ne 0 ]; }; }; then echo 29; else echo 28; fi;;esac; }
 weekday_offset() { awk -v y="$1" -v m="$2" 'BEGIN{if(m<3){m+=12;y--}k=y%100;j=int(y/100);h=(1+int(13*(m+1)/5)+k+int(k/4)+int(j/4)+5*j)%7;print(h+5)%7}'; }
@@ -304,7 +326,12 @@ shift_month() {
     detail_page=1
 }
 
-uptime_ms() { awk '{printf "%d\n",$1*1000}' /proc/uptime 2>/dev/null; }
+uptime_ms() {
+    IFS=' ' read -r um_up um_idle < /proc/uptime || return 1
+    um_whole=${um_up%.*}; um_frac=${um_up#*.}000; um_frac=${um_frac%"${um_frac#???}"}
+    # Decimal prefix avoids treating hundredths such as 080 as shell octal.
+    printf '%s\n' "$((um_whole*1000+1$um_frac-1000))"
+}
 metric_begin() { metric_name="$1"; metric_start="$(uptime_ms)"; case "$metric_start" in ''|*[!0-9]*) metric_start=0;;esac; metric_fb_start="$fbink_calls"; }
 metric_end() { e="$(uptime_ms)"; case "$e" in ''|*[!0-9]*) e="$metric_start";;esac; echo "METRIC operation=$metric_name elapsed_ms=$((e-metric_start)) fbink_calls=$((fbink_calls-metric_fb_start)) renderer=$1 fallback=$2 redraw=$3"; }
 
@@ -314,11 +341,14 @@ build_cache() {
     valid_date "$today_date" || return 1
     : > "$SUMMARY" && : > "$MONTHS" && : > "$DAYS" && : > "$DAY_BOOKS" && : > "$BOOKS.raw" && : > "$WEEKS.raw" && : > "$CALENDAR" || return 1
     for range in 7d month year; do : > "$SESSION_DIR/books-$range.raw" || return 1; done
+    rr_perf cache_scan_begin
     awk -F '\t' -v today="$today_date" -v calendar="$CALENDAR" -v summary="$SUMMARY" -v months="$MONTHS" -v weeks="$WEEKS.raw" -v days="$DAYS" -v daybooks="$DAY_BOOKS" -v books="$BOOKS.raw" -v books7="$SESSION_DIR/books-7d.raw" -v booksmonth="$SESSION_DIR/books-month.raw" -v booksyear="$SESSION_DIR/books-year.raw" -f "$CACHE_BUILDER" "$DATA" || return 1
+    rr_perf cache_scan_end
     sort "$MONTHS" > "$MONTHS.sorted" && sort -n "$WEEKS.raw" > "$WEEKS" && sort "$DAYS" > "$DAYS.sorted" && sort "$DAY_BOOKS" > "$DAY_BOOKS.sorted" && awk -F '\t' '$1 >= 300' "$BOOKS.raw" | sort -nr > "$BOOKS" || return 1
     mv "$MONTHS.sorted" "$MONTHS" && mv "$DAYS.sorted" "$DAYS" && mv "$DAY_BOOKS.sorted" "$DAY_BOOKS" || return 1
     for range in 7d month year; do awk -F '\t' '$1 >= 300' "$SESSION_DIR/books-$range.raw" | sort -nr > "$SESSION_DIR/books-$range.tsv" || return 1; done
     rm -f "$BOOKS.raw" "$WEEKS.raw" "$SESSION_DIR"/books-*.raw; cache_ok=1
+    rr_perf cache_sort_end
 }
 
 catalog_loaded=0; progress_loaded=0
@@ -1201,7 +1231,7 @@ spec_book_detail_chart() {
         calendar_index=$((book_calendar_offset+calendar_day-1)); calendar_col=$((calendar_index%7)); calendar_row=$((calendar_index/7))
         calendar_x=$((6+calendar_col*160)); calendar_y=$((130+calendar_row*calendar_cell_h)); calendar_center=$((calendar_x+80))
         stext book_chart B 27 "$calendar_center" $((calendar_y+3)) center 0 "$calendar_day"
-        heat_level="$(calendar_heat_level "$calendar_seconds")" || return 1; heat_gray="$(calendar_heat_gray "$heat_level")" || return 1
+        calendar_style "$calendar_seconds"
         heat_x=$((calendar_center-34)); heat_y=$((calendar_y+39)); srect book_chart "$heat_x" "$heat_y" 68 46 "$heat_gray"
         calendar_date="$(printf '%04d-%02d-%02d' "$book_calendar_y" "$book_calendar_m" "$calendar_day")"
         if [ "$calendar_date" = "$book_calendar_selected_date" ]; then
@@ -1276,16 +1306,14 @@ render_daily() {
         srect calendar $((x+2)) $((y+2)) 150 $((cell_h-10)) 255
         idx=$((idx+1))
     done
+    date_parts "$selected_date"; selected_y=$parsed_y; selected_m_grid=$parsed_m; selected_d_grid=$parsed_d
     day=1; month_read_days=0; month_total=0
     for sec in "$@"; do
         idx=$((offset+day-1)); row=$((idx/7)); col=$((idx%7)); x=$((col*160)); y=$((row*cell_h))
         [ "$sec" -gt 0 ] && month_read_days=$((month_read_days+1)); month_total=$((month_total+sec))
-        heat_level="$(calendar_heat_level "$sec")" || return 1
-        heat_gray="$(calendar_heat_gray "$heat_level")" || return 1
-        ink="$(calendar_heat_ink "$heat_level")" || return 1
+        calendar_style "$sec"
         srect calendar $((x+2)) $((y+2)) 150 $((cell_h-10)) "$heat_gray"
-        cell_date="$(printf '%04d-%02d-%02d' "$daily_y" "$daily_m" "$day")"
-        if [ "$cell_date" = "$selected_date" ]; then
+        if [ "$daily_y" -eq "$selected_y" ] && [ "$daily_m" -eq "$selected_m_grid" ] && [ "$day" -eq "$selected_d_grid" ]; then
             # The normal border is 2 px. Draw the selected date's 4 px border
             # inward so heat fill and neighboring geometry remain unchanged.
             cell_box_h=$((cell_h-6)); selected_border=4
@@ -1295,7 +1323,7 @@ render_daily() {
             srect calendar "$x" $((y+cell_box_h-selected_border)) 154 "$selected_border" 20
         fi
         stext calendar B 36 $((x+77)) $((y+10)) center "$ink" "$day"
-        [ "$sec" -gt 0 ] && stext calendar R 27 $((x+77)) $((y+cell_h-43)) center "$ink" "$(calendar_time "$sec")"
+        if [ "$sec" -gt 0 ]; then calendar_label "$sec"; stext calendar R 27 $((x+77)) $((y+cell_h-43)) center "$ink" "$calendar_text"; fi
         day=$((day+1))
     done
     separator_x=$((CARD_LEFT+CARD_SAFE_INSET-CALENDAR_CONTENT_X)); separator_w=$((CARD_RIGHT-CARD_LEFT-2*CARD_SAFE_INSET))

@@ -273,7 +273,7 @@ for day, gray in enumerate(expected_grays, 1):
 calendar_spec = (SESSION / "render-spec.tsv").read_text(encoding="utf-8")
 assert "2026年9月7日 · 阅读 4小时0分钟" in calendar_spec
 assert all(name in viewer[viewer.index("spec_book_detail_chart()") : viewer.index("publish_book_detail()")]
-           for name in ("calendar_heat_level", "calendar_heat_gray"))
+           for name in ("calendar_style",))
 passed("book calendar heat and hint", "A full September uses the global 0/30m/1h/2h/3h/4h gray thresholds exactly; selecting day 7 adds only a small 4-hour hint and keeps the calendar on the same page.")
 
 

@@ -1,5 +1,6 @@
 """Measure whole real shell/Lua startup chains; FBInk and input are host mocks."""
 from pathlib import Path
+import argparse
 import json
 import os
 import shutil
@@ -13,8 +14,13 @@ from validate_runtime_probe import setup, executable, SH, ROOT, OUT, shell_path
 from service_fixture import service_fixture
 
 RESULTS=[]
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--current-only',action='store_true')
+parser.add_argument('--baseline-ref',help='Compare a local Git ref to the working tree with the same host fixtures.')
+options=parser.parse_args()
 baseline=ROOT/'build/standard-next-baseline'
-for chain in (('current',) if '--current-only' in sys.argv else ('normal-5.19', 'baseline-5.20.1', 'current')):
+chains=('comparison-baseline','current') if options.baseline_ref else (('current',) if options.current_only else ('normal-5.19', 'baseline-5.20.1', 'current'))
+for chain in chains:
     with tempfile.TemporaryDirectory(prefix='reading-startup-perf-') as directory:
         root=Path(directory); launcher,env,pretty,_=setup(root,'standard')
         base=launcher.parent.parent
@@ -48,6 +54,16 @@ for chain in (('current',) if '--current-only' in sys.argv else ('normal-5.19', 
         install_python_fixture(ROOT/'tests/fixtures/standard-lua.py',root/'mockbin/lua')
         if chain=='current':
             ui=(pkg/'阅读记录-optimized.sh').read_text(encoding='utf-8')
+        elif chain=='comparison-baseline':
+            def frozen(name):
+                return subprocess.check_output(['git','show',options.baseline_ref+':native-reading-time-package/'+name],cwd=ROOT)
+            ui=frozen('阅读记录-optimized.sh').decode('utf-8')
+            source=frozen('launch.sh').decode('utf-8')
+            source=source.replace('/mnt/us/libkh/bin/lua /usr/bin/lua /usr/local/bin/lua',f'{shell_path(root/"alternate")}/lua {shell_path(root/"alternate")}/lua-missing')
+            source=source.replace('fbink_candidate_add /var/local/kmc/bin/fbink',f'fbink_candidate_add {shell_path(root/"alternate")}/fbink')
+            launcher.write_text(source,encoding='utf-8',newline='\n')
+            for path in pkg.glob('*.lua'):
+                (release/'bin'/path.name).write_bytes(frozen(path.name))
         elif chain=='baseline-5.20.1':
             shutil.copy2(baseline/'native-reading-time-package/service-manager.sh',base/'bin/service-manager.sh')
             shutil.copy2(baseline/'native-reading-time-package/compat/lifecycle.sh',base/'compat/lifecycle.sh')
@@ -77,7 +93,7 @@ for chain in (('current',) if '--current-only' in sys.argv else ('normal-5.19', 
             (release/'bin/runtime-child.sh').write_bytes(subprocess.check_output(['git','show','v9.7.6-5.19-vera:native-reading-time-package/runtime-child.sh'],cwd=ROOT))
             ui=ui.replace('FBINK="/var/local/kmc/bin/fbink"','FBINK="$READING_FBINK"')
             ui=ui.replace('BASE="/mnt/us/reading-time"','BASE="${READING_BASE:-/mnt/us/reading-time}"')
-        if chain!='current':
+        if chain not in ('current','comparison-baseline'):
             ui=ui.replace('RELEASE="$BASE/releases/9.7.5-test"',f'RELEASE="{shell_path(release)}"').replace('RELEASE="$BASE/releases/9.7.6-5.19-normal"',f'RELEASE="{shell_path(release)}"')
             ui=ui.replace('DATA="$BASE/reading-time.tsv"','DATA="$BASE/reading-time.tsv"\n. "$BASE/compat/performance.sh"\nrr_perf ui_begin',1)
             ui=ui.replace('build_cache ||','rr_perf data_begin; build_cache ||',1)
@@ -106,6 +122,6 @@ for chain in (('current',) if '--current-only' in sys.argv else ('normal-5.19', 
         service_calls=(root/'service-fixture/calls').read_text() if (root/'service-fixture/calls').exists() else ''
         assert 'mntroot' not in service_calls and 'start native' not in service_calls and 'reload-configuration' not in service_calls
 summary={chain:round(statistics.median(x['entry_to_mock_interactive_seconds'] for x in RESULTS if x['chain']==chain),3) for chain in sorted({row['chain'] for row in RESULTS})}
-report={'result':'PASS','samples':RESULTS,'median_seconds':summary,'limitation':'Windows/MSYS real shell+Lua with mocked FBInk/input; excludes Scriptlet pre-exec click overhead and cannot certify Kindle 3–4s.'}
+report={'result':'PASS','baseline_ref':options.baseline_ref,'samples':RESULTS,'median_seconds':summary,'limitation':'Windows/MSYS real shell+Lua with mocked FBInk/input; excludes Scriptlet pre-exec click overhead and physical eInk completion; cannot predict Kindle seconds.'}
 (OUT/'startup-performance-results.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps({k:v for k,v in report.items() if k!='samples'},ensure_ascii=False,indent=2))

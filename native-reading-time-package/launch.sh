@@ -174,6 +174,7 @@ printf 'screen_width=%s\nscreen_height=%s\norientation=%s\n' "$SCREEN_W" "$SCREE
 LUA_PRIMARY="$(command -v lua 2>/dev/null || true)"
 READING_FBINK_CANDIDATES=
 FBINK_IDENTITIES=
+FBINK_TAB='	'
 fbink_candidate_add() {
     fc_path=$1
     [ -n "$fc_path" ] || return 0
@@ -181,38 +182,37 @@ fbink_candidate_add() {
         printf 'fbink_candidate=%s result=not_executable\n' "$fc_path"; return 0;
     }
     fc_real=$(realpath "$fc_path" 2>/dev/null || readlink -f "$fc_path" 2>/dev/null || printf '%s' "$fc_path")
-    fc_inode=$(stat -Lc '%d:%i' "$fc_path" 2>/dev/null || true)
-    # Resolve cheap identity duplicates before rereading an executable's bytes.
-    while IFS="$(printf '\t')" read -r fc_old fc_old_real fc_old_inode fc_old_sum; do
+    fc_stat=$(stat -Lc '%d:%i %s' "$fc_path" 2>/dev/null || true)
+    fc_inode=${fc_stat% *}; fc_bytes=${fc_stat##* }; fc_sum=
+    # Identity/size are enough for unique binaries. Read content only when a
+    # second candidate could be an exact copy; never hash the sole runtime.
+    while IFS="$FBINK_TAB" read -r fc_old fc_old_real fc_old_inode fc_old_bytes; do
         [ -n "$fc_old" ] || continue
         if [ "$fc_path" = "$fc_old" ] || [ "$fc_real" = "$fc_old_real" ] ||
-           { [ "$fc_inode" != - ] && [ -n "$fc_inode" ] && [ "$fc_inode" = "$fc_old_inode" ]; }; then
+           { [ -n "$fc_inode" ] && [ "$fc_inode" != - ] && [ "$fc_inode" = "$fc_old_inode" ]; }; then
+            printf 'fbink_candidate=%s duplicate_of=%s\n' "$fc_path" "$fc_old"; return 0
+        fi
+        if [ -n "$fc_bytes" ] && [ "$fc_bytes" != - ] && [ "$fc_old_bytes" != - ] && [ "$fc_bytes" != "$fc_old_bytes" ]; then continue; fi
+        fc_equal=0
+        if command -v cmp >/dev/null 2>&1; then
+            cmp -s "$fc_path" "$fc_old" && fc_equal=1
+        else
+            [ -n "$fc_sum" ] || fc_sum=$(cksum < "$fc_path" 2>/dev/null || true)
+            fc_old_sum=$(cksum < "$fc_old" 2>/dev/null || true)
+            [ -z "$fc_sum" ] || [ "$fc_sum" != "$fc_old_sum" ] || fc_equal=1
+        fi
+        if [ "$fc_equal" = 1 ]; then
             printf 'fbink_candidate=%s duplicate_of=%s\n' "$fc_path" "$fc_old"; return 0
         fi
     done <<EOF
 $FBINK_IDENTITIES
 EOF
-    fc_sum=$(cksum < "$fc_path" 2>/dev/null || true)
-    while IFS="$(printf '\t')" read -r fc_old fc_old_real fc_old_inode fc_old_sum; do
-        [ -n "$fc_old" ] || continue
-        if [ "$fc_path" = "$fc_old" ] || [ "$fc_real" = "$fc_old_real" ] ||
-            { [ "$fc_inode" != - ] && [ -n "$fc_inode" ] && [ "$fc_inode" = "$fc_old_inode" ]; } ||
-            { [ "$fc_sum" != - ] && [ -n "$fc_sum" ] && [ "$fc_sum" = "$fc_old_sum" ] &&
-                { ! command -v cmp >/dev/null 2>&1 || cmp -s "$fc_path" "$fc_old"; }; } ||
-            { [ -z "$fc_sum" ] && command -v cmp >/dev/null 2>&1 && cmp -s "$fc_path" "$fc_old"; }; then
-            printf 'fbink_candidate=%s duplicate_of=%s\n' "$fc_path" "$fc_old"
-            return 0
-        fi
-    done <<EOF
-$FBINK_IDENTITIES
-EOF
-    printf 'fbink_candidate=%s identity_real=%s identity_inode=%s identity_cksum=%s\n' "$fc_path" "$fc_real" "${fc_inode:--}" "${fc_sum:--}"
+    printf 'fbink_candidate=%s identity_real=%s identity_inode=%s identity_size=%s\n' "$fc_path" "$fc_real" "${fc_inode:--}" "${fc_bytes:--}"
     if [ -z "$READING_FBINK_CANDIDATES" ]; then READING_FBINK_CANDIDATES=$fc_path
     else READING_FBINK_CANDIDATES="$READING_FBINK_CANDIDATES
 $fc_path"; fi
-    fc_identity=$(printf '%s\t%s\t%s\t%s' "$fc_path" "$fc_real" "${fc_inode:--}" "${fc_sum:--}")
     FBINK_IDENTITIES="$FBINK_IDENTITIES
-$fc_identity"
+$fc_path$FBINK_TAB$fc_real$FBINK_TAB${fc_inode:--}$FBINK_TAB${fc_bytes:--}"
 }
 fbink_candidate_add "${READING_FBINK:-}"
 fbink_candidate_add /var/local/kmc/bin/fbink
