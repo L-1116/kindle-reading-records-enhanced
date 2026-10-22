@@ -98,7 +98,7 @@ def reader(root, *, point=(120,85), mode='daily', size=16, screen=(1272,1696),
 def shell_case(root, kind, legacy=False):
     root.mkdir()
     base=root/'base'; base.mkdir()
-    release=base/'releases/9.8.1-5.20-vera-test1'; (release/'bin').mkdir(parents=True)
+    release=base/'releases/9.8.1-5.19-vera-test1'; (release/'bin').mkdir(parents=True)
     for name in ['reading-config.sh','reading-settings.sh','reading-custom-covers.sh','reading-custom-covers.lua','reading-insights-touch-ui.lua','reading-insights-touch-probe.lua','reading-insights-touch-preflight.sh']:
         shutil.copy2(PKG/name,release/'bin'/name)
     for folder,names in [('ui-calendar',['total','daily','books','day_detail','month_detail','week_trend','book_detail']),('ui',['total'])]:

@@ -31,7 +31,7 @@ def shell_path(path: Path) -> str:
 def setup(root: Path, variant: str) -> tuple[Path, dict[str, str], Path, Path]:
     package = ROOT / ("native-reading-time-package" if variant == "standard" else "ks-package/native-reading-time-package")
     base = root / "reading-time"
-    release = base / ("releases/9.8.1-5.20-vera-test1" if variant == "standard" else "releases/9.7.5-ks-test1")
+    release = base / ("releases/9.8.1-5.19-vera-test1" if variant == "standard" else "releases/9.7.5-ks-test1")
     mock = root / "mockbin"
     alternate = root / "alternate"
     ui = "ui-calendar" if variant == "standard" else "ui-scribe"

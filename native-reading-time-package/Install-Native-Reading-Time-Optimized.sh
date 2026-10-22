@@ -22,14 +22,14 @@ MANIFEST="$BASE/install-manifest.txt"
 DETECTOR="$BASE/compat/detect_env.sh"
 ASSET_DIR="$BASE/assets"
 LAUNCHER_ICON="$ASSET_DIR/launcher-icon.png"
-PRODUCT_VERSION="9.8.1-5.20-vera"
-RUNTIME_VERSION="9.8.1-5.20-vera-test1"
+PRODUCT_VERSION="9.8.1-5.19-vera-test1"
+RUNTIME_VERSION="9.8.1-5.19-vera-test1"
 RELEASE="$BASE/releases/$RUNTIME_VERSION"
 RELEASE_ICON="$RELEASE/assets/launcher-icon.png"
 RELEASE_APP="$RELEASE/bin/reading-records.sh"
 COVER_CACHE_DIR="$BASE/book-covers"
 CUSTOM_COVER_DIR="$BASE/custom-covers"
-STAGE="$BASE/.install-9.8.1-5.20-vera.$$"
+STAGE="$BASE/.install-9.8.1-5.19-vera-test1.$$"
 ROOT_RW=0; ACTIVATED=0; SERVICE_WAS_RUNNING=0; ROLLBACK_DONE=0
 
 mkdir -p "$BASE" || exit 1
@@ -42,7 +42,7 @@ rr_lock || fail "another lifecycle operation is running"
 rr_mount_capture || fail "cannot determine root mount state"
 root_ro() { rr_root_restore; }
 root_rw() { rr_root_rw; }
-cleanup_stage() { [ "${ROLLBACK_FAILED:-0}" = 0 ] || return 0; case "$STAGE" in "$BASE"/.install-9.8.1-5.20-vera.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
+cleanup_stage() { [ "${ROLLBACK_FAILED:-0}" = 0 ] || return 0; case "$STAGE" in "$BASE"/.install-9.8.1-5.19-vera-test1.[0-9]*) rm -rf "$STAGE";; esac; rm -f "$DATA.bak.new.$$"; }
 
 backup_file() { backup_src="$1"; backup_key="$2"; if [ -f "$backup_src" ]; then cp "$backup_src" "$STAGE/rollback/$backup_key" || return 1; else : > "$STAGE/rollback/no-$backup_key"; fi; }
 restore_file() { restore_key="$1"; restore_dst="$2"; restore_mode="$3"; if [ -f "$STAGE/rollback/$restore_key" ]; then cp "$STAGE/rollback/$restore_key" "$restore_dst.rollback-new" && chmod "$restore_mode" "$restore_dst.rollback-new" && mv "$restore_dst.rollback-new" "$restore_dst"; elif [ -f "$STAGE/rollback/no-$restore_key" ]; then rm -f "$restore_dst"; fi; }
@@ -212,14 +212,14 @@ lipc-set-prop com.lab126.scanner doFullScan 1 >/dev/null 2>&1 || lipc-set-prop c
 [ -x "$RELEASE_APP" ] && cmp -s "$RELEASE_APP" "$PKG/阅读记录-optimized.sh" || fail "active resolver is missing, non-executable, or differs from payload"
 [ -x "$LAUNCHER" ] && cmp -s "$LAUNCHER" "$PKG/launch.sh" || fail "active launcher is missing, non-executable, or differs from payload"
 [ -x "$VIEWER" ] && cmp -s "$VIEWER" "$PKG/阅读记录-entry.sh" || fail "library entry is missing, non-executable, or differs from payload"
-grep -Fqx 'PRODUCT_VERSION="9.8.1-5.20-vera-test1"' "$LAUNCHER" && grep -Fqx 'RELEASE="${READING_RELEASE:-$BASE/releases/$PRODUCT_VERSION}"' "$LAUNCHER" && grep -Fqx 'MAIN="$RELEASE/bin/reading-records.sh"' "$LAUNCHER" || fail "launcher does not target the active release resolver"
+grep -Fqx 'PRODUCT_VERSION="9.8.1-5.19-vera-test1"' "$LAUNCHER" && grep -Fqx 'RELEASE="${READING_RELEASE:-$BASE/releases/$PRODUCT_VERSION}"' "$LAUNCHER" && grep -Fqx 'MAIN="$RELEASE/bin/reading-records.sh"' "$LAUNCHER" || fail "launcher does not target the active release resolver"
 for required_helper in reading-insights-cover.lua reading-insights-cache.awk reading-insights-render.lua reading-insights-touch-ui.lua; do
     [ -r "$RELEASE/bin/$required_helper" ] || fail "installed helper is missing or unreadable: $required_helper"
 done
 [ -d "$COVER_CACHE_DIR" ] && [ -w "$COVER_CACHE_DIR" ] || fail "cover cache is not writable after service start"
 echo "$(date): final sanity resolver=ok launcher=ok entry=ok helpers=ok history=ok cover_cache=ok"
-printf '9.8.1-5.20-vera\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
+printf '9.8.1-5.19-vera-test1\n' > "$STAGE/VERSION"; atomic_file "$STAGE/VERSION" "$BASE/VERSION" 644 || fail "cannot write version marker"
 
 ACTIVATED=0; cleanup_stage; trap - INT TERM HUP; root_ro || fail "cannot restore root mount state"; sync
 echo "$(date): V4 installed and running, daemon_cmp=identical"
-toast "阅读记录 9.8.1-5.20-vera 安装完成"; exit 0
+toast "阅读记录 9.8.1-5.19-vera-test1 安装完成"; exit 0

@@ -12,7 +12,7 @@ SAVE_INTERVAL=90
 STATE_INTERVAL=90
 EDGE_CREDIT_MAX=5
 
-IDLE_HELPERS="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}/bin"
+IDLE_HELPERS="${READING_RELEASE:-$BASE/releases/9.8.1-5.19-vera-test1}/bin"
 idle_dispatch() { return 1; }
 idle_stop() { :; }
 if [ -r "$IDLE_HELPERS/reading-config.sh" ] && [ -r "$IDLE_HELPERS/reading-idle.sh" ]; then

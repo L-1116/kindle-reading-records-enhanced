@@ -67,6 +67,7 @@ assert stable_payload_changes==[
     'native-reading-time-package/reading-insights-cache.awk',
     'native-reading-time-package/reading-insights-cover.lua',
     'native-reading-time-package/reading-insights-render.lua',
+    'native-reading-time-package/reading-insights-title-widths.lua',
     'native-reading-time-package/reading-insights-touch-preflight.sh',
     'native-reading-time-package/reading-insights-touch-probe.lua',
     'native-reading-time-package/reading-insights-touch-ui.lua',
@@ -99,6 +100,7 @@ assert stable_payload_changes==[
     'native-reading-time-package/ui-calendar/settings_cover_images.png',
     'native-reading-time-package/ui-calendar/settings_cover_info.png',
     'native-reading-time-package/ui-calendar/settings_cover_manage.png',
+    'native-reading-time-package/ui-calendar/settings_cover_picker.png',
     'native-reading-time-package/ui-calendar/settings_custom.png',
     'native-reading-time-package/ui-calendar/settings_idle.png',
     'native-reading-time-package/ui-calendar/total.png',
@@ -108,6 +110,9 @@ assert stable_payload_changes==[
     'native-reading-time-package/阅读记录-optimized.sh',
     'native-reading-time-package/阅读记录.sh',
 ]
+for name in ('reading-insights-title-widths.lua', 'ui-calendar/settings_cover_picker.png'):
+    assert (PKG/name).read_bytes() == subprocess.check_output(
+        ['git', 'show', 'v9.8.1:native-reading-time-package/'+name], cwd=ROOT)
 record('stable payload scope','Against v9.6.10, statistics and data paths stay stable; idle timing is an opt-in extension; additions include the compatibility detector, launcher, installer/cleanup entries and manifests, and the 9.7.5 UI/cover payload.')
 
 from idle_contract import assert_legacy_timing
@@ -146,8 +151,9 @@ assert 'refresh_exit_status=$?; refresh_kind=GC16' in refresh
 assert 'refresh_exit_status=$?; refresh_kind=GC16_FAST' in refresh
 assert 'return "$refresh_exit_status"' in refresh
 assert 'fb -q -f -W GC16 -s' in refresh and 'fb -q -W GC16 -s' in refresh
+formal_viewer=subprocess.check_output(['git','show','v9.8.1:native-reading-time-package/阅读记录-optimized.sh'],cwd=ROOT).decode('utf-8')
 for name in ('page_prev)','page_next)'):
-    assert next(x for x in viewer.splitlines() if x.strip().startswith(name))==next(x for x in old.splitlines() if x.strip().startswith(name))
+    assert next(x for x in viewer.splitlines() if x.strip().startswith(name))==next(x for x in formal_viewer.splitlines() if x.strip().startswith(name))
 assert 'mode=daily; view_year=' in viewer
 record('interaction invariants','Default daily, scaling and page navigation remain stable; capability touch discovery is covered by validate_standard_touch_compat; 5.18.x refresh remains nonflashing.')
 
@@ -506,7 +512,7 @@ for case,monday_minutes in week_cases:
     y_ticks=[p for p in parts if p[:4]==['text','chart','R','20']]
     assert y_ticks and all(p[6]=='right' for p in y_ticks)
     axis_text_right=int(y_ticks[0][4]); assert plot_left-axis_text_right==28
-    day_labels=[p for p in parts if p[:4]==['text','chart','B','24']]
+    day_labels=[p for p in parts if p[:4]==['text','chart','R','28']]
     assert [p[8] for p in day_labels]==[f'周{x}' for x in '一二三四五六日']
     centers=[int(p[4]) for p in day_labels]
     gaps=[b-a for a,b in zip(centers,centers[1:])]

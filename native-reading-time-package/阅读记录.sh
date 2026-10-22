@@ -9,11 +9,11 @@ DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="${READING_FBINK:-/var/local/kmc/bin/fbink}"
 UI_DIR="$BASE/ui"
-TOUCH_READER="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}/bin/reading-insights-touch-ui.lua"
-TOUCH_PROBE="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}/bin/reading-insights-touch-probe.lua"
-TOUCH_PREFLIGHT="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}/bin/reading-insights-touch-preflight.sh"
-SETTINGS_HELPERS="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}/bin"
-SETTINGS_ASSETS="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}/ui-calendar"
+TOUCH_READER="${READING_RELEASE:-$BASE/releases/9.8.1-5.19-vera-test1}/bin/reading-insights-touch-ui.lua"
+TOUCH_PROBE="${READING_RELEASE:-$BASE/releases/9.8.1-5.19-vera-test1}/bin/reading-insights-touch-probe.lua"
+TOUCH_PREFLIGHT="${READING_RELEASE:-$BASE/releases/9.8.1-5.19-vera-test1}/bin/reading-insights-touch-preflight.sh"
+SETTINGS_HELPERS="${READING_RELEASE:-$BASE/releases/9.8.1-5.19-vera-test1}/bin"
+SETTINGS_ASSETS="${READING_RELEASE:-$BASE/releases/9.8.1-5.19-vera-test1}/ui-calendar"
 rr_settings_gear() { :; }
 rr_settings_init() {
     . "$SETTINGS_HELPERS/reading-config.sh" || exit 1

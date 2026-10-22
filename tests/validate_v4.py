@@ -29,7 +29,10 @@ def seed(session,previous):
         base/'book-covers/cover.jpg':b'cover',base/'book-cover-cache.tsv':b'cover cache',
         base/'book-cover-misses.tsv':b'miss cache',base/'service.log':b'core service evidence',
         base/'custom-covers/中文 cover.png':b'original user picture',
-        base/'custom-cover-associations.tsv':b'# custom associations preserved byte for byte\n',
+        base/'custom-cover-associations.tsv':(
+            '# reading-records custom covers v1; hex key<TAB>hex filename\n'
+            + 'id:old'.encode().hex() + '\t' + '中文 cover.png'.encode().hex() + '\n'
+            + 'generic'.encode().hex() + '\t' + '中文 cover.png'.encode().hex() + '\n').encode(),
         base/'custom-cover-previews/retained.pgm':b'isolated preview cache',
         base/'upstart.log':b'core upstart evidence',base/'touch-last.log':b'core touch evidence',
     }
@@ -37,7 +40,7 @@ def seed(session,previous):
     for p,raw in protected.items():put(p,raw)
     return us,base,docs,upstart,protected
 
-def run(session,variant='standard',previous=None,mutation='',cleanup=False,legacy_tag=None,legacy_archive=None,cleanup_unknown=False):
+def run(session,variant='standard',previous=None,mutation='',cleanup=False,legacy_tag=None,legacy_archive=None,cleanup_unknown=False,firmware='5.20.1'):
     assert variant=='standard'
     package_sha=hashlib.sha256(SIMPLE_ARCHIVE.read_bytes()).hexdigest()
     us,base,docs,upstart,protected=seed(session,previous)
@@ -48,7 +51,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
     env.update(service_fixture(session/'service-fixture',base,upstart,SHELL,running=False))
     model=session/'device';put(model,b'KPW6');env['READING_DEVICETYPE_PATH']=model.as_posix()
     for key,name in [('READING_USID_PATH','usid'),('READING_PROC_MODEL_PATH','proc-model'),('READING_SYS_MODEL_PATH','sys-model')]:env[key]=(session/name).as_posix()
-    pretty=session/'pretty';put(pretty,b'Kindle 5.20.1');env['READING_PRETTYVERSION_PATH']=pretty.as_posix()
+    pretty=session/'pretty';put(pretty,('Kindle '+firmware).encode());env['READING_PRETTYVERSION_PATH']=pretty.as_posix()
     env['READING_ARMHF_LOADER_PATH']=(session/'loader').as_posix();put(session/'loader',b'loader')
     if previous:
         from historical_install_fixture import install_history
@@ -138,7 +141,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert visible_cleanups==[CLEAN],visible_cleanups
         if mutation!='unknown_alias':assert not (docs/'阅读记录.sh').exists()
         assert not (docs/'reading-records-uninstall.sh').exists() and not (docs/'安装好之后，确认无误了再点这个.sh').exists()
-        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned','9.8.1-test7','9.8.1-test7-cleaned','9.8.1-test8','9.8.1-test8-cleaned'):
+        if previous in ('normal','v9.7.6-5.19-vera-cleaned','mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned','9.8.1-test7','9.8.1-test7-cleaned','9.8.1-test8','9.8.1-test8-cleaned'):
             if mutation=='cover_dir_missing':covers.rmdir() # Repair must recreate it too.
             again=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130);assert again.returncode==0,again.stderr
             assert covers.is_dir()

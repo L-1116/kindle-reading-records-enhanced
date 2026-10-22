@@ -3,13 +3,13 @@
 # Author: Kindle Reading Records Enhanced
 # Icon: /mnt/us/reading-time/assets/launcher-icon.png
 
-# Kindle 原生阅读记录 9.8.1-5.20-vera-test1.  This process exists only while the
+# Kindle 原生阅读记录 9.8.1-5.19-vera-test1.  This process exists only while the
 # dashboard is open.  The tracker daemon and reading-time.tsv are untouched.
 BASE="${READING_BASE:-/mnt/us/reading-time}"
 DATA="$BASE/reading-time.tsv"
 LOG="$BASE/dashboard-launch.log"
 FBINK="${READING_FBINK:-/var/local/kmc/bin/fbink}"
-RELEASE="${READING_RELEASE:-$BASE/releases/9.8.1-5.20-vera-test1}"
+RELEASE="${READING_RELEASE:-$BASE/releases/9.8.1-5.19-vera-test1}"
 [ -r "$BASE/compat/performance.sh" ] && . "$BASE/compat/performance.sh"
 type rr_perf >/dev/null 2>&1 || rr_perf() { :; }
 rr_perf ui_begin
@@ -1528,7 +1528,7 @@ mkdir -p "$SESSION_DIR" || fail "无法创建阅读记录会话缓存"; chmod 70
 rr_power_start || fail "无法监听系统休眠事件"
     [ -f "$UI_DIR/total.png" ] && [ -f "$UI_DIR/day_detail.png" ] && [ -f "$UI_DIR/month_detail.png" ] && [ -f "$UI_DIR/week_trend.png" ] && [ -f "$UI_DIR/book_detail.png" ] || fail "缺少优化版界面资源"; [ -f "$DATA" ] || fail "尚无阅读统计数据"; [ -r "$TOUCH" ] || fail "无法读取触摸设备"; [ -f "$TOUCH_READER" ] || fail "缺少安全触摸监听器"; [ -f "$LEGACY" ] || fail "缺少原始 9.6.3 后备界面"; command -v lua >/dev/null 2>&1 || fail "未找到 Lua 运行环境"
 RFONT="$BASE/fonts/NotoSansCJKsc-Regular.otf"; [ -f "$RFONT" ] || fail "缺少阅读记录中文字体"
-    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.8.1-5.20-vera-test1\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
+    printf 'screen=%sx%s\nviewport=%sx%s+%s+%s\nlogical=%sx%s\ntouch=%s\nrelease=9.8.1-5.19-vera-test1\n' "$SCREEN_W" "$SCREEN_H" "$VIEW_W" "$VIEW_H" "$ORIGIN_X" "$ORIGIN_Y" "$LOGICAL_W" "$LOGICAL_H" "$TOUCH" > "$BASE/display-layout.txt"
 echo "$(date): screen=${SCREEN_W}x${SCREEN_H}, viewport=${VIEW_W}x${VIEW_H}+${ORIGIN_X}+${ORIGIN_Y}, renderer=$renderer_available"
 lipc-set-prop com.lab126.winmgr eatTapMode 0 >/dev/null 2>&1 || true; dashboard_active=1
 

@@ -167,11 +167,12 @@ test "$idle_enabled $settings_error" = '1 保存失败，请重试' || exit 2
         conf.write_bytes(contents.encode())
         assert shell('rr_config_read; echo "$idle_enabled $idle_minutes $custom_cover_enabled"')==expected
 
-    # The verified timer/power/render engines stay byte-identical to test5.
+    # Keep verified timer/power/render engines, allowing the 5.19 runtime path.
     for name in ('reading-insights-cover.lua','reading-idle.sh','reading-idle-touch.lua',
                  'native-reading-time-daemon.sh','reading-power.sh','reading-insights-render.lua',
                  'ui-calendar/total.png'):
         previous=subprocess.check_output(['git','show','92cd750:native-reading-time-package/'+name],cwd=ROOT)
+        previous=previous.replace(b'9.8.1-5.20-vera-test1', b'9.8.1-5.19-vera-test1')
         current=(PKG/name).read_bytes()
         if name=='阅读记录-optimized.sh':
             # Only request month labels during the full navigation redraw;

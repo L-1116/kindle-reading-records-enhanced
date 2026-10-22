@@ -124,7 +124,7 @@ assert comparison.stdout.strip() == "1|-1|0|unknown", comparison.stdout
 # they are optional and must not be launch gates.
 base = SANDBOX / "reading-time"
 docs = SANDBOX / "documents"
-release = base / "releases/9.8.1-5.20-vera-test1"
+release = base / "releases/9.8.1-5.19-vera-test1"
 mockbin = SANDBOX / "mockbin"
 for folder in (base / "bin", base / "compat", base / "fonts", release / "bin", release / "ui-calendar", release / "render-assets", docs, mockbin):
     folder.mkdir(parents=True, exist_ok=True)

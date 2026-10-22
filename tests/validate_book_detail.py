@@ -286,8 +286,8 @@ from idle_contract import assert_legacy_timing
 assert_legacy_timing()
 assert "reading-time.tsv" not in (PKG / "reading-insights-cache.awk").read_text(encoding="utf-8")
 installer = (PKG / "Install-Native-Reading-Time-Optimized.sh").read_text(encoding="utf-8")
-assert "9.8.1-5.20-vera-test1" in installer and "book_detail.png" in installer and "reading-insights-cover.lua" in installer
-assert "9.8.1-5.20-vera-test1" in viewer and "book_detail.png" in viewer
+assert "9.8.1-5.19-vera-test1" in installer and "book_detail.png" in installer and "reading-insights-cover.lua" in installer
+assert "9.8.1-5.19-vera-test1" in viewer and "book_detail.png" in viewer
 assert viewer.splitlines()[:4] == ["#!/bin/sh", "# Name: 阅读记录", "# Author: Kindle Reading Records Enhanced", "# Icon: /mnt/us/reading-time/assets/launcher-icon.png"]
 for lua_file in PKG.glob("*.lua"):
     LuaRuntime().execute("assert(loadstring(...))", lua_file.read_text(encoding="utf-8"))

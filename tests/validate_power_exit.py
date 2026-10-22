@@ -42,7 +42,7 @@ def case(renderer, event, stage='touch', external_power='0', cover_mode=None):
         root = Path(directory)
         launcher, env, _, _ = setup(root, 'standard')
         base = root / 'reading-time'
-        release = base / 'releases/9.8.1-5.20-vera-test1'
+        release = base / 'releases/9.8.1-5.19-vera-test1'
         mock = root / 'mockbin'
         session = root / 'native-reading-dashboard.123'
         trace = root / 'power-trace'

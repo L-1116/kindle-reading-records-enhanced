@@ -18,7 +18,7 @@ for chain in (('current',) if '--current-only' in sys.argv else ('normal-5.19', 
     with tempfile.TemporaryDirectory(prefix='reading-startup-perf-') as directory:
         root=Path(directory); launcher,env,pretty,_=setup(root,'standard')
         base=launcher.parent.parent
-        release=base/'releases/9.8.1-5.20-vera-test1'
+        release=base/'releases/9.8.1-5.19-vera-test1'
         main=release/'bin/reading-records.sh'
         pkg=ROOT/'native-reading-time-package'
         for folder in ('ui','ui-calendar','render-assets'):

@@ -75,7 +75,7 @@ wait() { printf 'wait %s\n' "$*" >> "$SELECTION_TRACE"; }
 
     atexit.register(stop_canary)
     base = session / "reading-time"
-    release = base / "releases/9.8.1-5.20-vera-test1"
+    release = base / "releases/9.8.1-5.19-vera-test1"
     for folder in (release / "bin", release / "ui-calendar", base / "fonts"):
         folder.mkdir(parents=True)
     for name in ("total", "day_detail", "month_detail", "week_trend", "book_detail"):
@@ -156,8 +156,8 @@ fbset() {
     n=$(cat "$COUNT"); n=$((n+1)); echo "$n" > "$COUNT"
     if [ "$BAD_GEOMETRY" = 1 ]; then return 1; fi
     if [ "$INITIAL_PORTRAIT" = 1 ] || { [ "$(cat "$STATE")" = U ] && [ "$n" -ge "$PORTRAIT_AT" ]; }; then
-        echo 'geometry 1272 1696 1272 3392 8'
-    else echo 'geometry 1696 1272 1696 2544 8'; fi
+        echo 'geometry 1264 1680 1264 3360 8'
+    else echo 'geometry 1680 1264 1680 2528 8'; fi
 }
 cat() {
     if [ "$1" = /sys/class/graphics/fb0/virtual_size ]; then echo "${VIRTUAL_SIZE:-invalid}";
@@ -239,7 +239,7 @@ lua() {
             (f"rotation-wait-{sig}", {"WAIT_SIGNAL": sig, "PORTRAIT_AT": "99"}, code, ["U", "R"]),
         ])
     checks = 0
-    firmwares=("5.20.1",) if '--target-only' in sys.argv else ("5.18.1", "5.18.2", "5.19.1")
+    firmwares=("5.19.6",) if '--target-only' in sys.argv else ("5.18.1", "5.18.2", "5.19.1", "5.19.6", "5.20.1")
     shells=(SH,) if '--shell=sh' in sys.argv else (DASH,) if '--shell=dash' in sys.argv else (SH,DASH)
     for shell in shells:
         for firmware in firmwares:

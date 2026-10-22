@@ -31,7 +31,7 @@ def check(variant: str) -> None:
         launcher.write_text(launcher.read_text(encoding="utf-8").replace('/mnt/us/libkh/bin/fbink', shell_path(root / 'alternate/third-fbink')), encoding="utf-8", newline="\n")
         base = launcher.parent.parent
         package = ROOT / ("native-reading-time-package" if variant == "standard" else "ks-package/native-reading-time-package")
-        release = base / ("releases/9.8.1-5.20-vera-test1" if variant == "standard" else "releases/9.7.5-ks-test1")
+        release = base / ("releases/9.8.1-5.19-vera-test1" if variant == "standard" else "releases/9.7.5-ks-test1")
         main = release / "bin" / ("reading-records.sh" if variant == "standard" else "reading-records-ks.sh")
         source = (package / ("阅读记录-optimized.sh" if variant == "standard" else "阅读记录-ks.sh")).read_text(encoding="utf-8")
         if variant == "standard":
@@ -115,9 +115,9 @@ def check(variant: str) -> None:
             print(variant, firmware, screen, label, "PASS", flush=True)
             return log, calls
 
-        versions = ("5.20.1",) if '--target-only' in sys.argv else FIRMWARES if variant == "standard" else ("5.18", "5.18.1.1.1", "5.18.10", "5.19.6")
+        versions = ("5.19.6",) if '--target-only' in sys.argv else FIRMWARES if variant == "standard" else ("5.18", "5.18.1.1.1", "5.18.10", "5.19.6")
         for firmware in versions:
-            for screen in (("1072 1448", "1272 1696") if variant == "standard" else ("1860 2480",)):
+            for screen in (("1072 1448", "1272 1696", "1264 1680") if variant == "standard" else ("1860 2480",)):
                 _, calls = run_case(firmware, screen, "probe=139/actual=0")
                 assert all(c.startswith("PRIMARY ") for c in calls)
         screen = "1072 1448" if variant == "standard" else "1860 2480"

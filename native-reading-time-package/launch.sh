@@ -1,6 +1,6 @@
 #!/bin/sh
 BASE="${READING_BASE:-/mnt/us/reading-time}"
-PRODUCT_VERSION="9.8.1-5.20-vera-test1"
+PRODUCT_VERSION="9.8.1-5.19-vera-test1"
 RELEASE="${READING_RELEASE:-$BASE/releases/$PRODUCT_VERSION}"
 LOCK="${READING_UI_LOCK:-${READING_TMPDIR:-/tmp}/reading-records-ui.lock}"
 LOCK_OWNED=0
