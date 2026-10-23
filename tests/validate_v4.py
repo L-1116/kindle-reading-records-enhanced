@@ -9,6 +9,7 @@ sys.path.insert(0,str(ROOT/'scripts'))
 from build_v4 import PRODUCT_VERSION,RUNTIME_VERSION,SIMPLE_ARCHIVE,BOOT_NAME as BOOT,TAR_NAME as TAR,make_tar,posix_cksum
 OUT=ROOT/'build/validation';OUT.mkdir(exist_ok=True)
 SHELL=shutil.which('sh') or 'C:/Program Files/Git/usr/bin/sh.exe'
+INSTALL_TIMEOUT=int(os.environ.get('READING_TEST_INSTALL_TIMEOUT','130'))
 CLEAN='reading-records-install-cleanup.sh'
 
 def put(path,raw):
@@ -106,7 +107,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
     old_evidence_log=(docs/'reading-records-v4-install.log').read_bytes() if (docs/'reading-records-v4-install.log').is_file() else b''
     before={p.relative_to(us).as_posix():p.read_bytes() for folder in [base/'bin',base/'releases',base/'compat',base/'service',docs] for p in folder.rglob('*') if p.is_file() and p.name not in (BOOT,TAR,'reading-records-v4-install-result.txt','reading-records-v4-install.log')}
     before_metadata={p:p.read_bytes() for p in (base/'VERSION',base/'release-info') if p.is_file()}
-    result=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130)
+    result=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=INSTALL_TIMEOUT)
     log=(docs/'reading-records-v4-install.log').read_text(encoding='utf-8',errors='replace')
     failed=mutation in ('core_failure','activation_failure','interrupted','missing_payload','bad_checksum','cross_variant','ks_residue','wrong_device','unknown_formal','orphan','duplicate','busy_ui','cover_dir_file','cover_dir_symlink')
     assert (result.returncode!=0)==failed,(previous,mutation,result.returncode,result.stderr,log,(base/'install.log').read_text(errors='replace')[-2500:] if (base/'install.log').exists() else '')
@@ -140,9 +141,9 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert visible_cleanups==[CLEAN],visible_cleanups
         if mutation!='unknown_alias':assert not (docs/'阅读记录.sh').exists()
         assert not (docs/'reading-records-uninstall.sh').exists() and not (docs/'安装好之后，确认无误了再点这个.sh').exists()
-        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned','9.8.1-test7','9.8.1-test7-cleaned','9.8.1-test8','9.8.1-test8-cleaned','9.8.1','9.8.1-cleaned'):
+        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned','9.8.1-test7','9.8.1-test7-cleaned','9.8.1-test8','9.8.1-test8-cleaned','9.8.1-test10','9.8.1-test10-cleaned','9.8.1','9.8.1-cleaned'):
             if mutation=='cover_dir_missing':covers.rmdir() # Repair must recreate it too.
-            again=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=130);assert again.returncode==0,again.stderr
+            again=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=INSTALL_TIMEOUT);assert again.returncode==0,again.stderr
             assert covers.is_dir()
             assert probe_path.read_bytes()==(ROOT/'native-reading-time-package/reading-insights-touch-probe.lua').read_bytes()
             assert len(list(base.glob('.previous-install')))==1 and not list(base.glob('.v4-rollback.*'))

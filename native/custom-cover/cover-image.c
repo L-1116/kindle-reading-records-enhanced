@@ -105,27 +105,49 @@ static int scan_info(int fd) {
 static uint64_t hash_bytes(uint64_t h,const unsigned char *s,size_t n) {
     while(n--) { h^=*s++; h*=UINT64_C(1099511628211); } return h;
 }
-static int cache_valid(int fd) {
+static int cache_format_valid(int fd,int gray) {
     char h[15]; struct stat st;
     return fd>=0 && !fstat(fd,&st) && S_ISREG(st.st_mode) &&
-           st.st_size==W*H+15 && read(fd,h,15)==15 && !memcmp(h,"P5\n240 360\n255\n",15);
+           st.st_size==W*H*(gray?1:3)+15 && read(fd,h,15)==15 &&
+           !memcmp(h,gray?"P5\n240 360\n255\n":"P6\n240 360\n255\n",15);
 }
 static void prune(const char *base,const char *keep) {
-    DIR *d=opendir(base); struct dirent *e; int count=0; time_t oldest=0;
+    for(;;) {
+    int dir=open_dir(base); if(dir<0)return;
+    int count=0; time_t oldest=0;
     char victim[256]="",p[4096]; struct stat st;
-    if(!d) return;
-    while((e=readdir(d))) {
-        size_t n=strlen(e->d_name);
-        if(n!=20 || strcmp(e->d_name+16,".pgm") || strspn(e->d_name,"0123456789abcdef")!=16) continue;
+#ifdef _WIN32
+    wchar_t pattern[4096]={0};char pat[4096];snprintf(pat,sizeof(pat),"%s/*",base);wide(pat,pattern);
+    WIN32_FIND_DATAW e;HANDLE d=FindFirstFileW(pattern,&e);
+    if(d==INVALID_HANDLE_VALUE){close(dir);return;}
+    do { char name[1024];WideCharToMultiByte(CP_UTF8,0,e.cFileName,-1,name,sizeof(name),NULL,NULL);
+#else
+    DIR *d=opendir(base); struct dirent *e;
+    if(!d){close(dir);return;}
+    while((e=readdir(d))) { const char *name=e->d_name;
+#endif
+        size_t n=strlen(name);
+        if(n!=20 || (strcmp(name+16,".pgm") && strcmp(name+16,".ppm")) ||
+           strspn(name,"0123456789abcdef")!=16) continue;
+        int fd=child_open(dir,base,name,O_RDONLY|O_NONBLOCK,0);
+        int valid=cache_format_valid(fd,!strcmp(name+16,".pgm"));
+        if(valid)valid=!fstat(fd,&st);
+        if(fd>=0)close(fd);
+        if(!valid)continue;
         count++;
-        if(!strcmp(e->d_name,keep)) continue;
-        snprintf(p,sizeof(p),"%s/%s",base,e->d_name);
-        if(!stat(p,&st) && (!victim[0] || st.st_mtime<oldest)) {
-            oldest=st.st_mtime; strcpy(victim,e->d_name);
+        if(!strcmp(name,keep)) continue;
+        if(!victim[0] || st.st_mtime<oldest) {
+            oldest=st.st_mtime; strcpy(victim,name);
         }
+#ifdef _WIN32
+    } while(FindNextFileW(d,&e));FindClose(d);
+#else
     }
     closedir(d);
-    if(count>128 && victim[0]) { snprintf(p,sizeof(p),"%s/%s",base,victim); unlink(p); }
+#endif
+    close(dir);
+    if(count<=128 || !victim[0] || snprintf(p,sizeof(p),"%s/%s",base,victim)>=(int)sizeof(p) || unlink(p)) return;
+    }
 }
 int main(int argc,char **argv) {
 #ifdef _WIN32
@@ -181,29 +203,33 @@ int main(int argc,char **argv) {
     size_t n=0; unsigned char *data=fd>=0?read_image(fd,&n):NULL;
     if(fd>=0) close(fd);
     if(!data || !dimensions(data,n,&w,&h,custom)){free(data);return 1;}
-    uint64_t hash=hash_bytes(UINT64_C(14695981039346656037),(unsigned char *)"v1",2);
+    /* A new namespace prevents reuse of the lossy v1 grayscale previews. */
+    uint64_t hash=hash_bytes(UINT64_C(14695981039346656037),(unsigned char *)"v2",2);
     hash=hash_bytes(hash,data,n);
     char name[32],tmp[64],out[4096];
-    snprintf(name,sizeof(name),"%016llx.pgm",(unsigned long long)hash);
+    snprintf(name,sizeof(name),"%016llx.ppm",(unsigned long long)hash);
     int cd=open_dir(cache); if(cd<0){free(data);return 1;}
     fd=child_open(cd,cache,name,O_RDONLY,0);
-    if(cache_valid(fd)) { close(fd);close(cd);free(data); printf("%s/%s\n",cache,name); return 0; }
+    if(cache_format_valid(fd,0)) { close(fd);close(cd);free(data);prune(cache,name);printf("%s/%s\n",cache,name);return 0; }
     if(fd>=0)close(fd);
-    unsigned char *pixels=stbi_load_from_memory(data,(int)n,&w,&h,&c,2);free(data);
+    unsigned char *pixels=stbi_load_from_memory(data,(int)n,&w,&h,&c,4);free(data);
     if(!pixels){close(cd);return 1;}
-    unsigned char result[W*H];memset(result,255,sizeof(result));
+    unsigned char result[W*H*3];memset(result,255,sizeof(result));
     int dw=W,dh=(int)((int64_t)h*W/w);
     if(dh>H){dh=H;dw=(int)((int64_t)w*H/h);} if(dw<1)dw=1;if(dh<1)dh=1;
     for(int y=0;y<dh;y++) for(int x=0;x<dw;x++) {
-        /* Bilinear sampling, grayscale + alpha composited on white. */
+        /* Composite RGBA on white before bilinear sampling, retaining RGB. */
         double sx=((x+.5)*w/dw)-.5,sy=((y+.5)*h/dh)-.5;
         if(sx<0)sx=0;if(sy<0)sy=0;
         int x0=(int)sx,y0=(int)sy,x1=x0+1<w?x0+1:x0,y1=y0+1<h?y0+1:y0;
-        double fx=sx-x0,fy=sy-y0,v=0;
+        double fx=sx-x0,fy=sy-y0;
         int xs[4]={x0,x1,x0,x1},ys[4]={y0,y0,y1,y1};
         double weights[4]={(1-fx)*(1-fy),fx*(1-fy),(1-fx)*fy,fx*fy};
-        for(int k=0;k<4;k++){unsigned char *p=pixels+2*((size_t)ys[k]*w+xs[k]);v+=weights[k]*(255-(255-p[0])*p[1]/255.0);}
-        result[(y+(H-dh)/2)*W+x+(W-dw)/2]=(unsigned char)(v+.5);
+        for(int channel=0;channel<3;channel++) {
+            double v=0;
+            for(int k=0;k<4;k++){unsigned char *p=pixels+4*((size_t)ys[k]*w+xs[k]);v+=weights[k]*(255-(255-p[channel])*p[3]/255.0);}
+            result[3*((y+(H-dh)/2)*W+x+(W-dw)/2)+channel]=(unsigned char)(v+.5);
+        }
     }
     stbi_image_free(pixels);
     snprintf(tmp,sizeof(tmp),".prepare-%ld.tmp",(long)getpid());
@@ -211,7 +237,7 @@ int main(int argc,char **argv) {
     int ok=0;
     if(fd>=0) {
         FILE *f=fdopen(fd,"wb");
-        if(f){ok=fwrite("P5\n240 360\n255\n",1,15,f)==15 && fwrite(result,1,sizeof(result),f)==sizeof(result);if(fclose(f))ok=0;}
+        if(f){ok=fwrite("P6\n240 360\n255\n",1,15,f)==15 && fwrite(result,1,sizeof(result),f)==sizeof(result);if(fclose(f))ok=0;}
         else close(fd);
     }
     close(cd);

@@ -1,0 +1,663 @@
+{
+  "result": "PASS",
+  "product_version": "9.8.1-5.20-vera-test11",
+  "variant": "standard",
+  "runtime_version": "9.8.1-5.20-vera-test1",
+  "build_id": "f50171a113490014541f",
+  "zip_file": "Kindle-Reading-Records-v9.8.1-5.20-vera-test11.zip",
+  "zip_size": 15624296,
+  "zip_sha256": "689bdfd6449d517eba7d1b30e0869cf39ec83a188571f3264ce18ba03ff0c7c5",
+  "payload_sha256": "4501c88cbcc8bd62a02f233fd915c2b1a80b7a9c66d02efdfc8d0722c9aa1d39",
+  "payload_files": 120,
+  "changed_payload_files": [
+    "BUILD-INFO",
+    "PACKAGE-MANIFEST.json",
+    "README.txt",
+    "V4-PAYLOAD",
+    "native-reading-time-package/Install-Native-Reading-Time-Optimized.sh",
+    "native-reading-time-package/cover-image",
+    "native-reading-time-package/install.sh",
+    "native-reading-time-package/launch.sh",
+    "native-reading-time-package/migration-manifest.tsv",
+    "native-reading-time-package/阅读记录-entry.sh",
+    "v4/cleanup.sh"
+  ],
+  "unchanged_payload_files": 109,
+  "baseline_zip_sha256": "a195a3f6320d1ca3f523d6b5d2354d923faccf8f67d6575ba9fa809fed19ff52",
+  "development_base_commit": "dbbc59d6eff36ea99d5c2daa8da8e486065b37b9",
+  "helper_sha256": "a0c547b7b1c6c7c8b792e1f4b56bc199ef14c8a7815691adc438c1e86bd530bc",
+  "helper_bytes": 72528,
+  "c_source_sha256": "8ef4c93833be4d75bd0b5da7245685c01336f928b092df3051dac43cec825bf8",
+  "hardware_display_verified": false,
+  "publication_actions": [],
+  "date": "2026-10-22",
+  "timezone": "Asia/Shanghai",
+  "status": "LOCAL_CANDIDATE_OFFLINE_PASS",
+  "source_state": "Uncommitted local candidate; development base plus exact file hashes below",
+  "root_cause_commit": "e0e7544242ee7b85c7c95f224937de5915d0bd03",
+  "baseline_source_commit": "6ab389ae5d688393499088d46422d03c89a7e2dc",
+  "source_sha256": {
+    "native/custom-cover/cover-image.c": "8ef4c93833be4d75bd0b5da7245685c01336f928b092df3051dac43cec825bf8",
+    "native-reading-time-package/cleanup-manifest.txt": "5a805bb3dd9cf3e0be802e1bbb91254184f0688d028ea0e4a4e00fc821992d79",
+    "native-reading-time-package/compat/detect_env.sh": "160941baec0f884819c3ba241f00ee6b5279d26158c31bfe81f1a90993bb6379",
+    "native-reading-time-package/compat/device_variant.sh": "576c959c97f42473692e2ca3da01835fbce6808bd561d1ba74de4a59fe2ca6eb",
+    "native-reading-time-package/compat/lifecycle.sh": "21ee6c8f78b32338162facf7b4d4533308d7f90f03a731922ebe7b1c7379b297",
+    "native-reading-time-package/compat/migration.sh": "eadfb83f88dec85e8e031e6566b7db70c00e8ea69f2ee6a61e026e006393f346",
+    "native-reading-time-package/compat/performance.sh": "b9baf5306c64f66ea320e0fbd3b174a9ade8067c3161b32995ace3599a58a0fd",
+    "native-reading-time-package/compat/runtime-lock.sh": "6d35516f3d28dd81d10158e9a872b5ed870aef5b33670aab572c76935d101a21",
+    "native-reading-time-package/compat/scanner.sh": "674374c4dd1fe0197354bb85e2a4ca3ad52599aa6a7e6cdbc71939fe3ed4a874",
+    "native-reading-time-package/cover-image": "a0c547b7b1c6c7c8b792e1f4b56bc199ef14c8a7815691adc438c1e86bd530bc",
+    "native-reading-time-package/diagnostics.sh": "672fcef613e97863c5467232c5853002a6f9fbff26e22828f622a171f837b8a0",
+    "native-reading-time-package/FONT-LICENSE.txt": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2",
+    "native-reading-time-package/idle-input": "fe3447139695c4a1dc4543170388bdef08f3645a123e122c968b032aafd20dee",
+    "native-reading-time-package/install-manifest.txt": "c689aefff5c0c9a2ca3a8a0a26f88a27ec761d454cbeec242879f387e85093a4",
+    "native-reading-time-package/Install-Native-Reading-Time-Optimized.sh": "955526bf8d3ee1647045158cb6242250fb72289c599b0dedc092cf2d1e38fa72",
+    "native-reading-time-package/Install-Native-Reading-Time.sh": "3e47a2b9702754be06b558938fa6f7552ecead508075bbb5faf891b446cf4c40",
+    "native-reading-time-package/install.sh": "fc82f41925c2bf386ae1b60331c605a54517a1cf8e5f0ac87f5a54d5eaaae62e",
+    "native-reading-time-package/launch.sh": "81fddaca46c0d4119174895e337d327f490a7acbc5eecc367e377f89b41c027d",
+    "native-reading-time-package/launcher-icon.png": "7b0e7ab202c48de4409f587b67505b7ba1045b6083ab0929b92920d7486efa28",
+    "native-reading-time-package/native-reading-time-daemon.sh": "48e2b237c43d3f058ff3a0edc5f130764161f4fac227361bd2c8dc87a3fed6b1",
+    "native-reading-time-package/native-reading-time.conf": "6d47134c2c21696c513a9336b351346dc5ac39867d940562e7e66e71f8661e80",
+    "native-reading-time-package/NotoSansCJKsc-Regular.otf": "2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b",
+    "native-reading-time-package/reading-config.sh": "a4c52c62f6427345339ca1d9959aab340ad59cd7d0c3436c8f8c2c4cc0fde6cf",
+    "native-reading-time-package/reading-custom-covers.lua": "231a49c1ff487ed332912868e118ee7c2ecf32562ee5f6f5d12098a1961a773c",
+    "native-reading-time-package/reading-custom-covers.sh": "e11cf05250a2df0ae96719a29fc84a5bbc2db8f6a01d94f1a056987260b8c99e",
+    "native-reading-time-package/reading-idle-touch.lua": "d43d9ce5cc52a87e0d612b5c88256715cec09056672b485d5199d00cc4172cb1",
+    "native-reading-time-package/reading-idle.sh": "4a6565775c00ab27be6a7b44ade417219bfb3bbd11b04107d942b5bd80a6c65e",
+    "native-reading-time-package/reading-insights-cache.awk": "1a7d716c5b75af719b396f72932a1e6db4293fd9a96ccf91509a0653bdd135e1",
+    "native-reading-time-package/reading-insights-cover.lua": "1504115ee2089a6907b123773bf498f35ca7b52a72b70dfe78c7a9c5d1d21d1e",
+    "native-reading-time-package/reading-insights-render.lua": "95be708d747de93f0169da092600a3be021f5d76a63adf7c4df35e926871e769",
+    "native-reading-time-package/reading-insights-title-widths.lua": "e722b1b13a4466370ad0193141a2a161ea4295e8787b17937e8b237f73bb86c7",
+    "native-reading-time-package/reading-insights-titles.lua": "08f09f02108185a12cf6f2a2e2087fd6400bf36371a8685e84a5341ff94397d7",
+    "native-reading-time-package/reading-insights-touch-preflight.sh": "4aee66063afa7167ef0c37dd096f1c6f8fee00b269d715377f5473b9d087e66e",
+    "native-reading-time-package/reading-insights-touch-probe.lua": "c0f7269436b0275f400249ba36dc6feff987e5474ffc8cbf49c1fcbe681db53a",
+    "native-reading-time-package/reading-insights-touch-ui.lua": "2dc3e73c9e02d20a8c7427ec53042b48eb35c1ba8a79f72b0411855ce1dd4b92",
+    "native-reading-time-package/reading-insights-touch.lua": "28855906f930a34f1423c094320005d58ddfec66494e18c405008fb908be56a9",
+    "native-reading-time-package/reading-power.sh": "29c691ad996be60a31321278b7eac2967c27d7c9ca1dd1ce22244e72b6c18a3a",
+    "native-reading-time-package/reading-settings.sh": "f9ceeb7e30e5034accd096b9b7e901403b5f0163dd811a64e4a10cb2f5243854",
+    "native-reading-time-package/render-assets/dynamic-glyphs.pgm": "bf4691d55d509ec57e719f09f9e7c2bcea78945f43dfa93d827ad067b2d4a3a0",
+    "native-reading-time-package/render-assets/dynamic-glyphs.tsv": "9933c0e3e9efa150f611ad51524176002ad41b99b072dad014bbed85791be942",
+    "native-reading-time-package/resources/kual/reading-records-installer/bin/action.sh": "7addcf2a8be6c3cdfbb2fb2040b9784708d45cbe2ae582c9f1e8a1b4d17e4a51",
+    "native-reading-time-package/resources/kual/reading-records-installer/config.xml": "67487be1a64d34000187e3c68465a320c8c6026dbd84a8c25f1e9783191d0530",
+    "native-reading-time-package/resources/kual/reading-records-installer/menu.json": "cb0e6c396d9adf21286345dc4d8eb955c66e94187cef23cf055ed6ffd9533b50",
+    "native-reading-time-package/resources/reading-records-uninstall.sh": "1b3b94f5cafc00b69193109250cf17b6c6bb1966d6b1eac50b160ce1ea9c51a8",
+    "native-reading-time-package/service-manager.sh": "62b60f98a51efe7d955b1e249e53164d5eede251ae99771fa4580727016cd66f",
+    "native-reading-time-package/ui/books.png": "0d8ddc6162692a170b1d8ace8ddadd27b3b1f72b483ac407eed602190b02589c",
+    "native-reading-time-package/ui/daily.png": "3948f5973aac2f28c80bc3dd7a2cd56aa0bc32ef346229f1a5a82a18ece03bf1",
+    "native-reading-time-package/ui/day-1.png": "ef4e4d09b8f275d72fd56f219d45cb2c644d959674bf3a976d001e1086b6b76b",
+    "native-reading-time-package/ui/day-10.png": "a741adc74a353ad5f82fe63c0564a090d1246b259711f7c10412c5b150d1386d",
+    "native-reading-time-package/ui/day-11.png": "de3f5765cd83597d05859ccc7a7ea2b0ce2f4163f3c2fb368de085ebb69823cd",
+    "native-reading-time-package/ui/day-12.png": "da41594880ab9ca64e23fe8a801056fa25934a14bb3dfc6bd422ec28d5996527",
+    "native-reading-time-package/ui/day-13.png": "ed0c826f2a8ea8325df60e22be7dda55b80149580f6753e8fbd196ebc0290d8d",
+    "native-reading-time-package/ui/day-14.png": "36cbb9fceabf5b1cc92fa69532cd8763a79549c0c00ce7601f0f5fe50fac7a8b",
+    "native-reading-time-package/ui/day-15.png": "f368cd13cf86935d30d3e23c252210929a37519e58e9a0a0ac489fd5a3a512e6",
+    "native-reading-time-package/ui/day-16.png": "a0f46e5d7b91311a837373d483532cdd4f9c09c052e79b85f607e9d93533b023",
+    "native-reading-time-package/ui/day-17.png": "4defe49be2e370f4dc5f13de353ff1fbf94bd475b7cd09fd3cca0ad1872a0ca5",
+    "native-reading-time-package/ui/day-18.png": "4bd06b90e1c9d2f279094f2b42970b33b8f7905efd35bb69fec57168a13a7660",
+    "native-reading-time-package/ui/day-19.png": "1f64a42b2e08adf1323a9a6aa67770092fd807c2b19f57c3b1730e462d9764f1",
+    "native-reading-time-package/ui/day-2.png": "c8ab3d6aca7e7cbd7cad4f6da8a0c71d0baac4ab3b5014bd778fcf355f11be0c",
+    "native-reading-time-package/ui/day-20.png": "db4a9218554fd966662c49469fe04726b4a06ea9ef534790d491ef5e320e1cec",
+    "native-reading-time-package/ui/day-21.png": "2970d2aa12a97ee1a4095f8326934138c0785604a7224a96a04bdcc198bbaee9",
+    "native-reading-time-package/ui/day-22.png": "7d649ce7136b0ad2180611a18a562392d436c77b4fbbfcc85f14608dfde914c0",
+    "native-reading-time-package/ui/day-23.png": "80f1b54932469f43cdc49de73e05200105f042d4023bf4d1a7be1b93b149857f",
+    "native-reading-time-package/ui/day-24.png": "4f6b72901dbaca343345371d028f86f49df090eaa2947aae0b138063a0d43a61",
+    "native-reading-time-package/ui/day-25.png": "f522605dd24aabfc50f1f95dcf7de0c6d078021fc4483df876d427d021410481",
+    "native-reading-time-package/ui/day-26.png": "f407072aa76b8f01f608e518f25d05c177449778827eb61a648ed38ae5ea3340",
+    "native-reading-time-package/ui/day-27.png": "57d46fd181f5d31fe238d788ba38f9650ab6d9db4e4f31e9d0df5f9cef758a38",
+    "native-reading-time-package/ui/day-28.png": "c76070c740d3a9321b45164ecd1cae14541820690e1a9ff50db87294092ac249",
+    "native-reading-time-package/ui/day-29.png": "68fe8013c2ad777a5fd527e2213679e1b0f3d84695b2fbd55df5c643fabaea9d",
+    "native-reading-time-package/ui/day-3.png": "68e9724385f3319aeb43f8b14b6c923172cf2928cf9eaa33206d62beb3163aec",
+    "native-reading-time-package/ui/day-30.png": "ff2c9bb52ed3dead542749a2fcd7432c2fa07a66ad023a9c5670b3f7bf1da5cf",
+    "native-reading-time-package/ui/day-31.png": "2d215951c52212727cb211c087f8dd70fcef0dae08ca5dba903dcdfd490a5b46",
+    "native-reading-time-package/ui/day-4.png": "1d3bd429c5e80a89962b7a74b162139863ecd07d3be2e6dd016a62a5b43f2f2c",
+    "native-reading-time-package/ui/day-5.png": "b4726836e0b83b86a65b7ecf14f8b3da9a32629f8a76839d35f3487b31ed6a6e",
+    "native-reading-time-package/ui/day-6.png": "1efb22eeede9bf02105bc773cd1ffea1e38b5b08be17adff58d26b6d0a733d5f",
+    "native-reading-time-package/ui/day-7.png": "f761c353fbb9be8bc8760032956a96538a78e171b3e9563df44a3e2acc8a6a93",
+    "native-reading-time-package/ui/day-8.png": "783aab77d1837583393c432b0d348a72a78efd207c60d188ddfb4d7b97ebf78b",
+    "native-reading-time-package/ui/day-9.png": "2d02a0a75077f7d0fe43d2eadfc16936e22e5f6ad199540a9dbca6a61f00e30d",
+    "native-reading-time-package/ui/total.png": "189e5facce270cb9b8cee7cc47977b5065adf753f4fec041efcda4196dafb601",
+    "native-reading-time-package/ui-calendar/book_detail.png": "79b807081e21fdf50aaac089a8cd4a3413f7468a33e0d632b9dd67410f80a1bd",
+    "native-reading-time-package/ui-calendar/books.png": "6099d9798aec7813c28eabb204fb4aad3493540c39d3630fbdeb45cecfae6675",
+    "native-reading-time-package/ui-calendar/daily.png": "56b87828d7a31da552e130a95b3db19e22849af08ea95479845f52de9d87539e",
+    "native-reading-time-package/ui-calendar/day_detail.png": "7282b1d21f288d704a309c4f86ef24662af1efef1498e26f58fb7c0bb4c415f1",
+    "native-reading-time-package/ui-calendar/month_detail.png": "890f7a8564dbf665ab94f901117f994432b33528d51f92984247828a574beea9",
+    "native-reading-time-package/ui-calendar/settings-button.png": "52db4fa84d4f3a3d9dd7855fd12bed1ca44c3a3f129b664b8ee814255335e959",
+    "native-reading-time-package/ui-calendar/settings-custom-selected.png": "b614950a033e887646678fad42b483e7b8ffad05ec4eabac652cc509b3ae5154",
+    "native-reading-time-package/ui-calendar/settings-preset-1.png": "1c89cb03f629534cd42dc3077052b668a608789bec31afcc065a5efc87c36722",
+    "native-reading-time-package/ui-calendar/settings-preset-10.png": "69ff9b6a39cbf0ea1d842f964c839556a728743bcf2afd8d332b4f1d8aab2e32",
+    "native-reading-time-package/ui-calendar/settings-preset-2.png": "8f2a743829fe6fd1e54eda1bdc5909a99228980e0be68ef4982b64253b35c399",
+    "native-reading-time-package/ui-calendar/settings-preset-3.png": "5c4932548e96d99822f9ddf45950e9d1339f42e2170a17f30f91759481c0d6e1",
+    "native-reading-time-package/ui-calendar/settings-preset-4.png": "31fcbd66febea347d546132f19b37db5457a828b66718949990ff472752754e4",
+    "native-reading-time-package/ui-calendar/settings-preset-5.png": "5987374746fc45da5b66851230215225b3435526d898edc58b85d21b9382c125",
+    "native-reading-time-package/ui-calendar/settings-switch-0.png": "d5edb95ab84153861e844f5c94cb2ab26cf6860b8f6c97f18d7280aa667a1ae2",
+    "native-reading-time-package/ui-calendar/settings-switch-1.png": "6895210e80dd2cff4e0e5f8368343beba9f338eb2b79cd0b6a943acba32dec1a",
+    "native-reading-time-package/ui-calendar/settings.png": "2b3278080ec2e485af93e225cdd16b08d4d7b5137c9597bf6f9540e84abfabff",
+    "native-reading-time-package/ui-calendar/settings_cover.png": "ddcac0b9777be5882bbe425a0d19cf821a2597047a40be74567864a1485d0e4d",
+    "native-reading-time-package/ui-calendar/settings_cover_books.png": "968bc057b6ed50bbe13b2eff6ac53c61342e06c0d6a9ccbe116d5a5f4b040f90",
+    "native-reading-time-package/ui-calendar/settings_cover_images.png": "b2bfa4d597c2fe1f9ac6d678dc0c83a6cb2e11e6e219a1e0023f0dca7b817a59",
+    "native-reading-time-package/ui-calendar/settings_cover_info.png": "e1f6615ec4197322bbe4fb5b482ccf4fe8b77c56339a73fb613aa8aafc0cc9d2",
+    "native-reading-time-package/ui-calendar/settings_cover_manage.png": "fbef3d0a386c796ba1757f0b731f98f644cc8337135b7d9f18467147f212f377",
+    "native-reading-time-package/ui-calendar/settings_cover_picker.png": "54c78a26e620ea526198f82e00ca0c81c48101016b0ea9c275fd7d61b381a6ed",
+    "native-reading-time-package/ui-calendar/settings_custom.png": "a03227366c64c68d202c40d163a2c59a90bba3695f0439555399852aad6be1bc",
+    "native-reading-time-package/ui-calendar/settings_idle.png": "c113f6ebb642b95bc2cbf437c654a4816dd36469a9206a08d21a75432ab223f7",
+    "native-reading-time-package/ui-calendar/total.png": "49f749e7c1fa47932c57b76d5942e7f6f2166f965a401a9a1cf2158c4d010bc4",
+    "native-reading-time-package/ui-calendar/week_trend.png": "660f78bc005876ec4dd732154eb55a5a2887c2af614ca0b5a47af13858119d1a",
+    "native-reading-time-package/uninstall.sh": "b95975578531fc85deab5196b47a7ea18c7b38e7c9c709259d71db1f94376a0c",
+    "native-reading-time-package/阅读记录-entry.sh": "3dfb93e355cf119e9e06de751491348ff5ec5b098bbf7cef5ca9375478be2927",
+    "native-reading-time-package/阅读记录-optimized.sh": "1c17ec108c4b03c11f16de457b508200368426cfd5c84c5e2e581cec58a55402",
+    "native-reading-time-package/阅读记录.sh": "932e726618517931565a342c35debe923257567906874faabb725a3565bed8af",
+    "scripts/build_cover_helper.py": "bcf70df2a8bb8d0a25de997fbed51f2ecc9b58d2bcee20491865c71c4b85ca60",
+    "scripts/build_v4.py": "8a2e2e0bee1e072a4297acfbcd5963f5b39128f9251cfd2f5de98ef5d8b62627",
+    "scripts/validate_all.py": "b67e90eccd76225631834d5189344febf0819b946e05dc752a81d903af8244ad",
+    "scripts/verify_color_test11.py": "d48b71f4e16ea7614b6cc5409629c6888c8e6a8354a476a7f1e22e996a9000eb",
+    "tests/validate_color_covers.py": "5fe418b70ff8a4814114bb8eaa0e6d122866290f685863601c1899e434bb3046",
+    "tests/validate_color_upgrade.py": "a07722fec9c7d20f44838c6166d5a510209c5762649a8f60efe6eb0f3813a5f2",
+    "tests/validate_custom_covers.py": "9b576da1eb7469b51470d6ad2100e95586e97ba905f4519bbc7df888c3518dcc",
+    "tests/validate_fbink_actual_use.py": "53e0e83f95cdf125e0903963fb38b7378d92ec0acd6314a1a666dd4fd984490c",
+    "tests/validate_v4.py": "cc047eb637c0c1a92e031b7461abc3b89453ac7314a7a7602729117b59dec18e",
+    "v4/bootstrap.template.sh": "17e159fdabf8d0471b68491106048cfdd289345034ff380d175297867290c957",
+    "v4/cleanup.sh": "eb1c564052aec99f4d530fe0cb247a098eb3859cc246f1e4f5824cf5a76865f4"
+  },
+  "color_pixels_and_cache": {
+    "result": "PASS",
+    "checks": [
+      "RGB source preserved by real and prepare; v1 grayscale cache bypassed automatically",
+      "warm cache hit retains pixels and modification time",
+      "cache format, dimensions, truncation and excess length repaired",
+      "JPEG color retained; original BMP and GIF formats remain supported",
+      "alpha composited on white; proportional white borders and grayscale inputs retained",
+      "source content replacement detected even with preserved modification time",
+      "mixed PGM/PPM cache bounded to 128; current image, unknown files, directories and links protected"
+    ],
+    "host": "Windows",
+    "c_source_sha256": "8ef4c93833be4d75bd0b5da7245685c01336f928b092df3051dac43cec825bf8",
+    "hardware_display_verified": false
+  },
+  "custom_cover_integration": {
+    "result": "PASS",
+    "log": "build/validation/color-test11/custom-covers.log",
+    "coverage": "Real/custom/generic RGB at production fb() boundary; resolver, previews, 503-book paging and 16/24-byte evdev"
+  },
+  "additional_completed_checks": [
+    {
+      "check": "tests/validate_cover_fallbacks.py",
+      "result": "PASS",
+      "evidence": "Successful execution observed before the full FBInk matrix; these sources remain unchanged"
+    },
+    {
+      "check": "tests/validate_cover_regression.py",
+      "result": "PASS",
+      "evidence": "Successful execution observed before the full FBInk matrix; these sources remain unchanged"
+    },
+    {
+      "check": "tests/validate_fbink_resolver.py",
+      "result": "PASS",
+      "evidence": "Successful execution observed before the full FBInk matrix; these sources remain unchanged"
+    }
+  ],
+  "ui": {
+    "result": "PASS",
+    "checks": [
+      {
+        "check": "syntax",
+        "result": "PASS",
+        "detail": "All shipped .sh files: sh -n and dash -n; Lua files: Lua 5.1 loadstring; UTF-8 without BOM, LF."
+      },
+      {
+        "check": "stable payload scope",
+        "result": "PASS",
+        "detail": "Against v9.6.10, statistics and data paths stay stable; idle timing is an opt-in extension; additions include the compatibility detector, launcher, installer/cleanup entries and manifests, and the 9.7.5 UI/cover payload."
+      },
+      {
+        "check": "preserved core",
+        "result": "PASS",
+        "detail": "Default daemon path is exact; Upstart, legacy touch, legacy ui/ assets and font remain byte-identical to v9.6.10; cache changes are limited to identity/range aggregation and exclude future-dated rows from the new all-time summary."
+      },
+      {
+        "check": "interaction invariants",
+        "result": "PASS",
+        "detail": "Default daily, scaling and page navigation remain stable; capability touch discovery is covered by validate_standard_touch_compat; 5.18.x refresh remains nonflashing."
+      },
+      {
+        "check": "drawing argument equivalence",
+        "result": "PASS",
+        "detail": "Direct shell arithmetic emits the same image/rectangle FBInk argv at native, KPW and small-screen scales, including offsets and minimum sizes."
+      },
+      {
+        "check": "calendar arithmetic",
+        "result": "PASS",
+        "detail": "2412 months (1900–2100), including century leap rules; 28/29/30/31 days and all weekday offsets match Python calendar."
+      },
+      {
+        "check": "month transitions",
+        "result": "PASS",
+        "detail": "December ↔ January and March 31 → leap February move selected_date to the target month day 1."
+      },
+      {
+        "check": "touch map",
+        "result": "PASS",
+        "detail": "263634 real Lua hit checks across every month; cell corners/interiors, gutters, empty slots, tab and month buttons verified."
+      },
+      {
+        "check": "scaled touch",
+        "result": "PASS",
+        "detail": "Logical-to-physical centers checked at four viewports, including nonzero origins; baseline transform retained."
+      },
+      {
+        "check": "cache regression",
+        "result": "PASS",
+        "detail": "The single AWK pipeline still sums repeated sessions and three books to 246 minutes over four days, while DAY_BOOKS now carries id/book_no after its unchanged first three columns."
+      },
+      {
+        "check": "daily and average",
+        "result": "PASS",
+        "detail": "Actual Shell + Lua rendering: selected daily total 1时18分; monthly 4天/4小时6分钟; 246÷4 rounds to 1小时2分钟."
+      },
+      {
+        "check": "rounding boundaries",
+        "result": "PASS",
+        "detail": "Zero days and values just below/at half-minute boundaries rendered; hour carry and 61.495min vs 61.5min verified."
+      },
+      {
+        "check": "empty month rendering",
+        "result": "PASS",
+        "detail": "Real rendered four/five/six-row months, Feb 29, Jan 1, empty day/month: dates remain visible with no duration, explicit empty detail."
+      },
+      {
+        "check": "duration boundaries",
+        "result": "PASS",
+        "detail": "0, 1–59 sec, 1–59 min, exact hour, several hours and 24h tested; no record shows only date; sub-minute reading remains visible in seconds."
+      },
+      {
+        "check": "long titles and progress",
+        "result": "PASS",
+        "detail": "Very long Chinese and English/no-space titles wrap to at most two lines then ellipsis; measured width within native text margins. Progress 0/13/30/100 and unknown render successfully."
+      },
+      {
+        "check": "book footer unchanged",
+        "result": "PASS",
+        "detail": "Pagination footer and buttons byte-identical pixels; existing no-op behavior retained."
+      },
+      {
+        "check": "complete and taller grid",
+        "result": "PASS",
+        "detail": "Every one of the seven slots in every row has a border, including empty month slots; cell height increases 12.8–13.3%."
+      },
+      {
+        "check": "true horizontal centering",
+        "result": "PASS",
+        "detail": "Rasterized ink bounds for Sep/Oct/Jan/Dec and three year titles center at logical x=636 within half a pixel."
+      },
+      {
+        "check": "continuous card borders",
+        "result": "PASS",
+        "detail": "Final calendar/books composites keep separators 60 logical px inside the card frame and at least 20 physical px away on every supported test viewport; the books raster stays wholly inside one shared-helper rounded frame, with no legacy row lines or border repaint. Total/all-history panel guards also pass."
+      },
+      {
+        "check": "common font baseline",
+        "result": "PASS",
+        "detail": "Actual Lua glyph placements in all seven mixed-string probes share one font baseline per string; weights and glyphs share same-size baseline/ascent/descent. Original Noto font preserved."
+      },
+      {
+        "check": "progress column and chart headroom",
+        "result": "PASS",
+        "detail": "Known/unknown progress retain the same global right edge after the safe content-tile inset; 11 current integer-hour annual chart scales and nice tick steps tested. 294min gives a 6h ceiling with 1h ticks."
+      },
+      {
+        "check": "Latin word boundaries",
+        "result": "PASS",
+        "detail": "English, Latin-accented, mixed CJK/Latin, punctuation, hyphens and overlong unbroken words tested; no partial words at wrap or ellipsis."
+      },
+      {
+        "check": "all daily books accessible",
+        "result": "PASS",
+        "detail": "0/1/3/4/7/10 entries traversed without loss/duplication; whole-day totals retained, controls only when needed, page clamps and month resets checked; page-only renders leave calendar bytes unchanged."
+      },
+      {
+        "check": "blank-cell and pager touch",
+        "result": "PASS",
+        "detail": "Leading blank cells/gutters consumed without swapped-coordinate fall-through; pager actions respect visibility and first/last boundaries. Input reader and physical transform otherwise preserved."
+      },
+      {
+        "check": "heatmap exact boundaries",
+        "result": "PASS",
+        "detail": "Raw seconds pass all 14 cases: 0, 1, every threshold minus one, exact 30m/1h/2h/3h/4h, 5h17m and 10h; no minute rounding or off-by-one."
+      },
+      {
+        "check": "heatmap grayscale support",
+        "result": "PASS",
+        "detail": "The existing compositor writes exact 8-bit PGM values (0 black, 255 white), so 255/235/210/180/145/105/70 are used without dithering."
+      },
+      {
+        "check": "heatmap month rendering",
+        "result": "PASS",
+        "detail": "A September fixture covers all levels and boundaries: inner fills match exact gray values, Level 5/6 text is white, Level 4 and lighter text is black, selected day 13 keeps Level 6 while gaining a 4 px inward border, and empty slots stay white."
+      },
+      {
+        "check": "selected-date border",
+        "result": "PASS",
+        "detail": "Moving selection from Sep 13 to Sep 2 restores day 13 to 2 px and gives day 2 the sole 4 px border; both heat fills remain unchanged."
+      },
+      {
+        "check": "heatmap month densities",
+        "result": "PASS",
+        "detail": "Completely empty, one-reading-day and all-31-days-populated months render correctly; no-reading cells remain white and existing month statistics stay intact."
+      },
+      {
+        "check": "heatmap redraw lifecycle",
+        "result": "PASS",
+        "detail": "Previous/next-month state resets selection/page and rebuilds all cell fills from the target month; returning from another primary page and a fresh render both regenerate the correct heatmap with no stale prior-month gray."
+      },
+      {
+        "check": "heatmap representative month",
+        "result": "PASS",
+        "detail": "Visual preview matches the requested pattern: Sep 2/3/4/5/6 are Level 1/3/2/6/4 (235/180/210/70/145)."
+      },
+      {
+        "check": "selected duration matrix",
+        "result": "PASS",
+        "detail": "A selected day at 0 min, 4 min, 45 min, 90 min and 4 h keeps gray 255/235/210/180/70 respectively, always has a 4 px inward black border, and keeps the heat-derived black/white text decision."
+      },
+      {
+        "check": "weekly plot layout",
+        "result": "PASS",
+        "detail": "Monday at 0, 35, 120 and 210 min uses one measured Y-axis gutter plus a 28 px safety gap; all seven centers are evenly derived from one plot area, labels share those centers, value text is plot-bounded, and Sunday retains right-side clearance."
+      },
+      {
+        "check": "heatmap isolation and refresh",
+        "result": "PASS",
+        "detail": "Daemon and calendar calculations remain byte-identical to v9.6.10; all-time aggregation and cover fallback do not alter heatmap inputs. The calendar is composed offscreen once, published once, then refreshed once; 5.18.x startup omits forced flashing."
+      },
+      {
+        "check": "settings navigation return",
+        "result": "PASS",
+        "detail": "The production dispatcher restores the selected calendar date and month title after both detail pages and keyboard cancellation, preserving pagination and other statistics filters."
+      }
+    ]
+  },
+  "fbink": {
+    "result": "PASS",
+    "target_retry": [
+      {
+        "variant": "standard",
+        "firmware": "5.20.1",
+        "screen": "1072 1448",
+        "case": "probe=139/actual=0",
+        "exit_code": 0,
+        "fbink_calls": 6,
+        "result": "PASS"
+      },
+      {
+        "variant": "standard",
+        "firmware": "5.20.1",
+        "screen": "1272 1696",
+        "case": "probe=139/actual=0",
+        "exit_code": 0,
+        "fbink_calls": 6,
+        "result": "PASS"
+      },
+      {
+        "variant": "standard",
+        "firmware": "5.19.6",
+        "screen": "1072 1448",
+        "case": "A=139/B=0",
+        "exit_code": 0,
+        "fbink_calls": 7,
+        "result": "PASS"
+      },
+      {
+        "variant": "standard",
+        "firmware": "5.19.6",
+        "screen": "1072 1448",
+        "case": "all actual commands fail",
+        "exit_code": 31,
+        "fbink_calls": 3,
+        "result": "PASS"
+      },
+      {
+        "variant": "standard",
+        "firmware": "5.20.1",
+        "screen": "1072 1448",
+        "case": "failed service/history UI works",
+        "exit_code": 0,
+        "fbink_calls": 6,
+        "result": "PASS"
+      },
+      {
+        "variant": "standard",
+        "case": "failed evidence/history UI works",
+        "result": "PASS"
+      }
+    ],
+    "firmware_draw_matrix": "All 36 normal draw cases across 18 firmware strings and 2 sizes passed in the initial full run",
+    "initial_attempt": "Full matrix completed; subsequent asynchronous service-status publication missing on Windows/MSYS; targeted complete rerun recorded separately",
+    "host_fixture_adjustment": "Windows disposable service-manager execution copy uses 60s watchdog / 65s observation; shipped production manager and Linux retain original 11s watchdog. Offline result does not certify recovery time."
+  },
+  "standard_regressions": {
+    "result": "PASS",
+    "checks": [
+      {
+        "name": "standard-touch",
+        "command": [
+          "tests/validate_standard_touch_compat.py"
+        ],
+        "exit_code": 0,
+        "seconds": 286.24
+      },
+      {
+        "name": "power-exit",
+        "command": [
+          "tests/validate_power_exit.py"
+        ],
+        "exit_code": 0,
+        "seconds": 310.28
+      },
+      {
+        "name": "orientation",
+        "command": [
+          "tests/validate_orientation_startup.py"
+        ],
+        "exit_code": 0,
+        "seconds": 854.79
+      },
+      {
+        "name": "startup-refresh",
+        "command": [
+          "tests/validate_startup_refresh.py"
+        ],
+        "exit_code": 0,
+        "seconds": 297.23
+      },
+      {
+        "name": "runtime-probe",
+        "command": [
+          "tests/validate_runtime_probe.py"
+        ],
+        "exit_code": 0,
+        "seconds": 225.4
+      },
+      {
+        "name": "compat",
+        "command": [
+          "tests/validate_compat.py"
+        ],
+        "exit_code": 0,
+        "seconds": 209.82
+      },
+      {
+        "name": "idle-input",
+        "command": [
+          "tests/validate_idle_input.py"
+        ],
+        "exit_code": 0,
+        "seconds": 7.31
+      },
+      {
+        "name": "idle-pause",
+        "command": [
+          "tests/validate_idle_pause.py"
+        ],
+        "exit_code": 0,
+        "seconds": 856.97
+      },
+      {
+        "name": "idle-guard",
+        "command": [
+          "tests/validate_idle_guard.py"
+        ],
+        "exit_code": 0,
+        "seconds": 3.59
+      },
+      {
+        "name": "core-install",
+        "command": [
+          "tests/validate_install.py"
+        ],
+        "exit_code": 0,
+        "seconds": 305.97
+      },
+      {
+        "name": "service-recovery",
+        "command": [
+          "tests/validate_service_recovery.py"
+        ],
+        "exit_code": 0,
+        "seconds": 139.53
+      },
+      {
+        "name": "day-detail",
+        "command": [
+          "tests/validate_day_detail.py"
+        ],
+        "exit_code": 0,
+        "seconds": 27.98
+      },
+      {
+        "name": "book-detail",
+        "command": [
+          "tests/validate_book_detail.py"
+        ],
+        "exit_code": 0,
+        "seconds": 22.59
+      },
+      {
+        "name": "period-detail",
+        "command": [
+          "tests/validate_period_details.py"
+        ],
+        "exit_code": 0,
+        "seconds": 28.79
+      }
+    ],
+    "hardware_verified": false
+  },
+  "test10_upgrade_transactions": {
+    "result": "PASS",
+    "checks": [
+      {
+        "package_sha256": "689bdfd6449d517eba7d1b30e0869cf39ec83a188571f3264ce18ba03ff0c7c5",
+        "scenario": "fresh ",
+        "result": "PASS",
+        "scanner_index_completion": "UNVERIFIED",
+        "protected_files": 0
+      },
+      {
+        "package_sha256": "689bdfd6449d517eba7d1b30e0869cf39ec83a188571f3264ce18ba03ff0c7c5",
+        "scenario": "9.8.1-test10 ",
+        "result": "PASS",
+        "scanner_index_completion": "UNVERIFIED",
+        "protected_files": 12
+      },
+      {
+        "package_sha256": "689bdfd6449d517eba7d1b30e0869cf39ec83a188571f3264ce18ba03ff0c7c5",
+        "scenario": "9.8.1-test10-cleaned ",
+        "result": "PASS",
+        "scanner_index_completion": "UNVERIFIED",
+        "protected_files": 12
+      },
+      {
+        "package_sha256": "689bdfd6449d517eba7d1b30e0869cf39ec83a188571f3264ce18ba03ff0c7c5",
+        "scenario": "9.8.1-test10 core_failure",
+        "result": "PASS",
+        "scanner_index_completion": "UNVERIFIED",
+        "protected_files": 12
+      },
+      {
+        "package_sha256": "689bdfd6449d517eba7d1b30e0869cf39ec83a188571f3264ce18ba03ff0c7c5",
+        "scenario": "9.8.1-test10 activation_failure",
+        "result": "PASS",
+        "scanner_index_completion": "UNVERIFIED",
+        "protected_files": 12
+      },
+      {
+        "package_sha256": "689bdfd6449d517eba7d1b30e0869cf39ec83a188571f3264ce18ba03ff0c7c5",
+        "scenario": "9.8.1-test10 interrupted",
+        "result": "PASS",
+        "scanner_index_completion": "UNVERIFIED",
+        "protected_files": 12
+      },
+      {
+        "package_sha256": "689bdfd6449d517eba7d1b30e0869cf39ec83a188571f3264ce18ba03ff0c7c5",
+        "scenario": "9.8.1-test10 ks_residue",
+        "result": "PASS",
+        "scanner_index_completion": "UNVERIFIED",
+        "protected_files": 12
+      },
+      {
+        "package_sha256": "689bdfd6449d517eba7d1b30e0869cf39ec83a188571f3264ce18ba03ff0c7c5",
+        "scenario": "9.8.1-test10 wrong_device",
+        "result": "PASS",
+        "scanner_index_completion": "UNVERIFIED",
+        "protected_files": 12
+      },
+      {
+        "package_sha256": "689bdfd6449d517eba7d1b30e0869cf39ec83a188571f3264ce18ba03ff0c7c5",
+        "scenario": "9.8.1-test10 busy_ui",
+        "result": "PASS",
+        "scanner_index_completion": "UNVERIFIED",
+        "protected_files": 12
+      }
+    ],
+    "hardware_verified": false
+  },
+  "prior_install_attempt": {
+    "result": "HOST_TIMEOUT",
+    "timeout_seconds": 130,
+    "log": "build/validation/color-test11-install.log",
+    "resolution": "Host-only test timeout configurable; current real test10-to-test11 transactions and fresh install pass; production watchdogs unchanged"
+  },
+  "protected_files_sha256": {
+    "ks-package/README.txt": "470b826f57e2619010e19cc5380650c415279f40d726500e3f7788f163b3c4d9",
+    "ks-package/RUNME.sh": "af5f04529eeccaec77a86046268879d0dc313256c6456f9017eaae7d58e45cdd",
+    "ks-package/documents/reading-records-ks-force-exit.sh": "e1da2343efa19355c3b3f8ec9a016af888c4cbd42ae9b8d23ee6a64dae02ce97",
+    "ks-package/documents/reading-records-ks-install.sh": "6ade63fb8556963fa687e5a01a376752747a18525f7ecf709b07f1c3cf38d637",
+    "ks-package/extensions/reading-records-installer/bin/action.sh": "471cc42a02ae3f6572dda4813e7ce57f17edb95ccf9f23b6a4628f227e98c858",
+    "ks-package/extensions/reading-records-installer/menu.json": "71be91b754813cf1623a15eaf113e153131ab68e69fc89441a73c15c5d0a7379",
+    "ks-package/native-reading-time-package/Install-Native-Reading-Time-KS.sh": "73a3dbaa5c8257ef47c69386dd3bb49bf608424c80e0870d01629287c21ce343",
+    "ks-package/native-reading-time-package/diagnostics-ks.sh": "126fddc4c9963406fbe91c2f4876e1b9d461295a0927ad4ce77f09856d8b21e8",
+    "ks-package/native-reading-time-package/force-exit-ks.sh": "fa9d655520833424c0985b5ff52eb30a079335189778a3fba8669ab64377d0d5",
+    "ks-package/native-reading-time-package/install.sh": "5ab94e35202a1d5449c3175c1aca9b4b257855d513d82225e999e6e02b5eb239",
+    "ks-package/native-reading-time-package/launch-ks.sh": "07387757801be42ae47bc82b2fd007982fc95b166732834ff878bbb9222c3401",
+    "ks-package/native-reading-time-package/reading-insights-touch-ks.lua": "cfdcfe655a364da86919eaf3f468d932e0d43d218679a17cef5f79dbef7b79ca",
+    "ks-package/native-reading-time-package/reading-insights-touch-probe-ks.lua": "f22312e21e43af477ef97360953143bbc9fb1f9d1590dc379b65add8aa16abee",
+    "ks-package/native-reading-time-package/ui-scribe/book_detail.png": "7002bc84524da962d70a945ac6ced2f11087e5c29af737b9a14edd1a96768d9b",
+    "ks-package/native-reading-time-package/ui-scribe/books.png": "b1f44c2c974409ef7aeba75905fd19f00d430829145bc98a3cfb4b405c424ef5",
+    "ks-package/native-reading-time-package/ui-scribe/daily.png": "872a9cd6c97a20f3336afff20ce892b22c042772fc4c3ce5cc916616b8dcd921",
+    "ks-package/native-reading-time-package/ui-scribe/day_detail.png": "6eddc6e4feb8bb84bf6c64fd953cf5b8f5423f67687bd64a02bd5484ffafa135",
+    "ks-package/native-reading-time-package/ui-scribe/month_detail.png": "65a691d37d0b04de4186505a6a694c9b9fd93e600412d06afed6906f68d26a28",
+    "ks-package/native-reading-time-package/ui-scribe/total.png": "8047d7a58a09493b9513aa54bf9090f3dbf32191cda16ad887edc7aee813f586",
+    "ks-package/native-reading-time-package/ui-scribe/week_trend.png": "f524373d0ae27c50489ec6f7ef2427d4b8e13197614f2636fa584b23bbd8a020",
+    "ks-package/native-reading-time-package/阅读记录-KS-entry.sh": "3ab7c9519e2bf6f29dd480b45af740eee920db25edf318e54a4bad6495e0fb4c",
+    "ks-package/native-reading-time-package/阅读记录-KS-force-exit-entry.sh": "e1da2343efa19355c3b3f8ec9a016af888c4cbd42ae9b8d23ee6a64dae02ce97",
+    "ks-package/native-reading-time-package/阅读记录-ks.sh": "0c10edb5149b79e4729d2eae32baabdba66c21484daf2475915cf61cf676b3e0",
+    "scripts/package_ks_release.py": "50a6ae547666d33599a5db770adde8b62ba7e5be4f988f6fe45c702cea33a180",
+    "dist/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera.zip": "0a1be184e01b4e7c359e6a1f576a0d9a824e4852012798a2ea3b3664f9751936",
+    "dist/v9.8.1/SHA256SUMS.txt": "2b8427f24894ef336dabeaab4e05f0ba8e9a715ebfd7f268cda99052121c9786",
+    "dist/v9.8.1/V4-SHA256SUMS.txt": "63df3bc9e74b7f04c20cf2bbf470d35a412d945b5d1cd62f5ba3a1e1716d64eb",
+    "dist/v9.8.1/v9.8.1-verification.json": "481b6f66b2f1b609f478f6c68268147e08d0a3869e37e7b3cce2838b07f7f0e4"
+  },
+  "limits": [
+    "Windows/MSYS offline fixtures; no physical KC framebuffer/display verification",
+    "No GitHub write, commit, tag, push or release replacement performed"
+  ]
+}

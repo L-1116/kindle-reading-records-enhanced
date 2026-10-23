@@ -12,6 +12,7 @@ import argparse
 ROOT = Path(__file__).resolve().parents[1]
 CHECKS = [
     ROOT / "tests/validate_custom_covers.py",
+    ROOT / "tests/validate_color_covers.py",
     ROOT / "tests/validate_power_exit.py",
     ROOT / "tests/validate_idle_pause.py",
     ROOT / "tests/validate_idle_input.py",

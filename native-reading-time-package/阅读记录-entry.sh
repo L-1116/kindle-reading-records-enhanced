@@ -4,7 +4,7 @@
 # Icon: /mnt/us/reading-time/assets/launcher-icon.png
 
 BASE="${READING_BASE:-/mnt/us/reading-time}"
-# product_version=9.8.1-5.20-vera-test1
+# product_version=9.8.1-5.20-vera-test11
 LAUNCHER="$BASE/bin/launch.sh"
 if [ -x "$LAUNCHER" ]; then
     exec "$LAUNCHER"

@@ -331,7 +331,7 @@ READING_FBINK="$FBINK_PRIMARY"; export READING_FBINK
 READING_LUA_PREFLIGHT="$RELEASE/bin/reading-insights-touch-ui.lua"; export READING_LUA_PREFLIGHT
 READING_LAUNCHER_CAPTURE=1; export READING_LAUNCHER_CAPTURE
 READING_RELEASE="$RELEASE"; export READING_RELEASE
-printf 'product_version=%s\nvariant=standard\nruntime_release=%s\nformal_entry=%s\n' "$PRODUCT_VERSION" "$RELEASE" "${READING_DOCUMENTS:-/mnt/us/documents}/reading-records.sh"
+printf 'product_version=%s\nvariant=standard\nruntime_release=%s\nformal_entry=%s\n' "${READING_PRODUCT_VERSION:-9.8.1-5.20-vera-test11}" "$RELEASE" "${READING_DOCUMENTS:-/mnt/us/documents}/reading-records.sh"
 [ ! -r "$BASE/release-info" ] || cat "$BASE/release-info"
 STAGE=power_snapshot
 READING_ORIGINAL_POWER=$(lipc-get-prop com.lab126.powerd preventScreenSaver 2>/dev/null) || fail 33 'cannot save power state'

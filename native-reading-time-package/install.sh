@@ -98,10 +98,10 @@ if [ ! -f "$BASE/bin/native-reading-time-daemon.sh" ]; then
     log "fresh install: running base installer"
     rr_run 120 /bin/sh "$PKG/Install-Native-Reading-Time.sh" || fail "base installer failed with exit code $?"
 fi
-log "running Standard ${READING_PRODUCT_VERSION:-9.8.1-5.20-vera-test1} installer"
+log "running Standard ${READING_PRODUCT_VERSION:-9.8.1-5.20-vera-test11} installer"
 rr_run 120 /bin/sh "$PKG/Install-Native-Reading-Time-Optimized.sh" || fail "optimized installer failed with exit code $?"
 
 STAGE=complete
 log "core installation completed"
-toast "阅读记录 ${READING_PRODUCT_VERSION:-9.8.1-5.20-vera-test1} 安装完成"
+toast "阅读记录 ${READING_PRODUCT_VERSION:-9.8.1-5.20-vera-test11} 安装完成"
 exit 0

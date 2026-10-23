@@ -8,10 +8,23 @@ from PIL import Image, ImageDraw, ImageFont
 from lupa.lua51 import LuaRuntime, LuaError
 
 ROOT=Path(__file__).resolve().parents[1]; PKG=ROOT/'native-reading-time-package'
+os.chdir(ROOT)
 OUT=ROOT/'build/validation/custom-covers';OUT.mkdir(parents=True,exist_ok=True)
 SH=shutil.which('sh') or 'C:/Program Files/Git/usr/bin/sh.exe'
 NATIVE=ROOT/('build/cover-image-host.exe' if os.name=='nt' else 'build/cover-image-host')
-q=lambda p:shlex.quote(str(p).replace('\\','/'))
+def test_path(path):
+    # Windows Lua 5.1 uses narrow fopen. Keep test file paths relative so a
+    # Unicode project directory does not become an artificial device failure.
+    value=str(path).replace('\\','/')
+    prefix=ROOT.as_posix()+'/'
+    return value[len(prefix):] if value.startswith(prefix) else value
+
+q=lambda p:shlex.quote(test_path(p))
+
+def preview(path):
+    with Image.open(path) as image:
+        return image.convert('L')
+
 if not NATIVE.exists() and os.name!='nt':
     cc=shutil.which('cc') or shutil.which('clang')
     assert cc,'A host C compiler is required for the offline decoder checks'
@@ -55,12 +68,12 @@ with tempfile.TemporaryDirectory(prefix='covers-',dir=OUT) as tmp:
         native('prepare',images,'outside.jpg',cache,ok=False)
         assert 'outside.jpg' not in native('scan',images).splitlines()
     first=Path(native('prepare',images,names[0],cache));before=first.stat().st_mtime_ns
-    assert Image.open(first).size==(240,360)
+    assert preview(first).size==(240,360)
     assert Path(native('prepare',images,names[0],cache))==first and first.stat().st_mtime_ns==before
-    landscape=Image.open(native('prepare',images,names[1],cache)).convert('L')
+    landscape=preview(native('prepare',images,names[1],cache))
     assert landscape.getpixel((120,0))==255 and landscape.getpixel((120,180))==60
-    alpha=Image.open(native('prepare',images,names[3],cache));assert alpha.getextrema()==(255,255);alpha.close()
-    first.write_bytes(b'broken cache');native('prepare',images,names[0],cache);assert Image.open(first).size==(240,360)
+    alpha=preview(native('prepare',images,names[3],cache));assert alpha.getextrema()==(255,255);alpha.close()
+    first.write_bytes(b'broken cache');native('prepare',images,names[0],cache);assert preview(first).size==(240,360)
     # Same size and mtime replacement is detected by content, not a stale stat key.
     stat=(images/names[0]).stat();Image.new('RGB',(400,600),(179,)*3).save(images/names[0]);os.utime(images/names[0],ns=(stat.st_atime_ns,stat.st_mtime_ns))
     assert Path(native('prepare',images,names[0],cache))!=first
@@ -103,7 +116,8 @@ act() {{ action="$1"; rr_settings_action; }}
         p=subprocess.run([SH],input=head+code,cwd=ROOT,text=True,encoding='utf-8',capture_output=True,timeout=45)
         assert p.returncode==0,(p.returncode,p.stdout,p.stderr,code)
         return p.stdout.strip()
-    assert shell('rr_cover_history; cat "$SESSION_DIR/custom-books.tsv"').count('book:')==5
+    history_rows=shell('rr_cover_history; cat "$SESSION_DIR/custom-books.tsv"')
+    assert history_rows.count('book:')==5,repr(history_rows)
     # The page query retains exact IDs and escapes quoted IDs/titles. No
     # optional location column or full progress snapshot is required.
     page_input=session/'query-page.tsv'
@@ -191,21 +205,50 @@ custom_cover_enabled=1
 '''
     def resolve(code):return shell(setup+code)
     shell("cover_target_kind=book;cover_target_id=unknown;cover_target_title='';rr_cover_save '06 图片 六.png'")
-    assert Image.open(resolve('resolveBookCover unknown unknown')).getpixel((120,180))==140
+    assert preview(resolve('resolveBookCover unknown unknown')).getpixel((120,180))==140
     shell("cover_target_kind=book;cover_target_id=unknown;cover_target_title='';rr_cover_save ''")
     assert state.read_bytes()==saved
-    assert resolve(f"printf 'id-a\\t%s\\n' {q(good)} > \"$COVER_CACHE\"; resolveBookCover id-a 同名书")==good.as_posix()
+    assert resolve(f"printf 'id-a\\t%s\\n' {q(good)} > \"$COVER_CACHE\"; resolveBookCover id-a 同名书")==test_path(good)
     actual=resolve('image() { printf "%s\\n" "$1"; };renderBookCover id-a 同名书 90 300 190 285')
-    assert Image.open(actual).getpixel((120,180))==23
-    assert resolve(f"printf 'id-a\\t%s\\n' {q(bad)} > \"$COVER_CACHE\"; resolveBookCover id-a 同名书").endswith('.pgm')
+    assert preview(actual).getpixel((120,180))==23
+    assert resolve(f"printf 'id-a\\t%s\\n' {q(bad)} > \"$COVER_CACHE\"; resolveBookCover id-a 同名书").endswith('.ppm')
     # Identify which source is used by its decoded pixel, not a mocked status.
     def pixel(book):
         p=resolve(f'rm -f "$COVER_CACHE" "$CATALOG"; resolveBookCover {book} 同名书')
-        return Image.open(p).getpixel((120,180))
+        return preview(p).getpixel((120,180))
     assert pixel('id-a')==80 and pixel('id-b')==255 and pixel('other')==179
     assert resolve('custom_cover_enabled=0; rm -f "$COVER_CACHE"; resolveBookCover id-a 同名书 || echo PLACEHOLDER')=='PLACEHOLDER'
     assert state.read_bytes()==saved
     assert pixel('id-a')==80 # Re-enabling restores prior choices, across processes.
+    # Exercise the actual image()/rr_settings_image() -> fb() boundary with
+    # colored originals, exclusive fallbacks and generic settings previews.
+    preserved={p:p.read_bytes() for p in (good,images/'03 portrait.jpeg',images/names[0])}
+    fb_capture='''
+ORIGIN_X=0;ORIGIN_Y=0;SCALE_NUM=1;SCALE_DEN=1
+fb() { printf '%s\\n' "$4"; }
+'''
+    def rgb_draw(code,expected):
+        commands=resolve(fb_capture+code).splitlines()
+        assert commands and all(s.startswith('file=') for s in commands),commands
+        for command in commands:
+            params=dict(s.split('=',1) for s in command.split(','))
+            with Image.open(params['file']) as im:
+                assert im.mode=='RGB'
+                assert max(abs(a-b) for a,b in zip(im.getpixel((120,180)),expected))<=3
+    Image.new('RGB',(240,360),(211,31,83)).save(good)
+    rgb_draw(f'''printf 'id-a\\t%s\\n' {q(good)} > "$COVER_CACHE"
+renderBookCover id-a 同名书 90 300 190 285
+renderBookCover id-a 同名书 105 500 190 285
+renderBookCover id-a 同名书 90 600 100 150
+''',(211,31,83))
+    Image.new('RGB',(240,360),(22,173,61)).save(images/'03 portrait.jpeg')
+    rgb_draw('rm -f "$COVER_CACHE" "$CATALOG";renderBookCover id-a 同名书 90 300 190 285',(22,173,61))
+    rgb_draw("rr_cover_preview '03 portrait.jpeg' 104 330 132 198",(22,173,61))
+    Image.new('RGB',(240,360),(43,61,219)).save(images/names[0])
+    rgb_draw('renderBookCover other 同名书 90 300 190 285',(43,61,219))
+    rgb_draw('rr_cover_preview '+q(names[0])+' 104 330 132 198',(43,61,219))
+    for p,raw in preserved.items():p.write_bytes(raw)
+    shell('rm -f '+q(base/'book-cover-cache.tsv'))
     # Status uses the same real resolver but must not unpack any source book.
     status_setup='''
 book_path_allowed() { return 0; }
@@ -224,7 +267,7 @@ status() { rr_cover_status "$@"; printf '%s\\n' "$rr_status"; }
     # A broken cache entry must not hide another decodable native thumbnail.
     assert resolve(f'''printf 'id-a\\t%s\\n' {q(bad)} > "$COVER_CACHE"
 printf '0\\t同名书\\tid-a\\t%s\\tfile://missing\\n0\\t同名书\\tid-a\\t%s\\t\\n' {q(bad)} {q(good)} > "$CATALOG"
-resolveBookCover id-a 同名书''')==good.as_posix()
+resolveBookCover id-a 同名书''')==test_path(good)
     (images/'03 portrait.jpeg').unlink();assert pixel('id-a')==179
     (images/names[0]).write_bytes(b'damaged');assert resolve('resolveBookCover id-a 同名书 || echo PLACEHOLDER')=='PLACEHOLDER'
     assert status('status id-a 同名书 "03 portrait.jpeg"')=='暂无封面'
@@ -379,7 +422,7 @@ with tempfile.TemporaryDirectory(dir=OUT) as tmp:
                 # Compatibility books retain their historical non-jump layout.
                 if legacy=='legacy' and mode=='books' and expected=='page_jump':continue
                 args=[p.as_posix(),str(Path(tmp)/'log'),mode,0,31,0,0,1272,1696,1,1,1576,'week','7d','direct',size,1272,1696,str(Path(tmp)/'report'),'unknown','unknown','unknown','unknown',legacy]
-                lua=LuaRuntime();lua.globals().arg=lua.table_from({i+1:str(v) for i,v in enumerate(args)})
+                lua=LuaRuntime();lua.globals().arg=lua.table_from({i+1:test_path(v) for i,v in enumerate(args)})
                 out=[];lua.globals().capture=lambda *v:out.append(''.join(map(str,v)))
                 lua.execute('io.write=capture;io.stderr={write=function() end};os.exit=function(n) error("EXIT:"..n) end')
                 try:lua.execute(touch)

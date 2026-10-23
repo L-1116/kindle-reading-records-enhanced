@@ -6,6 +6,7 @@ used by the UI. No device-side probes or user action are needed.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
 from runtime_fixture import install_python_fixture
@@ -134,6 +135,15 @@ def check(variant: str) -> None:
         common = ROOT / "native-reading-time-package"
         (base / "service").mkdir(exist_ok=True)
         shutil.copy2(common / "service-manager.sh", base / "bin/service-manager.sh")
+        if os.name == 'nt':
+            # The unmodified manager's 11-second recovery watchdog can expire
+            # while MSYS is spawning its evidence tools. Only the disposable
+            # host execution copy gets more wall time; shipped code is exact.
+            manager = base / 'bin/service-manager.sh'
+            text = manager.read_text(encoding='utf-8')
+            original = 'rr_run 11 /bin/sh "$SELF" ensure --notify'
+            assert text.count(original) == 1
+            manager.write_text(text.replace(original, 'rr_run 60 /bin/sh "$SELF" ensure --notify'), encoding='utf-8', newline='\n')
         shutil.copy2(common / "compat/lifecycle.sh", base / "compat/lifecycle.sh")
         shutil.copy2(common / "native-reading-time.conf", base / "service/native-reading-time.conf")
         shutil.copy2(common / "native-reading-time-daemon.sh", base / "bin/native-reading-time-daemon.sh")
@@ -144,7 +154,7 @@ def check(variant: str) -> None:
         (service_dir / "start-fail").touch()
         history_before = (base / "reading-time.tsv").read_bytes()
         run_case("5.20.1", screen, "failed service/history UI works", PRIMARY_FBINK_MODE="ok")
-        deadline = time.monotonic() + 14
+        deadline = time.monotonic() + (65 if os.name == 'nt' else 14)
         while time.monotonic() < deadline and not (base / "service-status.txt").exists(): time.sleep(.05)
         assert 'recovery_status=failed' in (base / "service-status.txt").read_text(encoding="utf-8")
         assert (base / "reading-time.tsv").read_bytes() == history_before
