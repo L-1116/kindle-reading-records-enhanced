@@ -1,6 +1,6 @@
 # 9.8.1-5.20-vera-test11：KC 彩色封面修复
 
-本包基于 GitHub 当前 5.20/Vera Standard test10，修复原始封面和自定义封面在进入 FBInk 前丢失颜色的问题。仅交付本地候选，未更新 GitHub Release、Tag 或其他固件附件。KC 实机彩色显示尚未验收。
+本包基于 GitHub 当前 5.20/Vera Standard test10，修复原始封面和自定义封面在进入 FBInk 前丢失颜色的问题。2026-10-23 用户确认该测试版本测试成功，并授权替换 GitHub 5.20/Vera 旧安装包；具体 KC 型号和固件小版本未补充。发布使用同一原包，只改外层下载名，保留 Tag 和其他固件附件。下方离线记录是生成时快照，后续验收见 [当前发布记录](releases/v9.8.1-verification.json)。
 
 ## 原因与处理
 
