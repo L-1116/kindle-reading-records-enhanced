@@ -12,11 +12,12 @@ release = {'id': 416331823, 'tag_name': 'v9.8.1', 'name': matrix['release_title'
            'draft': False, 'prerelease': False, 'assets': []}
 for row in matrix['packages']:
     release['assets'].append({'name': row['asset_name'], 'size': row['zip_size'],
+                             'label': row['asset_label'],
                              'digest': 'sha256:'+row['zip_sha256'], 'state': 'uploaded',
                              'browser_download_url': 'https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/'+urllib.parse.quote(row['asset_name'])})
 assert set(release_assets(release, matrix)) == {'test12', '519', 'test11', 'test10'}
 
-faults = ('missing', 'duplicate', 'extra_checksum', 'swapped_digest', 'bad_size', 'upload_pending',
+faults = ('missing', 'duplicate', 'extra_checksum', 'swapped_digest', 'bad_size', 'upload_pending', 'wrong_label',
           'old_filename', 'wrong_repository', 'wrong_host', 'wrong_tag', 'draft', 'prerelease')
 for fault in faults:
     bad = deepcopy(release)
@@ -26,6 +27,7 @@ for fault in faults:
     elif fault == 'swapped_digest': bad['assets'][0]['digest'] = bad['assets'][2]['digest']
     elif fault == 'bad_size': bad['assets'][0]['size'] += 1
     elif fault == 'upload_pending': bad['assets'][0]['state'] = 'new'
+    elif fault == 'wrong_label': bad['assets'][0]['label'] = '备用包'
     elif fault == 'old_filename': bad['assets'][0]['name'] = 'Kindle-Reading-Records-v9.8.1-5.20-vera.zip'
     elif fault == 'wrong_repository': bad['assets'][0]['browser_download_url'] = bad['assets'][0]['browser_download_url'].replace('/L-1116/', '/another-owner/')
     elif fault == 'wrong_host': bad['assets'][0]['browser_download_url'] = bad['assets'][0]['browser_download_url'].replace('github.com', 'example.com')
@@ -51,4 +53,4 @@ for name in ('README.md', 'docs/releases/v9.8.1.md', 'docs/安装与回滚.md'):
 assert matrix['packages'][0]['zip_sha256'] == 'e9244390c95db80f1dd5b02ef6d76f38ef133a066548541364d5a9430af95562'
 assert matrix['packages'][-1]['product_version'] == '9.8.1-5.20-vera'
 assert len({r['source_commit'] for r in matrix['packages']}) == 4
-print('PASS: four roles; 12 invalid release cases; three consistent choice/install pages; pinned originals')
+print('PASS: four roles; 13 invalid release cases; three consistent choice/install pages; pinned originals')

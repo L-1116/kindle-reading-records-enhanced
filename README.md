@@ -8,10 +8,10 @@
 
 | 下载 | 何时选择 | 与推荐包的区别 |
 |---|---|---|
-| **[推荐包｜5.20 Vera · test12](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera-test12-%E6%8E%A8%E8%8D%90%E5%8C%85.zip)** | **5.20 Vera 首选**，包括 5.20.1、5.20.1.0.2；KPW6、青春版及 KC 用户均先选推荐包 | 保留蓝牙计时、启动优化和彩色封面修复；安装报告改存内部目录，并修正安装文件时间戳 |
-| [5.19 专用包｜Vera](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.19-vera-5.19%E4%B8%93%E7%94%A8%E5%8C%85.zip) | **5.19 Vera 使用**；已验收 KPW6／5.19.6／Vera | 独立适配原包，未加入后续 5.20 包的蓝牙与彩色封面修复 |
-| [KC 备用包｜5.20 Vera · test11](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera-test11-KC%E5%A4%87%E7%94%A8%E5%8C%85.zip) | **KC 备用**：需要选用此前验收的旧版时选择；安装条件见下文 | 保留彩色封面和蓝牙计时修复；未包含 test12 安装修订 |
-| [KPW6／青春版备用包｜5.20 Vera · test10](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera-test10-KPW6%E5%8F%8A%E9%9D%92%E6%98%A5%E7%89%88%E5%A4%87%E7%94%A8%E5%8C%85.zip) | **KPW6／青春版备用**：需要选用旧版时选择；安装条件见下文 | 保留蓝牙计时、启动优化和触摸识别修复；未包含彩色封面修复及 test12 安装修订，**不推荐 KC 使用** |
+| **[推荐包｜5.20 Vera · test12](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera-test12-recommended.zip)** | **5.20 Vera 首选**，包括 5.20.1、5.20.1.0.2；KPW6、青春版及 KC 用户均先选推荐包 | 保留蓝牙计时、启动优化和彩色封面修复；安装报告改存内部目录，并修正安装文件时间戳 |
+| [5.19 专用包｜Vera](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.19-vera-519-only.zip) | **5.19 Vera 使用**；已验收 KPW6／5.19.6／Vera | 独立适配原包，未加入后续 5.20 包的蓝牙与彩色封面修复 |
+| [KC 备用包｜5.20 Vera · test11](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera-test11-KC-backup.zip) | **KC 备用**：需要选用此前验收的旧版时选择；安装条件见下文 | 保留彩色封面和蓝牙计时修复；未包含 test12 安装修订 |
+| [KPW6／青春版备用包｜5.20 Vera · test10](https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera-test10-KPW6-Youth-backup.zip) | **KPW6／青春版备用**：需要选用旧版时选择；安装条件见下文 | 保留蓝牙计时、启动优化和触摸识别修复；未包含彩色封面修复及 test12 安装修订，**不推荐 KC 使用** |
 
 **固件说明：5.20.1 和 5.20.1.0.2 可选择 9.8.1-5.20-vera 系列。** 2026-10-25 用户补充确认 test12 已实机通过，以及 5.20.1.0.2 已有实际安装使用成功；此次未提供具体机型或新固件对应的 test 构建，不据此宣称所有机型、所有固件小版本均已实测。
 
@@ -27,7 +27,7 @@
 
 **备用包同样要从该 ZIP 重新复制完整的两份配套文件。已成功安装 test12 的设备，test11／test10 原包会因版本归属保护拒绝直接降级；此时请保留当前安装与数据，通过 Issues 寻求支持，不要手动删除入口或绕过校验。** 清理不是卸载；不要手动清空 `reading-time`。test12 的安装报告与自动安装诊断保存在 `reading-time/install-logs/`，避免进入书库；test10、test11 仍保留旧报告行为。
 
-Assets 中提供四个安装 ZIP。GitHub 自动生成的 **Source code (zip)** 与 **Source code (tar.gz)** 是源码下载，**不是 Kindle 安装包**。
+Assets 中提供四个安装 ZIP，显示名称标明推荐或备用；下载后的文件名以 `recommended` 标注推荐包、`backup` 标注备用包。GitHub 自动生成的 **Source code (zip)** 与 **Source code (tar.gz)** 是源码下载，**不是 Kindle 安装包**。
 
 [详细安装与回滚](docs/安装与回滚.md) · [v9.8.1 发布页](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.8.1) · [其他固件与旧版 v9.7.6](https://github.com/L-1116/kindle-reading-records-enhanced/releases/tag/v9.7.6)
 

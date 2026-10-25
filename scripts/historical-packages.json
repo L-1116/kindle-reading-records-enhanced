@@ -4,7 +4,7 @@
     "path": "build/idle-startup-candidate/9.8.1-5.20-vera-test10.zip",
     "sha256": "a195a3f6320d1ca3f523d6b5d2354d923faccf8f67d6575ba9fa809fed19ff52",
     "official": true,
-    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera-test10-KPW6%E5%8F%8A%E9%9D%92%E6%98%A5%E7%89%88%E5%A4%87%E7%94%A8%E5%8C%85.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera-test10-KPW6-Youth-backup.zip",
     "provenance": "Unchanged accepted test10 original; renamed as an explicitly labeled device backup in the four-package release."
   },
   {
@@ -12,7 +12,7 @@
     "path": "dist/standard-9.8.1-test11/Kindle-Reading-Records-v9.8.1-5.20-vera-test11.zip",
     "sha256": "689bdfd6449d517eba7d1b30e0869cf39ec83a188571f3264ce18ba03ff0c7c5",
     "official": true,
-    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera-test11-KC%E5%A4%87%E7%94%A8%E5%8C%85.zip",
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera-test11-KC-backup.zip",
     "provenance": "Unchanged accepted test11 original; renamed as an explicitly labeled device backup in the four-package release."
   },
   {

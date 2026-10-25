@@ -92,6 +92,7 @@ def release_assets(release, matrix):
     result = {}
     for asset in assets:
         row = expected[asset['name']]
+        assert asset.get('label') == row['asset_label'], 'Missing or incorrect public download label'
         assert asset['state'] == 'uploaded' and asset['size'] == row['zip_size']
         assert asset['digest'] == 'sha256:'+row['zip_sha256'], asset['name']
         parsed = urllib.parse.urlsplit(asset['browser_download_url'])

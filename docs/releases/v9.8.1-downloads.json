@@ -15,7 +15,7 @@
     {
       "id": "test12",
       "role": "recommended",
-      "asset_name": "Kindle-Reading-Records-v9.8.1-5.20-vera-test12-推荐包.zip",
+      "asset_name": "Kindle-Reading-Records-v9.8.1-5.20-vera-test12-recommended.zip",
       "product_version": "9.8.1-5.20-vera-test12",
       "runtime_version": "9.8.1-5.20-vera-test1",
       "zip_size": 15627234,
@@ -145,12 +145,13 @@
       "accepted_checkout_bytes": {
         "native-reading-time-package/resources/kual/reading-records-installer/config.xml": "67487be1a64d34000187e3c68465a320c8c6026dbd84a8c25f1e9783191d0530"
       },
-      "repacked": false
+      "repacked": false,
+      "asset_label": "Kindle-Reading-Records-v9.8.1-5.20-vera-test12-推荐包.zip"
     },
     {
       "id": "519",
       "role": "firmware-specific",
-      "asset_name": "Kindle-Reading-Records-v9.8.1-5.19-vera-5.19专用包.zip",
+      "asset_name": "Kindle-Reading-Records-v9.8.1-5.19-vera-519-only.zip",
       "product_version": "9.8.1-5.19-vera-test1",
       "runtime_version": "9.8.1-5.19-vera-test1",
       "zip_size": 15590397,
@@ -278,12 +279,13 @@
       "accepted_checkout_bytes": {
         "native-reading-time-package/resources/kual/reading-records-installer/config.xml": "67487be1a64d34000187e3c68465a320c8c6026dbd84a8c25f1e9783191d0530"
       },
-      "repacked": false
+      "repacked": false,
+      "asset_label": "Kindle-Reading-Records-v9.8.1-5.19-vera-5.19专用包.zip"
     },
     {
       "id": "test11",
       "role": "kc-backup",
-      "asset_name": "Kindle-Reading-Records-v9.8.1-5.20-vera-test11-KC备用包.zip",
+      "asset_name": "Kindle-Reading-Records-v9.8.1-5.20-vera-test11-KC-backup.zip",
       "product_version": "9.8.1-5.20-vera-test11",
       "runtime_version": "9.8.1-5.20-vera-test1",
       "zip_size": 15624296,
@@ -413,12 +415,13 @@
       "accepted_checkout_bytes": {
         "native-reading-time-package/resources/kual/reading-records-installer/config.xml": "67487be1a64d34000187e3c68465a320c8c6026dbd84a8c25f1e9783191d0530"
       },
-      "repacked": false
+      "repacked": false,
+      "asset_label": "Kindle-Reading-Records-v9.8.1-5.20-vera-test11-KC备用包.zip"
     },
     {
       "id": "test10",
       "role": "kpw6-youth-backup",
-      "asset_name": "Kindle-Reading-Records-v9.8.1-5.20-vera-test10-KPW6及青春版备用包.zip",
+      "asset_name": "Kindle-Reading-Records-v9.8.1-5.20-vera-test10-KPW6-Youth-backup.zip",
       "product_version": "9.8.1-5.20-vera",
       "runtime_version": "9.8.1-5.20-vera-test1",
       "zip_size": 15624384,
@@ -548,7 +551,8 @@
       "accepted_checkout_bytes": {
         "native-reading-time-package/resources/kual/reading-records-installer/config.xml": "67487be1a64d34000187e3c68465a320c8c6026dbd84a8c25f1e9783191d0530"
       },
-      "repacked": false
+      "repacked": false,
+      "asset_label": "Kindle-Reading-Records-v9.8.1-5.20-vera-test10-KPW6及青春版备用包.zip"
     }
   ],
   "backup_installation_boundary": {
@@ -556,5 +560,10 @@
     "test12_to_test11": "Safely refused; old ownership manifest does not recognize test12 entries. Runtime and user data unchanged.",
     "test12_to_test10": "Safely refused; old ownership manifest does not recognize test12 entries. Runtime and user data unchanged.",
     "user_instructions": "Backup originals are for fresh installs or recognized older installations, including a failed test12 upgrade after automatic rollback; do not bypass ownership checks."
+  },
+  "asset_naming": {
+    "actual_filenames": "ASCII recommended/backup filenames because GitHub strips Chinese characters from actual asset names.",
+    "public_labels": "Chinese recommended, firmware-specific and device backup labels match the approved user-facing names.",
+    "reference": "https://docs.github.com/en/rest/releases/assets#upload-a-release-asset"
   }
 }
