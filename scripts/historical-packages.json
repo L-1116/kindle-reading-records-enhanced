@@ -1,5 +1,21 @@
 [
   {
+    "id": "9.8.1-test10",
+    "path": "build/idle-startup-candidate/9.8.1-5.20-vera-test10.zip",
+    "sha256": "a195a3f6320d1ca3f523d6b5d2354d923faccf8f67d6575ba9fa809fed19ff52",
+    "official": true,
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera-before-color-fix.zip",
+    "provenance": "Unchanged accepted test10 bytes; archived before the color fix."
+  },
+  {
+    "id": "9.8.1-test11",
+    "path": "dist/standard-9.8.1-test11/Kindle-Reading-Records-v9.8.1-5.20-vera-test11.zip",
+    "sha256": "689bdfd6449d517eba7d1b30e0869cf39ec83a188571f3264ce18ba03ff0c7c5",
+    "official": true,
+    "url": "https://github.com/L-1116/kindle-reading-records-enhanced/releases/download/v9.8.1/Kindle-Reading-Records-v9.8.1-5.20-vera.zip",
+    "provenance": "Original accepted test11 ZIP; outer filename only was changed for publication."
+  },
+  {
     "id": "v9.6.4-ui-calendar",
     "tag": "v9.6.4-ui-calendar",
     "path": "build/historical-artifacts/kindle-reading-records-v9.6.4-ui-calendar.zip",

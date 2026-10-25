@@ -62,6 +62,9 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
             # Deliberate known leftover alias, after a real V4 installation.
             put(docs/'阅读记录.sh',historical('v9.7.4','native-reading-time-package/阅读记录-optimized.sh'))
     covers=base/'custom-covers'
+    if mutation=='legacy_diagnostics':
+        manual=subprocess.run([SHELL,(base/'bin/diagnostics.sh').as_posix()],env=env,capture_output=True,timeout=100)
+        assert manual.returncode==0,manual.stderr
     if mutation in ('cover_dir_missing','cover_dir_file','cover_dir_symlink'):
         # Remove only the fixture's own picture and empty directory, modeling
         # an installation whose dashboard has never initialized this storage.
@@ -104,11 +107,14 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         text=re.sub(r"PAYLOAD_SIZE='[0-9]+'",f"PAYLOAD_SIZE='{len(raw)}'",text);text=re.sub(r"PAYLOAD_CKSUM='[0-9]+'",f"PAYLOAD_CKSUM='{posix_cksum(raw)}'",text);script.write_text(text,encoding='utf-8',newline='\n')
     # Installation reports record the attempted upgrade, including a failure.
     # They must retain new fault evidence rather than roll back to an old success.
-    old_evidence_log=(docs/'reading-records-v4-install.log').read_bytes() if (docs/'reading-records-v4-install.log').is_file() else b''
+    report_dir=base/'install-logs'
+    old_evidence_log=(report_dir/'reading-records-v4-install.log').read_bytes() if (report_dir/'reading-records-v4-install.log').is_file() else b''
+    report_names=('reading-records-v4-install-result.txt','reading-records-v4-install.log','reading-records-diagnostic.txt','阅读记录诊断.txt')
+    legacy_reports={p:p.read_bytes() for p in (docs/n for n in report_names) if p.is_file()}
     before={p.relative_to(us).as_posix():p.read_bytes() for folder in [base/'bin',base/'releases',base/'compat',base/'service',docs] for p in folder.rglob('*') if p.is_file() and p.name not in (BOOT,TAR,'reading-records-v4-install-result.txt','reading-records-v4-install.log')}
     before_metadata={p:p.read_bytes() for p in (base/'VERSION',base/'release-info') if p.is_file()}
     result=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=INSTALL_TIMEOUT)
-    log=(docs/'reading-records-v4-install.log').read_text(encoding='utf-8',errors='replace')
+    log=(report_dir/'reading-records-v4-install.log').read_text(encoding='utf-8',errors='replace')
     failed=mutation in ('core_failure','activation_failure','interrupted','missing_payload','bad_checksum','cross_variant','ks_residue','wrong_device','unknown_formal','orphan','duplicate','busy_ui','cover_dir_file','cover_dir_symlink')
     assert (result.returncode!=0)==failed,(previous,mutation,result.returncode,result.stderr,log,(base/'install.log').read_text(errors='replace')[-2500:] if (base/'install.log').exists() else '')
     assert all(p.read_bytes()==raw for p,raw in protected.items())
@@ -119,8 +125,8 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert all((us/path).is_file() and (us/path).read_bytes()==raw for path,raw in before.items()),(mutation,[path for path,raw in before.items() if not (us/path).is_file() or (us/path).read_bytes()!=raw])
         assert (docs/CLEAN).exists()==('documents/'+CLEAN in before)
         assert all(p.read_bytes()==raw for p,raw in before_metadata.items()),mutation
-        assert (docs/'reading-records-v4-install.log').read_bytes().startswith(old_evidence_log)
-        assert 'installation_status=failed' in (docs/'reading-records-v4-install-result.txt').read_text(encoding='utf-8')
+        assert (report_dir/'reading-records-v4-install.log').read_bytes().startswith(old_evidence_log)
+        assert 'installation_status=failed' in (report_dir/'reading-records-v4-install-result.txt').read_text(encoding='utf-8')
     else:
         assert covers.is_dir() and not covers.is_symlink(), 'directory must exist before the dashboard is launched'
         if (base/'user.conf').exists():assert 'custom_cover_enabled=1' not in (base/'user.conf').read_text()
@@ -141,7 +147,7 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
         assert visible_cleanups==[CLEAN],visible_cleanups
         if mutation!='unknown_alias':assert not (docs/'阅读记录.sh').exists()
         assert not (docs/'reading-records-uninstall.sh').exists() and not (docs/'安装好之后，确认无误了再点这个.sh').exists()
-        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned','9.8.1-test7','9.8.1-test7-cleaned','9.8.1-test8','9.8.1-test8-cleaned','9.8.1-test10','9.8.1-test10-cleaned','9.8.1','9.8.1-cleaned'):
+        if previous in ('mixed','deleted-formal','V4','9.8.1-test2','9.8.1-test2-cleaned','9.8.1-test4','9.8.1-test4-cleaned','9.8.1-test5','9.8.1-test5-cleaned','9.8.1-test6','9.8.1-test6-cleaned','9.8.1-test7','9.8.1-test7-cleaned','9.8.1-test8','9.8.1-test8-cleaned','9.8.1-test10','9.8.1-test10-cleaned','9.8.1-test11','9.8.1-test11-cleaned','9.8.1','9.8.1-cleaned'):
             if mutation=='cover_dir_missing':covers.rmdir() # Repair must recreate it too.
             again=subprocess.run([SHELL,script.as_posix()],env=env,capture_output=True,timeout=INSTALL_TIMEOUT);assert again.returncode==0,again.stderr
             assert covers.is_dir()
@@ -176,6 +182,11 @@ def run(session,variant='standard',previous=None,mutation='',cleanup=False,legac
                 if mutation=='scanner_failure':assert 'scanner_request=request_failed index_completion=unverified' in (base/'cleanup-last.log').read_text(encoding='utf-8')
                 c=subprocess.run([SHELL,backup.as_posix()],env=env,capture_output=True,timeout=90);assert c.returncode==0,c.stderr
             assert all(p.read_bytes()==raw for p,raw in protected.items())
+    archived_reports=[p.read_bytes() for p in (report_dir/'legacy').rglob('*') if p.is_file()]
+    for p,raw in legacy_reports.items():
+        assert (p.is_file() and p.read_bytes()==raw) or raw in archived_reports, ('lost legacy evidence',p)
+    assert not any((docs/n).exists() for n in report_names if docs/n not in legacy_reports), 'automatic report entered library'
+    assert (report_dir/'reading-records-v4-install-result.txt').is_file(), 'cleanup must retain internal evidence'
     if not failed:assert covers.is_dir(), 'installation cleanup must preserve the user image directory'
     calls=(session/'service-fixture/calls').read_text(errors='replace') if (session/'service-fixture/calls').exists() else ''
     if previous and not failed:

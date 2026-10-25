@@ -6,7 +6,7 @@
 MNT_US="${READING_MNT_US:-/mnt/us}"
 DOCS="${READING_DOCUMENTS:-$MNT_US/documents}"
 BASE="${READING_BASE:-$MNT_US/reading-time}"
-PRODUCT_VERSION=9.8.1-5.20-vera-test11
+PRODUCT_VERSION=9.8.1-5.20-vera-test12
 RUNTIME_VERSION=9.8.1-5.20-vera-test1
 RELEASE="$BASE/releases/$RUNTIME_VERSION"
 SELF="$DOCS/reading-records-install-cleanup.sh"
@@ -83,21 +83,9 @@ if [ -f "$BOOT" ] && [ ! -L "$BOOT" ] && grep -Fq '# READING_RECORDS_V4_BOOTSTRA
     if [ -f "$PAYLOAD" ] && [ ! -L "$PAYLOAD" ] && [ "$(cksum < "$PAYLOAD" | awk '{print $1}')" = "$rr_expected" ]; then rm -f "$PAYLOAD" || exit 1; fi
     rm -f "$BOOT" || exit 1
 fi
-# Keep installation evidence outside the scanned library, with byte verification.
-rr_result="$DOCS/reading-records-v4-install-result.txt"
-rr_install_log="$DOCS/reading-records-v4-install.log"
-if [ -f "$rr_result" ] && [ ! -L "$rr_result" ] && grep -Fqx "product_version=$PRODUCT_VERSION" "$rr_result"; then
-    rr_archive="$BASE/install-logs"
-    if [ ! -L "$rr_archive" ] && mkdir -p "$rr_archive"; then
-        for rr_report in "$rr_result" "$rr_install_log"; do
-            [ -f "$rr_report" ] && [ ! -L "$rr_report" ] || continue
-            rr_saved="$rr_archive/${rr_report##*/}.$PRODUCT_VERSION.$$"
-            if [ ! -e "$rr_saved" ] && cp "$rr_report" "$rr_saved" && cmp -s "$rr_report" "$rr_saved"; then
-                rm -f "$rr_report" || exit 1; note "ARCHIVED $rr_report to $rr_saved"
-            else note "PROTECTED install report=$rr_report"; fi
-        done
-    else note 'PROTECTED install reports; archive directory unavailable'; fi
-fi
+# Current evidence already lives outside documents. Archive only recognized
+# historical reports; never erase current logs or require manual cleanup first.
+rr_archive_legacy_reports
 if rr_owned entry reading-records-install-cleanup.sh "$SELF"; then rm -f "$SELF" || exit 1; fi
 sync
 rr_scan_documents

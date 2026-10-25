@@ -13,6 +13,11 @@ if [ "${READING_DIAGNOSTIC_INTERNAL:-0}" = 1 ]; then
     # caller inherited a manual report-path override.
     ASCII_REPORT="$BASE/last-launch-diagnostic.txt"
     CHINESE_REPORT=""
+elif [ "${READING_DIAGNOSTIC_INTERNAL:-0}" = install ]; then
+    # Automatic installer failures stay outside the scanned library, regardless
+    # of a caller's inherited manual export override.
+    ASCII_REPORT="$BASE/install-logs/last-install-diagnostic.txt"
+    CHINESE_REPORT=""
 fi
 REPORT_TMP="${ASCII_REPORT}.new.$$"
 
@@ -43,6 +48,11 @@ permission_status() {
 }
 
 case "$ASCII_REPORT" in */*) REPORT_DIR="${ASCII_REPORT%/*}";; *) REPORT_DIR=.;; esac
+[ ! -L "$BASE" ] && [ ! -L "$REPORT_DIR" ] &&
+    { [ ! -e "$REPORT_DIR" ] || [ -d "$REPORT_DIR" ]; } || exit 1
+[ ! -L "$ASCII_REPORT" ] && [ ! -L "$REPORT_TMP" ] &&
+    { [ ! -e "$ASCII_REPORT" ] || [ -f "$ASCII_REPORT" ]; } || exit 1
+[ ! -e "$REPORT_TMP" ] || exit 1
 mkdir -p "$REPORT_DIR" 2>/dev/null || exit 1
 if [ -n "$CHINESE_REPORT" ]; then mkdir -p "$DOCS" 2>/dev/null || exit 1; fi
 {

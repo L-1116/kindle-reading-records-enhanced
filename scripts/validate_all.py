@@ -40,6 +40,7 @@ CHECKS = [
     ROOT / "tests/validate_cleanup.py",
     ROOT / "scripts/audit_native.py",
     ROOT / "scripts/build_v4.py",
+    ROOT / "tests/validate_install_reports.py",
     ROOT / "tests/validate_v4.py",
     ROOT / "tests/validate_5201_install.py",
     ROOT / "tests/validate_device_variant.py",

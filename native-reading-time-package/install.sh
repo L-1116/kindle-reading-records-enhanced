@@ -30,7 +30,7 @@ esac
 
 toast() { command -v lipc-set-prop >/dev/null 2>&1 && lipc-set-prop com.lab126.system toasterMessage "$1" >/dev/null 2>&1 || true; }
 log() { mkdir -p "$BASE" 2>/dev/null || true; printf '%s: %s\n' "$(date)" "$*" >> "$LOG" 2>/dev/null || true; }
-diagnose() { READING_PACKAGE_DIR="$PKG" READING_BASE="$BASE" READING_DOCUMENTS="$DOCS" /bin/sh "$DIAGNOSTICS" >/dev/null 2>&1 || true; }
+diagnose() { READING_DIAGNOSTIC_INTERNAL=install READING_PACKAGE_DIR="$PKG" READING_BASE="$BASE" READING_DOCUMENTS="$DOCS" /bin/sh "$DIAGNOSTICS" >/dev/null 2>&1 || true; }
 fail() { log "ERROR action=$ACTION stage=${STAGE:-unknown}: $*"; toast "阅读记录操作失败，请查看诊断文件"; diagnose; exit 1; }
 . "$PKG/compat/lifecycle.sh" || exit 1
 trap 'rr_cancel; rr_root_restore || exit 1; rr_unlock' EXIT
@@ -98,10 +98,10 @@ if [ ! -f "$BASE/bin/native-reading-time-daemon.sh" ]; then
     log "fresh install: running base installer"
     rr_run 120 /bin/sh "$PKG/Install-Native-Reading-Time.sh" || fail "base installer failed with exit code $?"
 fi
-log "running Standard ${READING_PRODUCT_VERSION:-9.8.1-5.20-vera-test11} installer"
+log "running Standard ${READING_PRODUCT_VERSION:-9.8.1-5.20-vera-test12} installer"
 rr_run 120 /bin/sh "$PKG/Install-Native-Reading-Time-Optimized.sh" || fail "optimized installer failed with exit code $?"
 
 STAGE=complete
 log "core installation completed"
-toast "阅读记录 ${READING_PRODUCT_VERSION:-9.8.1-5.20-vera-test11} 安装完成"
+toast "阅读记录 ${READING_PRODUCT_VERSION:-9.8.1-5.20-vera-test12} 安装完成"
 exit 0

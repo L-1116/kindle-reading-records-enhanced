@@ -5,6 +5,9 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import datetime
+import os
+import time
 from pathlib import Path
 import tarfile
 import zipfile
@@ -14,11 +17,15 @@ from package_release import FILES as STANDARD_FILES
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCT_VERSION = "9.8.1-5.20-vera-test11"
+PRODUCT_VERSION = "9.8.1-5.20-vera-test12"
 # Product/UI revision only: keep the verified daemon/helper runtime paths.
 RUNTIME_VERSION = "9.8.1-5.20-vera-test1"
-DIST = ROOT / "dist/standard-9.8.1-test11"
-SIMPLE_ARCHIVE = DIST / "Kindle-Reading-Records-v9.8.1-5.20-vera-test11.zip"
+DIST = ROOT / "dist/standard-9.8.1-test12"
+SIMPLE_ARCHIVE = DIST / "Kindle-Reading-Records-v9.8.1-5.20-vera-test12.zip"
+BUILD_EPOCH = int(os.environ.get("SOURCE_DATE_EPOCH", str(int(time.time()))))
+ZIP_TIME = datetime.datetime.fromtimestamp(BUILD_EPOCH, datetime.timezone.utc).timetuple()[:6]
+if not 1980 <= ZIP_TIME[0] <= 2107:
+    raise ValueError("Build timestamp is outside the ZIP format range")
 BOOT_NAME = "reading-records-v4-install.sh"
 TAR_NAME = "阅读记录安装数据.tar"
 
@@ -81,7 +88,7 @@ exit 127
     result["v4/cleanup.sh"] = (ROOT / "v4/cleanup.sh").read_bytes()
     result["native-reading-time-package/migration-manifest.tsv"] = ownership_manifest(result, posix_cksum, make_tar)
     build_id = sha(b"".join(name.encode() + b"\0" + sha(raw).encode() for name, raw in sorted(result.items())))[:20]
-    result["BUILD-INFO"] = f"product_version={PRODUCT_VERSION}\nvariant=standard\nbuild_id={build_id}\nsource_baseline=6ab389ae5d688393499088d46422d03c89a7e2dc\nrelease_status=local_unpublished\n".encode()
+    result["BUILD-INFO"] = f"product_version={PRODUCT_VERSION}\nvariant=standard\nbuild_id={build_id}\nsource_baseline=eead585fb3ed499fc3effd6fe93e29893cfbbbc2\nbuild_epoch={BUILD_EPOCH}\nrelease_status=local_unpublished\n".encode()
     entries = [{"path": name, "size": len(raw), "sha256": sha(raw)} for name, raw in sorted(result.items())]
     manifest_name = "PACKAGE-MANIFEST.json" if variant == "standard" else "PACKAGE-MANIFEST-KS.json"
     result[manifest_name] = (json.dumps({"format": 4, "installer_format": "two-file-1", "product_version": PRODUCT_VERSION, "variant": variant, "files": entries}, ensure_ascii=False, indent=2) + "\n").encode()
@@ -103,7 +110,7 @@ def make_tar(files: dict[str, bytes]) -> bytes:
 def make_zip(path: Path, files: dict[str, bytes]) -> None:
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for name, raw in sorted(files.items()):
-            info = zipfile.ZipInfo(name, date_time=(2026, 10, 3, 0, 0, 0))
+            info = zipfile.ZipInfo(name, date_time=ZIP_TIME)
             info.create_system = 3
             info.external_attr = ((0o100755 if (name.endswith(".sh") or name.endswith(("/cover-image", "/idle-input"))) else 0o100644) << 16)
             archive.writestr(info, raw, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)

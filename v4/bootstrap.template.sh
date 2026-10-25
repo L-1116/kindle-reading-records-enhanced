@@ -18,10 +18,12 @@ TMP="$TMP_ROOT/reading-records-installer.$$"
 SCRIPT_DIR=${0%/*}
 [ "$SCRIPT_DIR" = "$0" ] && SCRIPT_DIR=.
 PAYLOAD="$SCRIPT_DIR/阅读记录安装数据.tar"
-RESULT="$DOCS/reading-records-v4-install-result.txt"
-LOG="$DOCS/reading-records-v4-install.log"
+REPORT_DIR="$BASE/install-logs"
+RESULT="$REPORT_DIR/reading-records-v4-install-result.txt"
+LOG="$REPORT_DIR/reading-records-v4-install.log"
 CLEANUP="$DOCS/reading-records-install-cleanup.sh"
 CREATED_TMP=0
+REPORTS_READY=0
 ROLLBACK_DIR="$BASE/.v4-rollback.$$"
 ROLLBACK_READY=0
 RETAIN_ROLLBACK=0
@@ -87,6 +89,8 @@ rollback_runtime() {
 }
 clean_temp() {
     cleanup_rc=$?
+    # A refused evidence path must never be followed by EXIT-trap redirections.
+    [ "$REPORTS_READY" = 1 ] || { rr_cancel; rr_unlock; exit "$cleanup_rc"; }
     rr_cancel
     [ "$COMMITTED" -eq 1 ] || [ "$ROLLBACK_READY" != 1 ] || { rollback_runtime; }
     rr_root_restore >> "$LOG" 2>&1 || { ROLLBACK_FAILED=1; note 'ERROR root mount restoration failed'; }
@@ -103,7 +107,17 @@ trap 'fail 130 installer_interrupted "安装已中断，请保留安装文件"' 
 tar_cmd() { if command -v tar >/dev/null 2>&1; then tar "$@"; else busybox tar "$@"; fi; }
 
 mkdir -p "$DOCS" 2>/dev/null || exit 1
-[ ! -L "$LOG" ] && [ ! -L "$RESULT" ] || exit 1
+[ ! -L "$BASE" ] && [ ! -L "$REPORT_DIR" ] &&
+    { [ ! -e "$BASE" ] || [ -d "$BASE" ]; } &&
+    { [ ! -e "$REPORT_DIR" ] || [ -d "$REPORT_DIR" ]; } &&
+    mkdir -p "$REPORT_DIR" 2>/dev/null || {
+    toast '无法安全保存安装记录，已停止安装'; exit 1;
+}
+for report_file in "$LOG" "$RESULT" "$RESULT.new.$$"; do
+    [ ! -L "$report_file" ] && { [ ! -e "$report_file" ] || [ -f "$report_file" ]; } || exit 1
+done
+[ ! -e "$RESULT.new.$$" ] || exit 1
+REPORTS_READY=1
 printf '%s: two-file bootstrap started variant=%s\n' "$(date)" "$VARIANT" >> "$LOG" || exit 1
 result pending in_progress || exit 1
 cd "$SCRIPT_DIR" 2>/dev/null || fail 1 'installer directory unavailable' '无法读取安装文件夹'
@@ -145,7 +159,10 @@ awk 'BEGIN { bad=0 } /^\// || /(^|\/)\.\.($|\/)/ || /(^|\/)\.($|\/)/ || /\\/ { b
 tar_cmd -xf "$PAYLOAD" -C "$TMP" >> "$LOG" 2>&1 || fail 1 'tar extraction failed' '安装数据无法解包'
 PKG="$TMP/native-reading-time-package"
 [ -r "$PKG/install.sh" ] && [ -r "$TMP/V4-PAYLOAD" ] && [ -r "$TMP/v4/cleanup.sh" ] || fail 1 'payload layout invalid' '安装数据不完整'
-grep -Fqx 'installer_format=two-file-1' "$TMP/V4-PAYLOAD" && grep -Fqx "variant=$VARIANT" "$TMP/V4-PAYLOAD" || fail 1 'payload variant invalid' '安装数据版本不匹配'
+grep -Fqx 'installer_format=two-file-1' "$TMP/V4-PAYLOAD" &&
+    grep -Fqx "variant=$VARIANT" "$TMP/V4-PAYLOAD" &&
+    grep -Fqx "product_version=$PRODUCT_VERSION" "$TMP/V4-PAYLOAD" &&
+    grep -Fqx "build_id=$BUILD_ID" "$TMP/BUILD-INFO" || fail 1 'payload identity invalid' '安装数据版本不匹配'
 
 if [ -e "$BASE/bin/native-reading-time-daemon.sh" ]; then mode=upgrade; else mode=fresh; fi
 note "mode=$mode installed_variant=${installed_variant:-none} product_version=$PRODUCT_VERSION build_id=$BUILD_ID"
@@ -170,6 +187,7 @@ for rr_part in bin releases compat ui fonts assets service; do [ ! -L "$BASE/$rr
 mkdir -p "$BASE" || fail 1 'cannot create runtime directory' '无法创建运行目录'
 rr_lock || fail 75 'lifecycle busy' '安装或修复正在进行，请稍后再试'
 acquire_runtime_lock || fail 75 'dashboard busy' '阅读记录正在使用，请关闭后再安装'
+rr_archive_legacy_reports
 service_conf="${READING_UPSTART_DIR:-/etc/upstart}/native-reading-time.conf"
 if [ -e "$service_conf" ]; then
     [ -f "$service_conf" ] && [ ! -L "$service_conf" ] && grep -Fq '/reading-time/bin/native-reading-time-daemon.sh' "$service_conf" || fail 1 'service configuration ownership unknown' '已有服务配置归属不明，已停止安装'
@@ -211,7 +229,6 @@ if grep -Eq '^timing_status=(write_error|read_error)$' "$TMP/service-final"; the
 rr_root_restore >> "$LOG" 2>&1 || fail 1 'root mount restoration failed' '无法恢复系统分区状态，安装未完成'
 cp "$TMP/v4/cleanup.sh" "$CLEANUP.new.$$" && chmod 755 "$CLEANUP.new.$$" && mv "$CLEANUP.new.$$" "$CLEANUP" || fail 1 'cleanup entry creation failed' '安装清理入口创建失败'
 rr_migrate_entries || fail 1 'entry migration failed' '旧入口迁移失败，正在回滚'
-rr_scan_documents
 result 0 none || fail 1 'result publication failed' '安装结果无法写入'
 (cd "$ROLLBACK_DIR" && find . -type f ! -name snapshot-files ! -name snapshot-cksum | sort | while IFS= read -r rr_path; do printf '%s|%s\n' "$(cksum < "$rr_path")" "${rr_path#./}"; done) > "$ROLLBACK_DIR/snapshot-files" || exit 1
 cksum < "$ROLLBACK_DIR/snapshot-files" > "$ROLLBACK_DIR/snapshot-cksum" || exit 1
@@ -223,6 +240,7 @@ if [ ! -e "$BASE/.previous-install" ]; then
 elif [ ! -L "$BASE/.previous-install" ] && grep -Fqx 'READING_RECORDS_ROLLBACK_V1' "$BASE/.previous-install/owned"; then :
 else fail 1 'rollback ownership unknown' '已有回滚资源归属不明'; fi
 COMMITTED=1
+rr_scan_documents
 note "verified activation complete version=$version migration_protected=${MIGRATION_PROTECTED:-0}"
 if [ "${MIGRATION_PROTECTED:-0}" = 1 ]; then toast '阅读记录已安装；归属未确认的旧入口已保留，请查看安装记录'; fi
 toast '安装完成，请打开阅读记录，确认正常后可清理安装文件'

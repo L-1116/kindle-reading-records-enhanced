@@ -112,3 +112,72 @@ rr_retire_legacy_cleanup() {
     if [ "$rr_helper_used" = 0 ]; then rm -f "$rr_helper" || return 1; note 'REMOVED obsolete safe cleanup helper'
     else note 'PROTECTED referenced safe cleanup helper'; fi
 }
+
+# Recognize only our four historical report names AND their generated structure.
+# Unknown documents and links never become cleanup targets.
+rr_legacy_report_owned() {
+    [ -f "$1" ] && [ ! -L "$1" ] || return 1
+    # Some dash builds mishandle non-ASCII case patterns inside functions.
+    # Exact string comparison avoids widening the accepted report names.
+    rr_report_leaf=${1##*/}
+    [ "$rr_report_leaf" != '阅读记录诊断.txt' ] || rr_report_leaf=reading-records-diagnostic.txt
+    case "$rr_report_leaf" in
+        reading-records-v4-install-result.txt)
+            awk -F '=' -v entry="$DOCS/reading-records.sh" '
+                { key=$1; sub(/^[^=]*=/,""); value=$0; count[key]++; values[key]=value }
+                END {
+                    n=split("timestamp exit_code error variant timing_status installation_status product_version build_id formal_entry device_variant device_decision device_reason device_sources", keys, " ")
+                    for(i=1;i<=n;i++) if(count[keys[i]]!=1) exit 1
+                    if(NR!=n || values["timestamp"]=="" || values["error"]=="") exit 1
+                    if(values["variant"]!="standard" && values["variant"]!="ks") exit 1
+                    if(values["exit_code"]!="pending" && values["exit_code"]!~/^[0-9]+$/) exit 1
+                    if(values["installation_status"]!~/^(in_progress|installed|needs_repair|failed)$/) exit 1
+                    if(values["product_version"]!~/^[0-9][0-9A-Za-z.-]*$/) exit 1
+                    if(values["build_id"]!~/^[0-9a-f]+$/ || length(values["build_id"])!=20) exit 1
+                    if(values["formal_entry"]!=entry || values["timing_status"]!="unverified") exit 1
+                }' "$1";;
+        reading-records-v4-install.log)
+            # The first line is emitted by the two-file bootstrap, on success
+            # and failure alike. Also require a later recognized status line.
+            sed -n '1p' "$1" | grep -Eq ': two-file bootstrap started variant=(standard|ks)$' &&
+                grep -Eq 'mode=(fresh|upgrade) installed_variant=|ERROR exit_code=|verified activation complete version=' "$1";;
+        reading-records-diagnostic.txt)
+            [ "$(sed -n '1p' "$1")" = 'Kindle Reading Records diagnostic' ] &&
+                grep -q '^generated=.' "$1" &&
+                grep -Fqx '[Device]' "$1" && grep -Fqx '[Plugin]' "$1" &&
+                grep -Fqx '[Last Launch]' "$1" && grep -Fqx '[Cover]' "$1";;
+        *) return 1;;
+    esac
+}
+rr_archive_legacy_reports() {
+    [ ! -L "$BASE" ] && [ ! -L "$BASE/install-logs" ] || return 0
+    rr_report_archive=
+    for rr_report_name in reading-records-v4-install-result.txt reading-records-v4-install.log reading-records-diagnostic.txt 阅读记录诊断.txt; do
+        rr_report_src="$DOCS/$rr_report_name"
+        [ -e "$rr_report_src" ] || [ -L "$rr_report_src" ] || continue
+        if ! rr_legacy_report_owned "$rr_report_src"; then
+            note "PROTECTED unrecognized legacy report=$rr_report_src"; continue
+        fi
+        if [ -z "$rr_report_archive" ]; then
+            rr_report_root="$BASE/install-logs/legacy"
+            if [ -L "$BASE/install-logs" ] || [ -L "$rr_report_root" ] ||
+               { [ -e "$rr_report_root" ] && [ ! -d "$rr_report_root" ]; } ||
+               ! mkdir -p "$rr_report_root"; then
+                note 'PROTECTED legacy reports; archive directory unavailable'; return 0
+            fi
+            rr_report_archive="$rr_report_root/reports.$$"
+            if ! mkdir "$rr_report_archive"; then
+                note 'PROTECTED legacy reports; archive path already exists'; return 0
+            fi
+        fi
+        rr_report_saved="$rr_report_archive/$rr_report_name"
+        rr_report_before=$(cksum < "$rr_report_src") || continue
+        if [ ! -e "$rr_report_saved" ] && [ ! -L "$rr_report_saved" ] &&
+           cp "$rr_report_src" "$rr_report_saved" && cmp -s "$rr_report_src" "$rr_report_saved" &&
+           [ ! -L "$rr_report_src" ] && [ "$(cksum < "$rr_report_src")" = "$rr_report_before" ]; then
+            if rm -f "$rr_report_src"; then note "ARCHIVED legacy report=$rr_report_src to=$rr_report_saved"
+            else note "PROTECTED legacy report=$rr_report_src"; fi
+        else note "PROTECTED legacy report=$rr_report_src"; fi
+    done
+    return 0
+}
