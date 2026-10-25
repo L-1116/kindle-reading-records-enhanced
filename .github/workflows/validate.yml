@@ -56,15 +56,16 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: python -m pip install -r requirements-dev.txt
-      - run: python scripts/verify_published_release.py --source-only --report docs/releases/v9.8.1-verification.json
+      - run: python scripts/verify_download_matrix.py --source-only
       - run: python scripts/verify_519_release.py --source-only
       - run: python tests/validate_release_assets.py
+      - run: python tests/validate_download_matrix.py
       - run: mkdir -p build && cc -std=c99 -Os -DSTBI_NO_FAILURE_STRINGS native/custom-cover/cover-image.c -lm -o build/cover-image-host
       - run: python tests/validate_color_covers.py
       - run: python tests/validate_idle_input.py
       - run: python tests/validate_idle_pause.py --unit-only
       - run: python tests/validate_standard_touch_compat.py
       - if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
-        run: python scripts/verify_published_release.py --github --report docs/releases/v9.8.1-verification.json
+        run: python scripts/verify_download_matrix.py --github
       - if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         run: python scripts/verify_519_release.py --github

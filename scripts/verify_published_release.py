@@ -1,6 +1,6 @@
 """Verify frozen formal-release sources and original asset without rebuilding."""
 from pathlib import Path
-import argparse,hashlib,io,json,tarfile,urllib.request,zipfile
+import argparse,hashlib,io,json,sys,tarfile,urllib.request,zipfile
 ROOT=Path(__file__).resolve().parents[1]
 REPO='L-1116/kindle-reading-records-enhanced'
 HISTORICAL_REPORT=ROOT/'docs/releases/9.7.6-5.20.1-vera-verification.json'
@@ -46,6 +46,11 @@ def release_asset(release,report):
     if asset.get('digest'):assert asset['digest']=='sha256:'+report['zip_sha256']
     return asset
 def main():
+    # The unchanged plugin tag is not the common source of all four originals.
+    # Explicit historical reports retain their original verification behavior.
+    if '--report' not in sys.argv and (ROOT/'docs/releases/v9.8.1-downloads.json').exists():
+        from verify_download_matrix import main as verify_matrix
+        return verify_matrix()
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source-only',action='store_true')
     parser.add_argument('--zip',type=Path)

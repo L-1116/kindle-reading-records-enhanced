@@ -95,7 +95,12 @@ def main():
     if args.github:
         release = json.loads(fetch('https://api.github.com/repos/'+REPO+'/releases/tags/'+record['tag']))
         assert not release['draft'] and not release['prerelease']
-        assets = [a for a in release['assets'] if a['name'] == record['zip_file']]
+        matrix_path = ROOT/'docs/releases/v9.8.1-downloads.json'
+        asset_name = record['zip_file']
+        if matrix_path.exists():
+            matrix = json.loads(matrix_path.read_text(encoding='utf-8'))
+            asset_name = next(r['asset_name'] for r in matrix['packages'] if r['id'] == '519')
+        assets = [a for a in release['assets'] if a['name'] == asset_name]
         assert len(assets) == 1 and assets[0]['state'] == 'uploaded'
         assert assets[0]['digest'] == 'sha256:'+record['zip_sha256']
         verify_zip(fetch(assets[0]['browser_download_url']), record)
