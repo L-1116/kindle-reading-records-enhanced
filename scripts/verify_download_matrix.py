@@ -1,4 +1,4 @@
-"""Verify the four v9.8.1 downloads against independent frozen source commits."""
+"""Verify current v9.8.1 downloads and their independent frozen originals."""
 from pathlib import Path, PurePosixPath
 import argparse, hashlib, io, json, re, subprocess, tarfile, urllib.parse, urllib.request, zipfile
 
@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RECORD = ROOT/'docs/releases/v9.8.1-downloads.json'
 REPO = 'L-1116/kindle-reading-records-enhanced'
 TOP_LEVEL = ['reading-records-v4-install.sh', '阅读记录安装数据.tar']
+INSTALL_GUIDE = '安装说明-请先阅读.txt'
 
 
 def sha(raw):
@@ -42,9 +43,15 @@ def verify_sources(matrix):
 
 
 def verify_zip(raw, row):
-    assert len(raw) == row['zip_size'] and sha(raw) == row['zip_sha256'], 'ZIP differs from accepted original: '+row['id']
+    assert len(raw) == row['zip_size'] and sha(raw) == row['zip_sha256'], 'Unexpected ZIP bytes: '+row['id']
     with zipfile.ZipFile(io.BytesIO(raw)) as z:
-        assert z.testzip() is None and z.namelist() == TOP_LEVEL
+        expected = TOP_LEVEL + ([INSTALL_GUIDE] if row.get('includes_guide') else [])
+        assert z.testzip() is None and z.namelist() == expected
+        if row.get('includes_guide'):
+            guide = z.read(INSTALL_GUIDE)
+            assert guide.startswith(b'\xef\xbb\xbf')
+            text = guide.decode('utf-8-sig')
+            assert all(term in text for term in (*TOP_LEVEL, row['product_version'], REPO, '安装失败时如何使用 AI 排障'))
         bootstrap = z.read(TOP_LEVEL[0]); payload = z.read(TOP_LEVEL[1])
     assert sha(bootstrap) == row['bootstrap_sha256'] and sha(payload) == row['payload_sha256']
     with tarfile.open(fileobj=io.BytesIO(payload)) as archive:
@@ -83,12 +90,22 @@ def verify_zip(raw, row):
     return files
 
 
+def current_matrix(matrix):
+    current = matrix['current_distribution']
+    assert set(current['packages']) == {'519', 'test11', 'test10'}
+    packages = [
+        dict(row, **current['packages'][row['id']], includes_guide=True)
+        for row in matrix['packages'] if row['id'] in current['packages']
+    ]
+    return dict(matrix, release_title=current['release_title'], packages=packages)
+
+
 def release_assets(release, matrix):
     assert release['id'] == matrix['release_id'] and release['tag_name'] == matrix['tag']
     assert release['name'] == matrix['release_title'] and not release['draft'] and not release['prerelease']
     expected = {r['asset_name']: r for r in matrix['packages']}
     assets = release['assets']
-    assert len(assets) == 4 and {a['name'] for a in assets} == set(expected), 'Expected exactly four installation ZIP assets'
+    assert len(assets) == len(expected) and {a['name'] for a in assets} == set(expected), 'Unexpected public installation ZIPs'
     result = {}
     for asset in assets:
         row = expected[asset['name']]
@@ -113,7 +130,7 @@ def main():
     parser.add_argument('--source-only', action='store_true')
     parser.add_argument('--github', action='store_true')
     parser.add_argument('--zip-dir', type=Path)
-    parser.add_argument('--zip', type=Path, help='Verify the recommended test12 original ZIP')
+    parser.add_argument('--zip', type=Path, help='Verify the archived test12 original ZIP')
     args = parser.parse_args()
     assert args.source_only or args.github or args.zip_dir or args.zip
     matrix = json.loads(RECORD.read_text(encoding='utf-8'))
@@ -125,6 +142,7 @@ def main():
     if args.zip:
         verify_zip(args.zip.read_bytes(), matrix['packages'][0])
     if args.github:
+        matrix = current_matrix(matrix)
         tag = json.loads(fetch('https://api.github.com/repos/'+REPO+'/git/ref/tags/v9.8.1'))
         assert tag['object']['sha'] == matrix['preserved_tag_object'], 'Existing v9.8.1 tag changed'
         release = json.loads(fetch('https://api.github.com/repos/'+REPO+'/releases/tags/v9.8.1'))
@@ -132,7 +150,7 @@ def main():
         for row in matrix['packages']:
             verify_zip(fetch(assets[row['id']]['browser_download_url']), row)
             print('PASS: public download', row['id'], flush=True)
-    print('PASS: four independent Standard originals; no rebuilding or device claims')
+    print('PASS: frozen Standard source provenance and requested ZIP checks')
 
 
 if __name__ == '__main__':

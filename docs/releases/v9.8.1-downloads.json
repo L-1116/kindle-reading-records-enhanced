@@ -5,6 +5,24 @@
   "release_title": "v9.8.1｜阅读记录（推荐包与设备备用包）",
   "preserved_tag_object": "5612fee7899481c6ca477297fcacd2a13c059701",
   "preserved_tag_commit": "5f74d51123f2d73cba6dc7261426053dc51cd56f",
+  "current_distribution": {
+    "release_title": "v9.8.1｜阅读记录",
+    "packages": {
+      "519": {
+        "zip_size": 15592927,
+        "zip_sha256": "f45d9756ac8f499362dae8c157727078a25ae02c326c13f34d2af0d069958b8a"
+      },
+      "test11": {
+        "zip_size": 15626893,
+        "zip_sha256": "1763bc0a54c35c075fa38925b0b6121c597bfdbee53a5e84ced06a6bf2ca0e8f"
+      },
+      "test10": {
+        "zip_size": 15627076,
+        "zip_sha256": "f4e8d0238ffd18a5ed759c08e9fa333c2b4077667fcb71510eb4d2c43b5fda2d",
+        "asset_label": "Kindle-Reading-Records-v9.8.1-5.20-vera-test10-KPW6及青春版推荐测试包.zip"
+      }
+    }
+  },
   "user_confirmation": {
     "date": "2026-10-25",
     "test12": "用户确认已经实机测试通过，并要求作为主要推荐包；未提供具体机型和固件组合。",
