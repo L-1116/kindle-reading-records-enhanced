@@ -2,6 +2,8 @@
 
 适用于已越狱 Kindle 的本地阅读记录插件。原生阅读器处于前台、屏幕亮起时记录阅读时长，可查看月历热力、每日与累计统计、最近 8 周、阅读书籍、本地封面、月份与单书详情。
 
+想在电脑上查看或整理 Kindle 阅读记录，可使用 [Reading Time Manager（Windows）](https://github.com/L-1116/reading-time-manager)，支持查看统计、合并书籍记录和导出完整 TSV。
+
 当前版本为 **v9.8.1 Standard 普通版**，安装前需已有可用的 **SH Integration 书库脚本支持**。请按固件、越狱方式和机型选择安装包。Kindle Scribe（KS）请查看 v9.7.6 发布页的专用包。
 
 ## 安装包选择
